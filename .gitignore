@@ -1,5 +1,8 @@
 node_modules/
 .env
+dist/
+dist-ssr/
+*.local
 db/*.db
 db/*.sqlite
 *.log
