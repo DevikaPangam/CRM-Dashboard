@@ -53,8 +53,10 @@ export const App: React.FC = () => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: 'var(--bg-main)' }}>
       <Header />
-      <Navigation />
-      <main className="app-container">{renderActiveTab()}</main>
+      <div className="app-layout-wrapper">
+        <Navigation />
+        <main className="app-container">{renderActiveTab()}</main>
+      </div>
       <GlobalModals />
     </div>
   );
