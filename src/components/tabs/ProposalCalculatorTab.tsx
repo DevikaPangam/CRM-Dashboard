@@ -1,17 +1,33 @@
 import React, { useState, useEffect } from 'react';
 import {
   Calculator, ExternalLink, RotateCcw, Maximize2, Minimize2,
-  Sparkles, CheckCircle2, AlertCircle
+  Moon, Sun, Compass, Sparkles, CheckCircle2, Eye
 } from 'lucide-react';
+
+type EmbedTheme = 'dark' | 'light' | 'native' | 'standard';
 
 export const ProposalCalculatorTab: React.FC = () => {
   const [iframeKey, setIframeKey] = useState<number>(Date.now());
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [themeMode, setThemeMode] = useState<EmbedTheme>('dark'); // 'dark' forces crisp white fonts & high contrast for dark sidebars
 
-  // Streamlit Cloud requires ?embed=true to properly render inside an iframe
-  const PROPOSAL_CALCULATOR_URL = 'https://proposal-formula-rispl.streamlit.app/?embed=true';
-  const DIRECT_URL = 'https://proposal-formula-rispl.streamlit.app/';
+  const getEmbedUrl = (mode: EmbedTheme) => {
+    switch (mode) {
+      case 'dark':
+        return 'https://proposal-formula-rispl.streamlit.app/?embed=true&embed_options=dark_theme';
+      case 'light':
+        return 'https://proposal-formula-rispl.streamlit.app/?embed=true&embed_options=light_theme';
+      case 'native':
+        return 'https://proposal-formula-rispl.streamlit.app/?embedded=true';
+      case 'standard':
+      default:
+        return 'https://proposal-formula-rispl.streamlit.app/?embed=true';
+    }
+  };
+
+  const currentUrl = getEmbedUrl(themeMode);
+  const directUrl = 'https://proposal-formula-rispl.streamlit.app/';
 
   // Auto-dismiss loading overlay after 1.5 seconds so it never traps the UI
   useEffect(() => {
@@ -20,15 +36,21 @@ export const ProposalCalculatorTab: React.FC = () => {
       setIsLoading(false);
     }, 1500);
     return () => clearTimeout(timer);
-  }, [iframeKey]);
+  }, [iframeKey, themeMode]);
 
   const handleReload = () => {
     setIsLoading(true);
     setIframeKey(Date.now());
   };
 
+  const handleThemeChange = (newTheme: EmbedTheme) => {
+    setThemeMode(newTheme);
+    setIsLoading(true);
+    setIframeKey(Date.now());
+  };
+
   const handleOpenExternal = () => {
-    window.open(DIRECT_URL, '_blank', 'noopener,noreferrer');
+    window.open(directUrl, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -85,6 +107,91 @@ export const ProposalCalculatorTab: React.FC = () => {
 
         {/* Toolbar Controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          {/* Font & Contrast Mode Toggle */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              background: '#f1f5f9',
+              padding: '3px',
+              borderRadius: '8px',
+              border: '1px solid #e2e8f0',
+              gap: '2px',
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => handleThemeChange('dark')}
+              title="High-Contrast Dark Theme (Fixes dark-on-dark font readability)"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '4px 9px',
+                fontSize: '11.5px',
+                fontWeight: 700,
+                borderRadius: '6px',
+                border: 'none',
+                cursor: 'pointer',
+                background: themeMode === 'dark' ? '#0f172a' : 'transparent',
+                color: themeMode === 'dark' ? '#ffffff' : '#475569',
+                boxShadow: themeMode === 'dark' ? '0 1px 3px rgba(0,0,0,0.15)' : 'none',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <Moon size={12} style={{ color: themeMode === 'dark' ? '#38bdf8' : '#64748b' }} />
+              <span>Dark (High Contrast)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleThemeChange('light')}
+              title="Light Theme"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '4px 9px',
+                fontSize: '11.5px',
+                fontWeight: 700,
+                borderRadius: '6px',
+                border: 'none',
+                cursor: 'pointer',
+                background: themeMode === 'light' ? '#ffffff' : 'transparent',
+                color: themeMode === 'light' ? '#0f172a' : '#475569',
+                boxShadow: themeMode === 'light' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <Sun size={12} style={{ color: themeMode === 'light' ? '#f59e0b' : '#64748b' }} />
+              <span>Light</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleThemeChange('native')}
+              title="Native Streamlit View with controls"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '4px 9px',
+                fontSize: '11.5px',
+                fontWeight: 700,
+                borderRadius: '6px',
+                border: 'none',
+                cursor: 'pointer',
+                background: themeMode === 'native' ? '#ffffff' : 'transparent',
+                color: themeMode === 'native' ? '#0f172a' : '#475569',
+                boxShadow: themeMode === 'native' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <Compass size={12} style={{ color: themeMode === 'native' ? '#0284c7' : '#64748b' }} />
+              <span>Native App</span>
+            </button>
+          </div>
+
           <button
             type="button"
             className="btn btn-secondary btn-xs"
@@ -131,7 +238,7 @@ export const ProposalCalculatorTab: React.FC = () => {
         style={{
           flex: 1,
           position: 'relative',
-          background: '#ffffff',
+          background: themeMode === 'dark' ? '#0e1726' : '#ffffff',
           borderRadius: 'var(--radius-lg)',
           border: '1px solid var(--border-light)',
           overflow: 'hidden',
@@ -148,7 +255,7 @@ export const ProposalCalculatorTab: React.FC = () => {
               left: 0,
               right: 0,
               bottom: 0,
-              background: 'rgba(255, 255, 255, 0.9)',
+              background: themeMode === 'dark' ? 'rgba(15, 23, 42, 0.88)' : 'rgba(255, 255, 255, 0.9)',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
@@ -169,18 +276,18 @@ export const ProposalCalculatorTab: React.FC = () => {
                 marginBottom: '10px',
               }}
             />
-            <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>
-              Calibrating Proposal Formula Engine...
+            <div style={{ fontSize: '13px', fontWeight: 700, color: themeMode === 'dark' ? '#f8fafc' : '#0f172a' }}>
+              Calibrating High-Contrast Theme &amp; Formula Engine...
             </div>
-            <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>
-              https://proposal-formula-rispl.streamlit.app/?embed=true
+            <div style={{ fontSize: '11.5px', color: themeMode === 'dark' ? '#94a3b8' : '#64748b', marginTop: '2px' }}>
+              {currentUrl}
             </div>
           </div>
         )}
 
         <iframe
-          key={iframeKey}
-          src={PROPOSAL_CALCULATOR_URL}
+          key={`${iframeKey}-${themeMode}`}
+          src={currentUrl}
           title="Proposal Calculation Formula App"
           onLoad={() => setIsLoading(false)}
           style={{
