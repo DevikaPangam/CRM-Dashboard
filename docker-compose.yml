@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  crm-app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - ENVIRONMENT=production
+      - PORT=3000
+      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+      - SESSION_TIMEOUT=3600
+      - DATABASE_URL=sqlite:/app/db/crm.db
+      - ADMIN_DEFAULT_PASSWORD=${ADMIN_DEFAULT_PASSWORD:-Admin@2026}
+      - MAX_LOGIN_ATTEMPTS=5
+      - ACCOUNT_LOCK_DURATION=30
+    volumes:
+      - crm_db:/app/db   # Persistent database storage
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  crm_db:
+    driver: local
