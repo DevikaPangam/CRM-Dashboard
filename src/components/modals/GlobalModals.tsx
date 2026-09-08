@@ -1,10 +1,12 @@
 import React from 'react';
 import { useCRM } from '../../context/CRMContext';
 import { AddClientModal } from './AddClientModal';
+import { EditClientModal } from './EditClientModal';
 import { AddOpportunityModal } from './AddOpportunityModal';
 import { AddActivityModal } from './AddActivityModal';
 import { AddInternalModal } from './AddInternalModal';
 import { AddTeamModal } from './AddTeamModal';
+import { EditTeamModal } from './EditTeamModal';
 import { AddSegmentModal } from './AddSegmentModal';
 import { EditSegmentModal } from './EditSegmentModal';
 import { AddUserModal } from './AddUserModal';
@@ -12,7 +14,6 @@ import { EditUserModal } from './EditUserModal';
 import { UploadDocModal } from './UploadDocModal';
 import { EditDocModal } from './EditDocModal';
 import { DelegationMatrixModal } from './DelegationMatrixModal';
-import { EditTeamModal } from './EditTeamModal';
 import { ApprovalModal } from './ApprovalModal';
 import { DealInceptionModal } from './DealInceptionModal';
 import { ImportClientsModal } from './ImportClientsModal';
@@ -25,6 +26,8 @@ export const GlobalModals: React.FC = () => {
   switch (activeModal.type) {
     case 'addClient':
       return <AddClientModal />;
+    case 'editClient':
+      return <EditClientModal />;
     case 'importClients':
       return <ImportClientsModal />;
     case 'addOpportunity':
