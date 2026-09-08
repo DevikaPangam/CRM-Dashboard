@@ -13,32 +13,18 @@
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link rel="stylesheet" href="style.css">
-  <!-- Auth Setup: In demo / static mode, default to authenticated demo user -->
+  <!-- Auth Setup: System Administrator Mode -->
   <script>
     (function() {
       window.__CRM_AUTH_USER = {
-        id: 'ADM001',
+        id: 'USR-001',
         name: 'Devika Pangam',
-        email: 'devika.p@rajmudragroup.com',
-        role: 'Admin',
+        email: 'devika.admin@corpbd.com',
+        role: 'System Administrator',
+        role_name: 'System Administrator',
         status: 'Active',
-        allowed_tabs: ['overview', 'accounts', 'contacts', 'deals', 'tasks', 'reports', 'settings', 'admin']
+        allowed_tabs: ['tab-dashboard', 'tab-clients', 'tab-team', 'tab-segments', 'tab-opportunities', 'tab-activities', 'tab-followups', 'tab-internal', 'tab-review', 'tab-users']
       };
-      try {
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', '/api/auth/me', true);
-        xhr.onload = function() {
-          if (xhr.status === 200) {
-            try {
-              var data = JSON.parse(xhr.responseText);
-              if (data && data.success && data.user) {
-                window.__CRM_AUTH_USER = data.user;
-              }
-            } catch(e) {}
-          }
-        };
-        xhr.send();
-      } catch(e) {}
     })();
   </script>
 </head>
@@ -71,23 +57,23 @@
         <button class="user-switcher-btn" id="activeUserSwitcherBtn" onclick="crmApp.toggleUserSwitcherDropdown(event)" title="Account settings">
           <div class="user-avatar-circle" id="headerUserAvatar">DP</div>
           <div style="display:flex; flex-direction:column; text-align:left; line-height:1.2;">
-            <span id="headerUserName" style="font-weight:600; font-size:12px;">Loading...</span>
-            <span id="headerUserRoleBadge" class="user-role-badge-pill role-pill-admin">USER</span>
+            <span id="headerUserName" style="font-weight:600; font-size:12px;">Devika Pangam</span>
+            <span id="headerUserRoleBadge" class="user-role-badge-pill role-pill-admin" style="background:linear-gradient(135deg, #10b981, #059669); color:#ffffff; font-weight:700;">SYSTEM ADMINISTRATOR</span>
           </div>
           <i data-lucide="chevron-down" style="width:13px; height:13px; opacity:0.8;"></i>
         </button>
         <div class="user-switcher-dropdown" id="userSwitcherDropdown">
-          <div class="user-dropdown-header">My Account</div>
+          <div class="user-dropdown-header">System Administrator</div>
           <div style="padding: 8px 12px;">
-            <div id="userAccountInfo" style="padding:4px 0 8px 0; font-size:12px; color:#64748b;"></div>
-            <button class="btn btn-secondary btn-xs" style="width:100%; margin-bottom:6px;" onclick="crmApp.openChangePasswordModal()">
-              <i data-lucide="key" style="width:12px; height:12px;"></i> Change Password
-            </button>
+            <div id="userAccountInfo" style="padding:4px 0 8px 0; font-size:12px; color:#64748b;">
+              <strong>Devika Pangam</strong><br>
+              devika.admin@corpbd.com • Full Access
+            </div>
             <button class="btn btn-secondary btn-xs" style="width:100%; margin-bottom:6px;" onclick="crmApp.switchTab('tab-users')" id="manageUsersBtn">
               <i data-lucide="shield" style="width:12px; height:12px;"></i> Manage Users &amp; Permissions
             </button>
-            <button class="btn btn-xs" style="width:100%; background:#fef2f2; color:#dc2626; border:1px solid #fecaca;" onclick="crmApp.logout()">
-              <i data-lucide="log-out" style="width:12px; height:12px;"></i> Logout
+            <button class="btn btn-secondary btn-xs" style="width:100%;" onclick="crmApp.resetSampleData()">
+              <i data-lucide="rotate-ccw" style="width:12px; height:12px;"></i> Reset Sample Data
             </button>
           </div>
         </div>

@@ -83,18 +83,7 @@ class CRMApplication {
   // ─── Logout ───────────────────────────────────────────────────────────────
 
   async logout() {
-    if (!confirm('Are you sure you want to logout?')) return;
-    try {
-      const res = await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      const data = await res.json();
-      window.location.href = data.redirect || '/login.html';
-    } catch (e) {
-      window.location.href = '/login.html';
-    }
+    window.location.href = '/';
   }
 
   // ─── Check Force Password Change ─────────────────────────────────────────

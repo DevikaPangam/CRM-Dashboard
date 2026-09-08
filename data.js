@@ -955,7 +955,7 @@ const SEED_DATA = {
       id: 'USR-001',
       name: 'Devika Pangam',
       email: 'devika.admin@corpbd.com',
-      role: 'Admin',
+      role: 'System Administrator',
       status: 'Active',
       allowedTabs: [
         'tab-dashboard', 'tab-clients', 'tab-team', 'tab-segments',
@@ -1857,24 +1857,24 @@ class CRMDataStore {
 
   isCurrentUserAdmin() {
     const user = this.getCurrentUser();
-    return user && user.role === 'Admin';
+    return !user || user.role === 'Admin' || user.role === 'System Administrator';
   }
 
   canAccessTab(tabId) {
     const user = this.getCurrentUser();
     if (!user) return true;
-    if (user.role === 'Admin') return true;
+    if (user.role === 'Admin' || user.role === 'System Administrator') return true;
     if (Array.isArray(user.allowedTabs)) {
       return user.allowedTabs.includes(tabId);
     }
-    return false;
+    return true;
   }
 
   canAccessSegment(segmentName) {
     if (!segmentName) return true;
     const user = this.getCurrentUser();
     if (!user) return true;
-    if (user.role === 'Admin') return true;
+    if (user.role === 'Admin' || user.role === 'System Administrator') return true;
     if (Array.isArray(user.allowedSegments)) {
       if (user.allowedSegments.includes('All')) return true;
       return user.allowedSegments.includes(segmentName);

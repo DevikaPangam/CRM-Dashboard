@@ -109,36 +109,26 @@ app.get('/api/ping', (req, res) => {
 
 const publicDir = path.resolve(__dirname);
 
-// Serve login.html at root /login.html — no auth required
+// Serve index.html directly — no login required
 app.get('/login.html', (req, res) => {
-  // If already logged in, redirect to dashboard
-  if (req.user) return res.redirect('/index.html');
-  res.sendFile(path.join(publicDir, 'public', 'login.html'));
+  res.redirect('/index.html');
 });
 
 // Serve login.css and login.js without auth
 app.use('/public', express.static(path.join(publicDir, 'public')));
 
-// Protect index.html and all other CRM pages — require authentication
+// Serve index.html
 app.get('/', (req, res) => {
-  if (!req.user) return res.redirect('/login.html');
-  res.redirect('/index.html');
-});
-
-app.get('/index.html', requireLogin, (req, res) => {
   res.sendFile(path.join(publicDir, 'index.html'));
 });
 
-// Serve all other static CRM files (style.css, app.js, etc.) — auth-protected
+app.get('/index.html', (req, res) => {
+  res.sendFile(path.join(publicDir, 'index.html'));
+});
+
+// Serve all static CRM files
 app.use(express.static(publicDir, {
-  index: false,           // Disable automatic index.html serving
-  dotfiles: 'deny',       // Block .env and hidden files
-  setHeaders: (res, filePath) => {
-    // Don't cache sensitive files
-    if (filePath.endsWith('.html')) {
-      res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
-    }
-  }
+  dotfiles: 'deny'
 }));
 
 // ─── Catch-all: Route Unknown Requests ────────────────────────────────────────
@@ -147,8 +137,6 @@ app.use((req, res, next) => {
   if (req.path.startsWith('/api/')) {
     return res.status(404).json({ success: false, error: 'API endpoint not found.' });
   }
-  // For unknown HTML routes, check auth then redirect to dashboard
-  if (!req.user) return res.redirect('/login.html');
   res.redirect('/index.html');
 });
 
