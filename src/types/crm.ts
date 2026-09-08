@@ -22,6 +22,7 @@ export interface ClientContact {
 }
 
 export type ClientType = 'New Client' | 'Existing Client';
+export type ClientStatus = 'Active' | 'Prospect' | 'Dormant' | 'Blacklisted';
 
 export interface Client {
   id: string;
@@ -36,7 +37,7 @@ export interface Client {
   tier: 'Tier 1 (Enterprise)' | 'Tier 2 (Mid-Market)' | 'Tier 3 (Emerging)';
   turnoverCr: number;
   employees: number;
-  status: 'Active' | 'Prospect' | 'Dormant' | 'Blacklisted';
+  status: ClientStatus;
   accountOwner: string;
   website?: string;
   address?: string;

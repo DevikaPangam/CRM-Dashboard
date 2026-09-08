@@ -1,64 +1,94 @@
 import React, { useState } from 'react';
-import { X, Building } from 'lucide-react';
+import { X, Building, CheckCircle2, ShieldCheck, Sparkles } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { INDUSTRIES } from '../../utils/seedData';
-import { ClientType } from '../../types/crm';
+import { ClientType, ClientStatus } from '../../types/crm';
 
 export const AddClientModal: React.FC = () => {
-  const { closeModal, addClient, segments, teamMembers } = useCRM();
+  const { closeModal, addClient, clients, segments, teamMembers } = useCRM();
 
+  // Next auto-generated client code
+  const autoClientCode = `CLT-${clients.length + 1001}`;
+
+  // Mandatory fields state
   const [formData, setFormData] = useState({
     name: '',
-    clientType: 'New Client' as ClientType,
-    industry: INDUSTRIES[0],
+    industry: INDUSTRIES[0] || 'Manufacturing & Heavy Industry',
     segment: segments[0]?.name || 'Employee Transportation',
     city: '',
-    state: '',
-    region: 'West' as const,
-    tier: 'Tier 1 (Enterprise)' as const,
-    turnoverCr: 100,
-    employees: 500,
-    status: 'Active' as const,
+    status: 'Active' as ClientStatus,
     accountOwner: teamMembers[0]?.name || 'Rahul Sharma',
-    website: '',
-    address: '',
     contactName: '',
-    contactDesignation: '',
     contactEmail: '',
     contactPhone: '',
+
+    // Optional fields (with safe defaults)
+    clientType: 'New Client' as ClientType,
+    state: '',
+    region: 'West' as 'North' | 'South' | 'East' | 'West' | 'Central',
+    tier: 'Tier 1 (Enterprise)' as 'Tier 1 (Enterprise)' | 'Tier 2 (Mid-Market)' | 'Tier 3 (Emerging)',
+    turnoverCr: 100,
+    employees: 500,
+    contactDesignation: 'Key Account Manager',
+    address: '',
     notes: '',
   });
 
+  const [showOptionalFields, setShowOptionalFields] = useState(false);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim()) return;
+    if (
+      !formData.name.trim() ||
+      !formData.industry ||
+      !formData.segment ||
+      !formData.city.trim() ||
+      !formData.status ||
+      !formData.accountOwner ||
+      !formData.contactName.trim() ||
+      !formData.contactEmail.trim() ||
+      !formData.contactPhone.trim()
+    ) {
+      alert('Please fill out all mandatory fields marked with (*).');
+      return;
+    }
+
+    const defaultState =
+      formData.region === 'North'
+        ? 'Delhi / NCR'
+        : formData.region === 'South'
+        ? 'Karnataka'
+        : formData.region === 'East'
+        ? 'West Bengal'
+        : formData.region === 'Central'
+        ? 'Madhya Pradesh'
+        : 'Maharashtra';
 
     addClient({
-      name: formData.name,
+      name: formData.name.trim(),
       clientType: formData.clientType,
       industry: formData.industry,
       segment: formData.segment,
-      city: formData.city || 'Mumbai',
-      state: formData.state || 'Maharashtra',
+      city: formData.city.trim(),
+      state: formData.state.trim() || defaultState,
       region: formData.region,
       tier: formData.tier,
-      turnoverCr: Number(formData.turnoverCr) || 0,
-      employees: Number(formData.employees) || 0,
+      turnoverCr: Number(formData.turnoverCr) || 100,
+      employees: Number(formData.employees) || 500,
       status: formData.status,
       accountOwner: formData.accountOwner,
-      website: formData.website,
       address: formData.address,
       contacts: [
         {
           id: `CON-${Date.now().toString().slice(-4)}`,
-          name: formData.contactName || 'Primary Contact',
-          designation: formData.contactDesignation || 'Manager',
-          email: formData.contactEmail || '',
-          phone: formData.contactPhone || '',
+          name: formData.contactName.trim(),
+          designation: formData.contactDesignation || 'Primary POC',
+          email: formData.contactEmail.trim(),
+          phone: formData.contactPhone.trim(),
           isPrimary: true,
         },
       ],
-      notes: formData.notes,
+      notes: formData.notes || `Created in Master Directory on ${new Date().toISOString().slice(0, 10)}`,
     });
 
     closeModal();
@@ -66,11 +96,31 @@ export const AddClientModal: React.FC = () => {
 
   return (
     <div className="modal-overlay" onClick={closeModal}>
-      <div className="modal-content-box" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header-section">
+      <div className="modal-content-box" style={{ maxWidth: '680px' }} onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header-section" style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
           <div className="modal-header-title">
-            <Building size={18} style={{ color: '#0284c7' }} />
-            <span>Add New Corporate Client</span>
+            <div
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '8px',
+                background: '#e0f2fe',
+                color: '#0284c7',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Building size={20} />
+            </div>
+            <div>
+              <span style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
+                Add Corporate Client
+              </span>
+              <div style={{ fontSize: '11.5px', color: '#64748b' }}>
+                Fill out the mandatory client details below to onboard into directory
+              </div>
+            </div>
           </div>
           <button className="modal-close-btn" onClick={closeModal}>
             <X size={18} />
@@ -78,65 +128,74 @@ export const AddClientModal: React.FC = () => {
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-          <div className="modal-body-section">
-            <div className="form-grid-2">
-              <div className="form-group">
-                <label>Company / Client Name *</label>
-                <input
-                  type="text"
-                  required
-                  className="form-control"
-                  placeholder="e.g. Tata Advanced Systems Ltd"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                />
+          <div className="modal-body-section" style={{ padding: '20px 24px', overflowY: 'auto' }}>
+            {/* Auto-generated Client Code Badge */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                background: '#f0f9ff',
+                border: '1px solid #bae6fd',
+                borderRadius: '8px',
+                padding: '10px 14px',
+                marginBottom: '18px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Sparkles size={16} style={{ color: '#0284c7' }} />
+                <span style={{ fontSize: '12.5px', color: '#0369a1', fontWeight: 600 }}>
+                  Client Code (Auto-generated by System):
+                </span>
               </div>
-
-              <div className="form-group">
-                <label>Client Type *</label>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button
-                    type="button"
-                    style={{
-                      flex: 1,
-                      padding: '8px 12px',
-                      borderRadius: '6px',
-                      border: `2px solid ${formData.clientType === 'New Client' ? '#0284c7' : '#e2e8f0'}`,
-                      background: formData.clientType === 'New Client' ? '#e0f2fe' : '#ffffff',
-                      color: formData.clientType === 'New Client' ? '#0369a1' : '#475569',
-                      fontWeight: 700,
-                      fontSize: '12.5px',
-                      cursor: 'pointer',
-                    }}
-                    onClick={() => setFormData({ ...formData, clientType: 'New Client' })}
-                  >
-                    + New Client
-                  </button>
-                  <button
-                    type="button"
-                    style={{
-                      flex: 1,
-                      padding: '8px 12px',
-                      borderRadius: '6px',
-                      border: `2px solid ${formData.clientType === 'Existing Client' ? '#10b981' : '#e2e8f0'}`,
-                      background: formData.clientType === 'Existing Client' ? '#ecfdf5' : '#ffffff',
-                      color: formData.clientType === 'Existing Client' ? '#047857' : '#475569',
-                      fontWeight: 700,
-                      fontSize: '12.5px',
-                      cursor: 'pointer',
-                    }}
-                    onClick={() => setFormData({ ...formData, clientType: 'Existing Client' })}
-                  >
-                    ✓ Existing Client
-                  </button>
-                </div>
-              </div>
+              <span
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: '13px',
+                  fontWeight: 800,
+                  color: '#0284c7',
+                  background: '#ffffff',
+                  padding: '3px 10px',
+                  borderRadius: '6px',
+                  border: '1px solid #93c5fd',
+                  boxShadow: '0 1px 2px rgba(2, 132, 199, 0.1)'
+                }}
+              >
+                {autoClientCode}
+              </span>
             </div>
 
-            <div className="form-grid-2">
+            {/* Mandatory Fields Group */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px' }}>
+              <span style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#0f172a' }}>
+                Mandatory Client Information
+              </span>
+              <span style={{ fontSize: '11px', color: '#dc2626', fontWeight: 700 }}>(* Required)</span>
+            </div>
+
+            {/* 1. Client Name */}
+            <div className="form-group" style={{ marginBottom: '14px' }}>
+              <label style={{ fontWeight: 700, fontSize: '12.5px', color: '#1e293b' }}>
+                Client Name <span style={{ color: '#dc2626' }}>*</span>
+              </label>
+              <input
+                type="text"
+                required
+                className="form-control"
+                placeholder="e.g. ABC Manufacturing Ltd / Tata Technologies"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              />
+            </div>
+
+            {/* 2. Industry & 3. Segment */}
+            <div className="form-grid-2" style={{ marginBottom: '14px' }}>
               <div className="form-group">
-                <label>Industry</label>
+                <label style={{ fontWeight: 700, fontSize: '12.5px', color: '#1e293b' }}>
+                  Industry <span style={{ color: '#dc2626' }}>*</span>
+                </label>
                 <select
+                  required
                   className="form-control"
                   value={formData.industry}
                   onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
@@ -150,8 +209,11 @@ export const AddClientModal: React.FC = () => {
               </div>
 
               <div className="form-group">
-                <label>Primary Business Segment</label>
+                <label style={{ fontWeight: 700, fontSize: '12.5px', color: '#1e293b' }}>
+                  Segment <span style={{ color: '#dc2626' }}>*</span>
+                </label>
                 <select
+                  required
                   className="form-control"
                   value={formData.segment}
                   onChange={(e) => setFormData({ ...formData, segment: e.target.value })}
@@ -165,122 +227,196 @@ export const AddClientModal: React.FC = () => {
               </div>
             </div>
 
-            <div className="form-grid-2">
+            {/* 4. City & 5. Status */}
+            <div className="form-grid-2" style={{ marginBottom: '14px' }}>
               <div className="form-group">
-                <label>City</label>
+                <label style={{ fontWeight: 700, fontSize: '12.5px', color: '#1e293b' }}>
+                  City <span style={{ color: '#dc2626' }}>*</span>
+                </label>
                 <input
                   type="text"
+                  required
                   className="form-control"
-                  placeholder="e.g. Pune"
+                  placeholder="e.g. Pune, Mumbai, Gurugram, Bengaluru"
                   value={formData.city}
                   onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                 />
               </div>
 
               <div className="form-group">
-                <label>State &amp; Region</label>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="Maharashtra"
-                    value={formData.state}
-                    onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                  />
-                  <select
-                    className="form-control"
-                    style={{ width: '110px' }}
-                    value={formData.region}
-                    onChange={(e) => setFormData({ ...formData, region: e.target.value as any })}
-                  >
-                    <option value="North">North</option>
-                    <option value="South">South</option>
-                    <option value="West">West</option>
-                    <option value="East">East</option>
-                    <option value="Central">Central</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            <div className="form-grid-2">
-              <div className="form-group">
-                <label>Client Tier</label>
+                <label style={{ fontWeight: 700, fontSize: '12.5px', color: '#1e293b' }}>
+                  Status <span style={{ color: '#dc2626' }}>*</span>
+                </label>
                 <select
+                  required
                   className="form-control"
-                  value={formData.tier}
-                  onChange={(e) => setFormData({ ...formData, tier: e.target.value as any })}
+                  value={formData.status}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value as ClientStatus })}
                 >
-                  <option value="Tier 1 (Enterprise)">Tier 1 (Enterprise)</option>
-                  <option value="Tier 2 (Mid-Market)">Tier 2 (Mid-Market)</option>
-                  <option value="Tier 3 (Emerging)">Tier 3 (Emerging)</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>Assigned BD Owner</label>
-                <select
-                  className="form-control"
-                  value={formData.accountOwner}
-                  onChange={(e) => setFormData({ ...formData, accountOwner: e.target.value })}
-                >
-                  {teamMembers.map((tm) => (
-                    <option key={tm.id} value={tm.name}>
-                      {tm.name}
-                    </option>
-                  ))}
+                  <option value="Active">Active (Live Relationship)</option>
+                  <option value="Prospect">Prospect (Onboarding / Lead)</option>
+                  <option value="Dormant">Dormant (Inactive)</option>
+                  <option value="Blacklisted">Blacklisted</option>
                 </select>
               </div>
             </div>
 
-            <div style={{ margin: '16px 0 10px 0', borderTop: '1px solid #e2e8f0', paddingTop: '12px' }}>
-              <strong style={{ fontSize: '13px', color: '#0f172a' }}>Primary Contact Details</strong>
+            {/* 6. Account Owner */}
+            <div className="form-group" style={{ marginBottom: '14px' }}>
+              <label style={{ fontWeight: 700, fontSize: '12.5px', color: '#1e293b' }}>
+                Account Owner <span style={{ color: '#dc2626' }}>*</span>
+              </label>
+              <select
+                required
+                className="form-control"
+                value={formData.accountOwner}
+                onChange={(e) => setFormData({ ...formData, accountOwner: e.target.value })}
+              >
+                {teamMembers.map((tm) => (
+                  <option key={tm.id} value={tm.name}>
+                    {tm.name} ({tm.title} - {tm.region})
+                  </option>
+                ))}
+              </select>
             </div>
 
-            <div className="form-grid-2">
-              <div className="form-group">
-                <label>Contact Name</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="e.g. Ramesh Nair"
-                  value={formData.contactName}
-                  onChange={(e) => setFormData({ ...formData, contactName: e.target.value })}
-                />
-              </div>
-              <div className="form-group">
-                <label>Designation</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="VP Procurement"
-                  value={formData.contactDesignation}
-                  onChange={(e) => setFormData({ ...formData, contactDesignation: e.target.value })}
-                />
-              </div>
+            {/* Primary Contact Section */}
+            <div
+              style={{
+                margin: '16px 0 12px 0',
+                borderTop: '1px solid #e2e8f0',
+                paddingTop: '14px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <strong style={{ fontSize: '12.5px', color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Primary Contact Details
+              </strong>
+              <span style={{ fontSize: '11px', color: '#dc2626', fontWeight: 700 }}>(* Required)</span>
             </div>
 
-            <div className="form-grid-2">
+            {/* 7. Primary Contact (Name) */}
+            <div className="form-group" style={{ marginBottom: '14px' }}>
+              <label style={{ fontWeight: 700, fontSize: '12.5px', color: '#1e293b' }}>
+                Primary Contact <span style={{ color: '#dc2626' }}>*</span>
+              </label>
+              <input
+                type="text"
+                required
+                className="form-control"
+                placeholder="e.g. Rajesh Kulkarni"
+                value={formData.contactName}
+                onChange={(e) => setFormData({ ...formData, contactName: e.target.value })}
+              />
+            </div>
+
+            {/* 8. Email & 9. Phone */}
+            <div className="form-grid-2" style={{ marginBottom: '14px' }}>
               <div className="form-group">
-                <label>Email</label>
+                <label style={{ fontWeight: 700, fontSize: '12.5px', color: '#1e293b' }}>
+                  Email <span style={{ color: '#dc2626' }}>*</span>
+                </label>
                 <input
                   type="email"
+                  required
                   className="form-control"
-                  placeholder="r.nair@company.com"
+                  placeholder="e.g. contact@clientcorp.com"
                   value={formData.contactEmail}
                   onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
                 />
               </div>
+
               <div className="form-group">
-                <label>Phone / Mobile</label>
+                <label style={{ fontWeight: 700, fontSize: '12.5px', color: '#1e293b' }}>
+                  Phone <span style={{ color: '#dc2626' }}>*</span>
+                </label>
                 <input
-                  type="text"
+                  type="tel"
+                  required
                   className="form-control"
-                  placeholder="+91 98200 12345"
+                  placeholder="e.g. +91 98231 44550"
                   value={formData.contactPhone}
                   onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
                 />
               </div>
+            </div>
+
+            {/* Collapsible / Optional Fields Section */}
+            <div style={{ marginTop: '10px', borderTop: '1px dashed #e2e8f0', paddingTop: '10px' }}>
+              <button
+                type="button"
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#0284c7',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  padding: '4px 0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+                onClick={() => setShowOptionalFields(!showOptionalFields)}
+              >
+                <span>{showOptionalFields ? '▲ Hide Optional Fields' : '▼ Show Optional Fields (Client Type, Tier, Turnover, etc.)'}</span>
+              </button>
+
+              {showOptionalFields && (
+                <div style={{ marginTop: '12px', padding: '12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <div className="form-grid-2" style={{ marginBottom: '10px' }}>
+                    <div className="form-group">
+                      <label style={{ fontSize: '11.5px', color: '#64748b' }}>Client Type (Optional)</label>
+                      <select
+                        className="form-control"
+                        value={formData.clientType}
+                        onChange={(e) => setFormData({ ...formData, clientType: e.target.value as ClientType })}
+                      >
+                        <option value="New Client">New Client</option>
+                        <option value="Existing Client">Existing Client</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label style={{ fontSize: '11.5px', color: '#64748b' }}>Client Tier (Optional)</label>
+                      <select
+                        className="form-control"
+                        value={formData.tier}
+                        onChange={(e) => setFormData({ ...formData, tier: e.target.value as any })}
+                      >
+                        <option value="Tier 1 (Enterprise)">Tier 1 (Enterprise)</option>
+                        <option value="Tier 2 (Mid-Market)">Tier 2 (Mid-Market)</option>
+                        <option value="Tier 3 (Emerging)">Tier 3 (Emerging)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="form-grid-2" style={{ marginBottom: '10px' }}>
+                    <div className="form-group">
+                      <label style={{ fontSize: '11.5px', color: '#64748b' }}>Annual Turnover (₹ Cr)</label>
+                      <input
+                        type="number"
+                        className="form-control"
+                        value={formData.turnoverCr}
+                        onChange={(e) => setFormData({ ...formData, turnoverCr: Number(e.target.value) })}
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label style={{ fontSize: '11.5px', color: '#64748b' }}>Contact Designation</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="VP / Head Procurement"
+                        value={formData.contactDesignation}
+                        onChange={(e) => setFormData({ ...formData, contactDesignation: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -288,8 +424,9 @@ export const AddClientModal: React.FC = () => {
             <button type="button" className="btn btn-secondary" onClick={closeModal}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary">
-              Save Client
+            <button type="submit" className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <ShieldCheck size={16} />
+              <span>Save &amp; Onboard Client</span>
             </button>
           </div>
         </form>
@@ -297,3 +434,4 @@ export const AddClientModal: React.FC = () => {
     </div>
   );
 };
+

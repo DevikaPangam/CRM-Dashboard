@@ -277,55 +277,70 @@ export const ImportClientsModal: React.FC = () => {
                     Parsed Records Preview ({parsedClients.length} Accounts Ready to Import)
                   </h4>
                   <span className="pill-badge" style={{ background: '#dcfce7', color: '#15803d', fontWeight: 700 }}>
-                    ✓ Validation Passed
+                    ✓ Mandatory Fields Verified
                   </span>
                 </div>
 
-                <div className="table-responsive" style={{ maxHeight: '220px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
+                <div className="table-responsive" style={{ maxHeight: '240px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
                   <table className="data-table">
                     <thead>
                       <tr>
-                        <th>Code</th>
+                        <th>Client Code (Auto)</th>
                         <th>Client Name</th>
-                        <th>Industry &amp; Segment</th>
-                        <th>Location</th>
-                        <th>Tier</th>
-                        <th>Turnover</th>
-                        <th>Owner</th>
+                        <th>Industry</th>
+                        <th>Segment</th>
+                        <th>City</th>
+                        <th>Status</th>
+                        <th>Account Owner</th>
                         <th>Primary Contact</th>
+                        <th>Email</th>
+                        <th>Phone</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {parsedClients.map((client, idx) => (
-                        <tr key={client.code || idx}>
-                          <td>
-                            <strong style={{ color: '#0284c7', fontFamily: 'var(--font-mono)' }}>
-                              {client.code}
-                            </strong>
-                          </td>
-                          <td>
-                            <strong style={{ color: '#0f172a' }}>{client.name}</strong>
-                          </td>
-                          <td>
-                            <div>{client.segment}</div>
-                            <span style={{ fontSize: '11px', color: '#64748b' }}>{client.industry}</span>
-                          </td>
-                          <td>
-                            <span>{client.city}, {client.state} ({client.region})</span>
-                          </td>
-                          <td>
-                            <span className="pill-badge" style={{ background: '#f8fafc', color: '#475569', border: '1px solid #e2e8f0' }}>
-                              {client.tier}
-                            </span>
-                          </td>
-                          <td>₹{client.turnoverCr} Cr</td>
-                          <td>{client.accountOwner}</td>
-                          <td>
-                            <div>{client.contacts[0]?.name}</div>
-                            <span style={{ fontSize: '10.5px', color: '#64748b' }}>{client.contacts[0]?.phone}</span>
-                          </td>
-                        </tr>
-                      ))}
+                      {parsedClients.map((client, idx) => {
+                        const contact = client.contacts[0] || { name: 'N/A', email: 'N/A', phone: 'N/A' };
+                        return (
+                          <tr key={client.code || idx}>
+                            <td>
+                              <strong style={{ color: '#0284c7', fontFamily: 'var(--font-mono)' }}>
+                                {client.code || `CLT-${1000 + idx + 1}`}
+                              </strong>
+                            </td>
+                            <td>
+                              <strong style={{ color: '#0f172a' }}>{client.name}</strong>
+                            </td>
+                            <td>
+                              <span style={{ fontSize: '11.5px', color: '#334155' }}>{client.industry}</span>
+                            </td>
+                            <td>
+                              <span className="pill-badge" style={{ background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0' }}>
+                                {client.segment}
+                              </span>
+                            </td>
+                            <td>
+                              <span>{client.city}</span>
+                            </td>
+                            <td>
+                              <span className="pill-badge" style={{ background: client.status === 'Active' ? '#ecfdf5' : '#fef3c7', color: client.status === 'Active' ? '#047857' : '#b45309' }}>
+                                {client.status || 'Active'}
+                              </span>
+                            </td>
+                            <td>
+                              <strong>{client.accountOwner}</strong>
+                            </td>
+                            <td>
+                              <div>{contact.name}</div>
+                            </td>
+                            <td>
+                              <span style={{ fontSize: '11px', color: '#0284c7' }}>{contact.email}</span>
+                            </td>
+                            <td>
+                              <span style={{ fontSize: '11px', color: '#475569' }}>{contact.phone}</span>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
