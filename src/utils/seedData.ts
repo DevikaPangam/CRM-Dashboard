@@ -1,4 +1,8 @@
-import { Client, Opportunity, Activity, Followup, InternalTask, TeamMember, BusinessSegment, User, CRMDocument } from '../types/crm';
+import {
+  Client, Opportunity, Activity, Followup, InternalTask,
+  TeamMember, BusinessSegment, User, CRMDocument,
+  FleetSeaterCapacity, BillingFrequency, DeployedFleetContract
+} from '../types/crm';
 
 export const INITIAL_CLIENTS: Client[] = [
   {
@@ -23,6 +27,68 @@ export const INITIAL_CLIENTS: Client[] = [
       { id: 'CON-01', name: 'Rajesh Kulkarni', designation: 'VP - Operations & Admin', email: 'rajesh.k@abcmanufacturing.demo', phone: '+91 98231 44550', isPrimary: true },
       { id: 'CON-02', name: 'Sneha Patil', designation: 'Senior Manager - HR & Transport', email: 'sneha.p@abcmanufacturing.demo', phone: '+91 98231 44551' }
     ],
+    deployedFleets: [
+      {
+        id: 'FLT-001',
+        seaterCapacity: '17 Seater – AC',
+        vehicleCount: 4,
+        shiftFormat: 'General Shift (9:00 AM - 6:00 PM)',
+        location: 'Chakan Plant 1 & 2',
+        monthlyRatePerVehicleINR: 65000,
+        totalMonthlyBillingINR: 260000,
+        billingFrequency: 'Monthly',
+        extraKmRateINR: 18,
+        extraHourRateINR: 120,
+        tollParking: 'Exclusive / At Actuals',
+        contractStartDate: '2025-12-01',
+        contractEndDate: '2026-11-30',
+        status: 'Active',
+        agreementDocumentName: 'ABC_Manufacturing_MSA_Fleet_Agreement.pdf',
+        agreementDocumentSize: '2.8 MB',
+        agreementUploadDate: '2025-11-20'
+      },
+      {
+        id: 'FLT-002',
+        seaterCapacity: '32 Seater – Non AC',
+        vehicleCount: 2,
+        shiftFormat: 'Morning Shift (6:00 AM - 2:00 PM)',
+        location: 'Talegaon Roster Hub',
+        monthlyRatePerVehicleINR: 85000,
+        totalMonthlyBillingINR: 170000,
+        billingFrequency: 'Monthly',
+        extraKmRateINR: 22,
+        extraHourRateINR: 150,
+        tollParking: 'Inclusive',
+        contractStartDate: '2025-12-01',
+        contractEndDate: '2026-11-30',
+        status: 'Active',
+        agreementDocumentName: 'ABC_Manufacturing_MSA_Fleet_Agreement.pdf',
+        agreementDocumentSize: '2.8 MB',
+        agreementUploadDate: '2025-11-20'
+      },
+      {
+        id: 'FLT-003',
+        seaterCapacity: '06 Seater – Innova',
+        vehicleCount: 2,
+        shiftFormat: 'Executive On-Call / Ad-hoc Roster',
+        location: 'Pune HQ Office',
+        monthlyRatePerVehicleINR: 75000,
+        totalMonthlyBillingINR: 150000,
+        billingFrequency: 'Monthly',
+        extraKmRateINR: 16,
+        extraHourRateINR: 100,
+        tollParking: 'Exclusive / At Actuals',
+        contractStartDate: '2025-12-01',
+        contractEndDate: '2026-11-30',
+        status: 'Active',
+        agreementDocumentName: 'ABC_Manufacturing_MSA_Fleet_Agreement.pdf',
+        agreementDocumentSize: '2.8 MB',
+        agreementUploadDate: '2025-11-20'
+      }
+    ],
+    agreementDocumentName: 'ABC_Manufacturing_MSA_Fleet_Agreement.pdf',
+    agreementDocumentSize: '2.8 MB',
+    agreementUploadDate: '2025-11-20',
     notes: 'Key client for annual staff transport renewal and EV bus expansion.'
   },
   {
@@ -93,6 +159,49 @@ export const INITIAL_CLIENTS: Client[] = [
     contacts: [
       { id: 'CON-06', name: 'Dr. Srinivas Rao', designation: 'Chief Logistics Officer', email: 'srao@primehealth.demo', phone: '+91 98480 12345', isPrimary: true }
     ],
+    deployedFleets: [
+      {
+        id: 'FLT-004',
+        seaterCapacity: '17 Seater Urbania',
+        vehicleCount: 3,
+        shiftFormat: '24/7 Rotational Roster (3 Shifts)',
+        location: 'Hospital Campus & Diagnostics Roster',
+        monthlyRatePerVehicleINR: 95000,
+        totalMonthlyBillingINR: 285000,
+        billingFrequency: 'Monthly',
+        extraKmRateINR: 20,
+        extraHourRateINR: 140,
+        tollParking: 'Inclusive',
+        contractStartDate: '2026-06-15',
+        contractEndDate: '2027-06-14',
+        status: 'Active',
+        agreementDocumentName: 'Prime_Healthcare_Transport_Agreement_Signed.pdf',
+        agreementDocumentSize: '1.9 MB',
+        agreementUploadDate: '2026-06-15'
+      },
+      {
+        id: 'FLT-005',
+        seaterCapacity: '06 Seater – Ertiga',
+        vehicleCount: 5,
+        shiftFormat: 'Split Shift (Morning 7-10 AM & Evening 5-8 PM)',
+        location: 'Secunderabad Clinic Network',
+        monthlyRatePerVehicleINR: 48000,
+        totalMonthlyBillingINR: 240000,
+        billingFrequency: 'Quarterly',
+        extraKmRateINR: 14,
+        extraHourRateINR: 90,
+        tollParking: 'Exclusive / At Actuals',
+        contractStartDate: '2026-06-15',
+        contractEndDate: '2027-06-14',
+        status: 'Active',
+        agreementDocumentName: 'Prime_Healthcare_Transport_Agreement_Signed.pdf',
+        agreementDocumentSize: '1.9 MB',
+        agreementUploadDate: '2026-06-15'
+      }
+    ],
+    agreementDocumentName: 'Prime_Healthcare_Transport_Agreement_Signed.pdf',
+    agreementDocumentSize: '1.9 MB',
+    agreementUploadDate: '2026-06-15',
     notes: 'Phase 1 active across 3 cities; Phase 2 proposal under evaluation.'
   },
   {
@@ -162,6 +271,87 @@ export const INITIAL_CLIENTS: Client[] = [
     contacts: [
       { id: 'CON-09', name: 'Deepa Narayan', designation: 'VP - Facilities & Real Estate', email: 'deepa.n@apextech.demo', phone: '+91 99000 77123', isPrimary: true }
     ],
+    deployedFleets: [
+      {
+        id: 'FLT-006',
+        seaterCapacity: '40 Seater – AC',
+        vehicleCount: 6,
+        shiftFormat: '24/7 Rotational Roster (3 Shifts)',
+        location: 'Electronic City Campus Hub',
+        monthlyRatePerVehicleINR: 120000,
+        totalMonthlyBillingINR: 720000,
+        billingFrequency: 'Monthly',
+        extraKmRateINR: 25,
+        extraHourRateINR: 180,
+        tollParking: 'Inclusive',
+        contractStartDate: '2025-10-01',
+        contractEndDate: '2026-09-30',
+        status: 'Active',
+        agreementDocumentName: 'Apex_Tech_Master_Service_Agreement_2026.pdf',
+        agreementDocumentSize: '4.1 MB',
+        agreementUploadDate: '2025-09-18'
+      },
+      {
+        id: 'FLT-007',
+        seaterCapacity: '50 Seater – AC',
+        vehicleCount: 4,
+        shiftFormat: 'General Shift (9:00 AM - 6:00 PM)',
+        location: 'Whitefield - E-City Corridor',
+        monthlyRatePerVehicleINR: 145000,
+        totalMonthlyBillingINR: 580000,
+        billingFrequency: 'Monthly',
+        extraKmRateINR: 28,
+        extraHourRateINR: 200,
+        tollParking: 'Inclusive',
+        contractStartDate: '2025-10-01',
+        contractEndDate: '2026-09-30',
+        status: 'Active',
+        agreementDocumentName: 'Apex_Tech_Master_Service_Agreement_2026.pdf',
+        agreementDocumentSize: '4.1 MB',
+        agreementUploadDate: '2025-09-18'
+      },
+      {
+        id: 'FLT-008',
+        seaterCapacity: '17 Seater – AC',
+        vehicleCount: 6,
+        shiftFormat: 'Night Shift (10:00 PM - 6:00 AM)',
+        location: 'Safe Night Transport (Female Employee Routes)',
+        monthlyRatePerVehicleINR: 70000,
+        totalMonthlyBillingINR: 420000,
+        billingFrequency: 'Monthly',
+        extraKmRateINR: 18,
+        extraHourRateINR: 120,
+        tollParking: 'Exclusive / At Actuals',
+        contractStartDate: '2025-10-01',
+        contractEndDate: '2026-09-30',
+        status: 'Active',
+        agreementDocumentName: 'Apex_Tech_Master_Service_Agreement_2026.pdf',
+        agreementDocumentSize: '4.1 MB',
+        agreementUploadDate: '2025-09-18'
+      },
+      {
+        id: 'FLT-009',
+        seaterCapacity: '06 Seater – Innova',
+        vehicleCount: 3,
+        shiftFormat: 'Executive On-Call / Ad-hoc Roster',
+        location: 'Leadership Travel & Airport Roster',
+        monthlyRatePerVehicleINR: 80000,
+        totalMonthlyBillingINR: 240000,
+        billingFrequency: 'On call',
+        extraKmRateINR: 17,
+        extraHourRateINR: 110,
+        tollParking: 'Exclusive / At Actuals',
+        contractStartDate: '2025-10-01',
+        contractEndDate: '2026-09-30',
+        status: 'Active',
+        agreementDocumentName: 'Apex_Tech_Master_Service_Agreement_2026.pdf',
+        agreementDocumentSize: '4.1 MB',
+        agreementUploadDate: '2025-09-18'
+      }
+    ],
+    agreementDocumentName: 'Apex_Tech_Master_Service_Agreement_2026.pdf',
+    agreementDocumentSize: '4.1 MB',
+    agreementUploadDate: '2025-09-18',
     notes: 'Won 1.44 Cr annual shift transport agreement in Sep 2026.'
   },
   {
@@ -1109,6 +1299,37 @@ export const DOCUMENT_TYPES = [
   'Minutes of Meeting (MOM)',
   'Client Requirement / RFP Scope',
   'Other Document'
+];
+
+export const FLEET_SEATER_CAPACITIES: FleetSeaterCapacity[] = [
+  '17 Seater – Non AC',
+  '17 Seater – AC',
+  '32 Seater – Non AC',
+  '32 Seater – AC',
+  '40 Seater – Non AC',
+  '40 Seater – AC',
+  '50 Seater – Non AC',
+  '50 Seater – AC',
+  '17 Seater Urbania',
+  '06 Seater – Ertiga',
+  '06 Seater – Innova'
+];
+
+export const SHIFT_FORMAT_PRESETS = [
+  'General Shift (9:00 AM - 6:00 PM)',
+  'Morning Shift (6:00 AM - 2:00 PM)',
+  'Afternoon Shift (2:00 PM - 10:00 PM)',
+  'Night Shift (10:00 PM - 6:00 AM)',
+  '24/7 Rotational Roster (3 Shifts)',
+  'Split Shift (Morning 7-10 AM & Evening 5-8 PM)',
+  'Dedicated Plant Shift (8:00 AM - 4:30 PM)',
+  'Executive On-Call / Ad-hoc Roster'
+];
+
+export const BILLING_FREQUENCIES: BillingFrequency[] = [
+  'Monthly',
+  'Quarterly',
+  'On call'
 ];
 
 export const LEAD_SOURCES = [

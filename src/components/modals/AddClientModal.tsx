@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
-import { X, Building, ShieldCheck, Sparkles, Plus, Trash2, User, Phone, Mail, Award, CheckCircle2 } from 'lucide-react';
+import {
+  X, Building, ShieldCheck, Sparkles, Plus, Trash2, User, Phone, Mail, Award, CheckCircle2,
+  Truck, FileText, Upload, Calendar, DollarSign, Clock, MapPin, Paperclip, Download
+} from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
-import { INDUSTRIES } from '../../utils/seedData';
-import { ClientType, ClientStatus, ClientContact } from '../../types/crm';
+import { INDUSTRIES, FLEET_SEATER_CAPACITIES, SHIFT_FORMAT_PRESETS, BILLING_FREQUENCIES } from '../../utils/seedData';
+import { ClientType, ClientStatus, ClientContact, DeployedFleetContract, FleetSeaterCapacity, BillingFrequency } from '../../types/crm';
 
 const DESIGNATION_PRESETS = [
   'VP / Head Procurement',
@@ -53,6 +56,14 @@ export const AddClientModal: React.FC = () => {
     },
   ]);
 
+  // Existing Business / Deployed Fleets
+  const [deployedFleets, setDeployedFleets] = useState<DeployedFleetContract[]>([]);
+
+  // Agreement Document State
+  const [agreementDocName, setAgreementDocName] = useState<string>('');
+  const [agreementDocSize, setAgreementDocSize] = useState<string>('');
+  const [agreementDocDate, setAgreementDocDate] = useState<string>('');
+
   const [showOptionalFields, setShowOptionalFields] = useState(false);
 
   // Add Contact Handler
@@ -78,7 +89,6 @@ export const AddClientModal: React.FC = () => {
       return;
     }
     const filtered = contacts.filter((_, i) => i !== index);
-    // If the removed one was primary, make the first one primary
     if (contacts[index].isPrimary && filtered.length > 0) {
       filtered[0].isPrimary = true;
     }
@@ -106,6 +116,77 @@ export const AddClientModal: React.FC = () => {
       }))
     );
   };
+
+  // Add Deployed Fleet Handler
+  const handleAddFleet = () => {
+    const newFleet: DeployedFleetContract = {
+      id: `FLT-${Date.now().toString().slice(-4)}`,
+      seaterCapacity: '17 Seater – AC',
+      vehicleCount: 1,
+      shiftFormat: 'General Shift (9:00 AM - 6:00 PM)',
+      location: formData.city || 'Client Site / Hub',
+      monthlyRatePerVehicleINR: 65000,
+      totalMonthlyBillingINR: 65000,
+      billingFrequency: 'Monthly',
+      extraKmRateINR: 18,
+      extraHourRateINR: 120,
+      tollParking: 'Inclusive',
+      contractStartDate: new Date().toISOString().split('T')[0],
+      contractEndDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      status: 'Active',
+      agreementDocumentName: agreementDocName || '',
+      agreementDocumentSize: agreementDocSize || '',
+      agreementUploadDate: agreementDocDate || new Date().toISOString().split('T')[0],
+    };
+    setDeployedFleets([...deployedFleets, newFleet]);
+  };
+
+  // Remove Deployed Fleet Handler
+  const handleRemoveFleet = (index: number) => {
+    setDeployedFleets(deployedFleets.filter((_, i) => i !== index));
+  };
+
+  // Update Fleet Field
+  const handleFleetChange = (index: number, field: keyof DeployedFleetContract, value: any) => {
+    setDeployedFleets(
+      deployedFleets.map((fleet, i) => {
+        if (i === index) {
+          const updated = { ...fleet, [field]: value };
+          if (field === 'vehicleCount' || field === 'monthlyRatePerVehicleINR') {
+            const count = field === 'vehicleCount' ? Number(value) : fleet.vehicleCount;
+            const rate = field === 'monthlyRatePerVehicleINR' ? Number(value) : fleet.monthlyRatePerVehicleINR;
+            updated.totalMonthlyBillingINR = (count || 0) * (rate || 0);
+          }
+          return updated;
+        }
+        return fleet;
+      })
+    );
+  };
+
+  // Handle Agreement Document File Upload
+  const handleAgreementUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const sizeStr = (file.size / (1024 * 1024)).toFixed(1) + ' MB';
+      const today = new Date().toISOString().split('T')[0];
+      setAgreementDocName(file.name);
+      setAgreementDocSize(sizeStr);
+      setAgreementDocDate(today);
+
+      setDeployedFleets(
+        deployedFleets.map((f) => ({
+          ...f,
+          agreementDocumentName: file.name,
+          agreementDocumentSize: sizeStr,
+          agreementUploadDate: today,
+        }))
+      );
+    }
+  };
+
+  const totalDeployedVehicles = deployedFleets.reduce((sum, f) => sum + (Number(f.vehicleCount) || 0), 0);
+  const totalMonthlyBilling = deployedFleets.reduce((sum, f) => sum + (Number(f.totalMonthlyBillingINR) || 0), 0);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -143,7 +224,7 @@ export const AddClientModal: React.FC = () => {
     const formattedContacts: ClientContact[] = contacts.map((c, idx) => ({
       id: c.id || `CON-${Date.now().toString().slice(-4)}-${idx + 1}`,
       name: c.name.trim() || `POC ${idx + 1}`,
-      designation: c.designation.trim() || 'Key Account Contact',
+      designation: c.designation.trim() || 'Key Contact Person',
       email: c.email.trim(),
       phone: c.phone.trim(),
       isPrimary: c.isPrimary,
@@ -151,7 +232,7 @@ export const AddClientModal: React.FC = () => {
 
     addClient({
       name: formData.name.trim(),
-      clientType: formData.clientType,
+      clientType: deployedFleets.length > 0 ? 'Existing Client' : formData.clientType,
       industry: formData.industry,
       segment: formData.segment,
       city: formData.city.trim(),
@@ -164,7 +245,11 @@ export const AddClientModal: React.FC = () => {
       accountOwner: formData.accountOwner,
       address: formData.address,
       contacts: formattedContacts,
-      notes: formData.notes || `Created in Master Directory on ${new Date().toISOString().slice(0, 10)}`,
+      deployedFleets: deployedFleets,
+      agreementDocumentName: agreementDocName,
+      agreementDocumentSize: agreementDocSize,
+      agreementUploadDate: agreementDocDate,
+      notes: formData.notes,
     });
 
     closeModal();
@@ -558,10 +643,461 @@ export const AddClientModal: React.FC = () => {
                   );
                 })}
               </div>
-            </div>
+            {/* ==========================================================================
+                Active Contracts, Deployed Fleet & Agreement Documents Section (Existing Business)
+                ========================================================================== */}
+            <div
+              style={{
+                marginTop: '22px',
+                padding: '16px',
+                background: '#ffffff',
+                border: '1.5px solid #cbd5e1',
+                borderRadius: '10px',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '10px',
+                  marginBottom: '14px',
+                  paddingBottom: '12px',
+                  borderBottom: '1px solid #e2e8f0',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div
+                    style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '8px',
+                      background: '#fef3c7',
+                      color: '#b45309',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Truck size={17} />
+                  </div>
+                  <div>
+                    <h4 style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+                      Existing Business: Deployed Fleets &amp; Contracts
+                    </h4>
+                    <p style={{ fontSize: '11.5px', color: '#64748b', margin: '2px 0 0 0' }}>
+                      Seater capacity fleets deployed at client site in different shift formats with commercials &amp; agreement
+                    </p>
+                  </div>
+                </div>
 
-            {/* Collapsible / Optional Fields Section */}
-            <div style={{ marginTop: '16px', borderTop: '1px dashed #e2e8f0', paddingTop: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  {deployedFleets.length > 0 && (
+                    <>
+                      <span
+                        className="pill-badge"
+                        style={{ background: '#e0f2fe', color: '#0284c7', fontWeight: 700, fontSize: '11.5px' }}
+                      >
+                        🚍 {totalDeployedVehicles} Total Fleets
+                      </span>
+                      <span
+                        className="pill-badge"
+                        style={{ background: '#dcfce7', color: '#15803d', fontWeight: 700, fontSize: '11.5px' }}
+                      >
+                        💰 ₹{(totalMonthlyBilling / 100000).toFixed(2)} L/mo Total
+                      </span>
+                    </>
+                  )}
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-xs"
+                    onClick={handleAddFleet}
+                    style={{
+                      background: '#0284c7',
+                      color: '#ffffff',
+                      border: 'none',
+                      fontWeight: 700,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                    }}
+                  >
+                    <Plus size={13} />
+                    <span>+ Add Deployed Fleet</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Master Agreement Document Upload Card */}
+              <div
+                style={{
+                  background: '#f8fafc',
+                  border: '1px dashed #94a3b8',
+                  borderRadius: '8px',
+                  padding: '12px 16px',
+                  marginBottom: '16px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div
+                      style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '6px',
+                        background: agreementDocName ? '#dcfce7' : '#e2e8f0',
+                        color: agreementDocName ? '#16a34a' : '#64748b',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Paperclip size={16} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#0f172a' }}>
+                        {agreementDocName ? (
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span>{agreementDocName}</span>
+                            <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: 600 }}>
+                              ✓ Uploaded ({agreementDocSize || 'Active'})
+                            </span>
+                          </span>
+                        ) : (
+                          'Upload Client Agreement / Contract Document'
+                        )}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#64748b' }}>
+                        {agreementDocDate ? `Uploaded on ${agreementDocDate} • PDF / Scanned Copy` : 'Upload signed MSA, Rate Card Addendum or Service Agreement'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <label
+                      className="btn btn-secondary btn-xs"
+                      style={{
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        fontWeight: 600,
+                        background: '#ffffff',
+                      }}
+                    >
+                      <Upload size={12} />
+                      <span>{agreementDocName ? 'Replace Document' : 'Upload Agreement (PDF)'}</span>
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+                        style={{ display: 'none' }}
+                        onChange={handleAgreementUpload}
+                      />
+                    </label>
+
+                    {agreementDocName && (
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-xs"
+                        onClick={() => alert(`Opening document preview for: ${agreementDocName}`)}
+                        title="View / Download Agreement"
+                        style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
+                      >
+                        <Download size={12} />
+                        <span>Preview</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Deployed Fleet List */}
+              {deployedFleets.length === 0 ? (
+                <div
+                  style={{
+                    padding: '24px 16px',
+                    textAlign: 'center',
+                    background: '#f8fafc',
+                    borderRadius: '8px',
+                    border: '1px solid #e2e8f0',
+                  }}
+                >
+                  <Truck size={28} style={{ color: '#94a3b8', margin: '0 auto 8px auto' }} />
+                  <p style={{ fontSize: '13px', fontWeight: 600, color: '#475569', margin: 0 }}>
+                    No deployed fleets recorded yet (Optional for new prospects)
+                  </p>
+                  <p style={{ fontSize: '11.5px', color: '#94a3b8', margin: '4px 0 12px 0' }}>
+                    If this is an existing client with deployed vehicles, click below to add seater capacity, shift formats &amp; commercials
+                  </p>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-xs"
+                    onClick={handleAddFleet}
+                    style={{ background: '#0284c7', color: '#ffffff', border: 'none', fontWeight: 700 }}
+                  >
+                    <Plus size={13} />
+                    <span>+ Add Deployed Fleet Contract</span>
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {deployedFleets.map((fleet, fIdx) => (
+                    <div
+                      key={fleet.id || fIdx}
+                      style={{
+                        padding: '14px 16px',
+                        background: '#f8fafc',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '8px',
+                        position: 'relative',
+                      }}
+                    >
+                      {/* Top Fleet Header */}
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          marginBottom: '12px',
+                          paddingBottom: '8px',
+                          borderBottom: '1px dashed #e2e8f0',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span
+                            style={{
+                              width: '22px',
+                              height: '22px',
+                              borderRadius: '50%',
+                              background: '#0284c7',
+                              color: '#ffffff',
+                              fontSize: '11px',
+                              fontWeight: 800,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                          >
+                            {fIdx + 1}
+                          </span>
+                          <span style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a' }}>
+                            {fleet.seaterCapacity} • {fleet.vehicleCount} {fleet.vehicleCount === 1 ? 'Vehicle' : 'Vehicles'}
+                          </span>
+                          <span
+                            className="pill-badge"
+                            style={{ background: '#e0f2fe', color: '#0369a1', fontSize: '10.5px', fontWeight: 700 }}
+                          >
+                            Billing: {fleet.billingFrequency}
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <span style={{ fontSize: '12.5px', fontWeight: 800, color: '#16a34a' }}>
+                            ₹{(fleet.totalMonthlyBillingINR || 0).toLocaleString('en-IN')} / mo
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveFleet(fIdx)}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              color: '#dc2626',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              fontSize: '11px',
+                              fontWeight: 600,
+                            }}
+                            title="Remove this deployed fleet"
+                          >
+                            <Trash2 size={13} />
+                            <span>Remove</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Row 1: Seater Capacity, Vehicle Count, Shift Format, Deployed Location */}
+                      <div className="form-grid-2" style={{ marginBottom: '10px' }}>
+                        <div className="form-group">
+                          <label style={{ fontSize: '11.5px', fontWeight: 700, color: '#334155' }}>
+                            Seater Capacity Fleet <span style={{ color: '#dc2626' }}>*</span>
+                          </label>
+                          <select
+                            className="form-control"
+                            style={{ fontWeight: 600 }}
+                            value={fleet.seaterCapacity}
+                            onChange={(e) => handleFleetChange(fIdx, 'seaterCapacity', e.target.value as FleetSeaterCapacity)}
+                          >
+                            {FLEET_SEATER_CAPACITIES.map((cap) => (
+                              <option key={cap} value={cap}>
+                                {cap}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="form-group">
+                          <label style={{ fontSize: '11.5px', fontWeight: 700, color: '#334155' }}>
+                            Deployed Quantity (Vehicles) <span style={{ color: '#dc2626' }}>*</span>
+                          </label>
+                          <input
+                            type="number"
+                            min={1}
+                            className="form-control"
+                            value={fleet.vehicleCount}
+                            onChange={(e) => handleFleetChange(fIdx, 'vehicleCount', Math.max(1, Number(e.target.value)))}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Row 2: Shift Format & Location */}
+                      <div className="form-grid-2" style={{ marginBottom: '10px' }}>
+                        <div className="form-group">
+                          <label style={{ fontSize: '11.5px', fontWeight: 700, color: '#334155' }}>
+                            Shift Format &amp; Roster <span style={{ color: '#dc2626' }}>*</span>
+                          </label>
+                          <div style={{ display: 'flex', gap: '4px' }}>
+                            <input
+                              type="text"
+                              className="form-control"
+                              placeholder="e.g. General Shift (9 AM - 6 PM)"
+                              value={fleet.shiftFormat}
+                              onChange={(e) => handleFleetChange(fIdx, 'shiftFormat', e.target.value)}
+                              list={`add-shift-presets-${fIdx}`}
+                            />
+                            <datalist id={`add-shift-presets-${fIdx}`}>
+                              {SHIFT_FORMAT_PRESETS.map((s) => (
+                                <option key={s} value={s} />
+                              ))}
+                            </datalist>
+                          </div>
+                        </div>
+
+                        <div className="form-group">
+                          <label style={{ fontSize: '11.5px', fontWeight: 700, color: '#334155' }}>
+                            Deployed Location / Client Plant / Hub
+                          </label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            placeholder="e.g. Pune Chakan Plant / Bengaluru Campus"
+                            value={fleet.location}
+                            onChange={(e) => handleFleetChange(fIdx, 'location', e.target.value)}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Row 3: Commercials & Billing Frequency */}
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+                          gap: '10px',
+                          marginBottom: '10px',
+                          background: '#ffffff',
+                          padding: '10px 12px',
+                          borderRadius: '6px',
+                          border: '1px solid #e2e8f0',
+                        }}
+                      >
+                        <div className="form-group">
+                          <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569' }}>
+                            Billing Frequency <span style={{ color: '#dc2626' }}>*</span>
+                          </label>
+                          <select
+                            className="form-control"
+                            style={{ fontWeight: 700, color: '#0284c7' }}
+                            value={fleet.billingFrequency}
+                            onChange={(e) => handleFleetChange(fIdx, 'billingFrequency', e.target.value as BillingFrequency)}
+                          >
+                            {BILLING_FREQUENCIES.map((freq) => (
+                              <option key={freq} value={freq}>
+                                {freq}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="form-group">
+                          <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569' }}>
+                            Monthly Rate / Vehicle (₹)
+                          </label>
+                          <input
+                            type="number"
+                            className="form-control"
+                            value={fleet.monthlyRatePerVehicleINR}
+                            onChange={(e) => handleFleetChange(fIdx, 'monthlyRatePerVehicleINR', Number(e.target.value))}
+                          />
+                        </div>
+
+                        <div className="form-group">
+                          <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569' }}>
+                            Total Monthly Billing (₹)
+                          </label>
+                          <input
+                            type="number"
+                            disabled
+                            className="form-control"
+                            style={{ background: '#f8fafc', fontWeight: 800, color: '#16a34a' }}
+                            value={fleet.totalMonthlyBillingINR}
+                          />
+                        </div>
+
+                        <div className="form-group">
+                          <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569' }}>
+                            Extra KM Rate (₹/KM)
+                          </label>
+                          <input
+                            type="number"
+                            className="form-control"
+                            value={fleet.extraKmRateINR || 0}
+                            onChange={(e) => handleFleetChange(fIdx, 'extraKmRateINR', Number(e.target.value))}
+                          />
+                        </div>
+
+                        <div className="form-group">
+                          <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569' }}>
+                            Extra Hr Rate (₹/Hr)
+                          </label>
+                          <input
+                            type="number"
+                            className="form-control"
+                            value={fleet.extraHourRateINR || 0}
+                            onChange={(e) => handleFleetChange(fIdx, 'extraHourRateINR', Number(e.target.value))}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Row 4: Dates & Status */}
+                      <div className="form-grid-2">
+                        <div className="form-group">
+                          <label style={{ fontSize: '11px', color: '#64748b' }}>Contract Start Date</label>
+                          <input
+                            type="date"
+                            className="form-control"
+                            value={fleet.contractStartDate || ''}
+                            onChange={(e) => handleFleetChange(fIdx, 'contractStartDate', e.target.value)}
+                          />
+                        </div>
+
+                        <div className="form-group">
+                          <label style={{ fontSize: '11px', color: '#64748b' }}>Contract End / Renewal Date</label>
+                          <input
+                            type="date"
+                            className="form-control"
+                            value={fleet.contractEndDate || ''}
+                            onChange={(e) => handleFleetChange(fIdx, 'contractEndDate', e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
               <button
                 type="button"
                 style={{

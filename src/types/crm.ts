@@ -12,6 +12,43 @@ export interface User {
   allowed_tabs: string[];
 }
 
+export type FleetSeaterCapacity =
+  | '17 Seater – Non AC'
+  | '17 Seater – AC'
+  | '32 Seater – Non AC'
+  | '32 Seater – AC'
+  | '40 Seater – Non AC'
+  | '40 Seater – AC'
+  | '50 Seater – Non AC'
+  | '50 Seater – AC'
+  | '17 Seater Urbania'
+  | '06 Seater – Ertiga'
+  | '06 Seater – Innova';
+
+export type BillingFrequency = 'Monthly' | 'Quarterly' | 'On call';
+
+export interface DeployedFleetContract {
+  id: string;
+  seaterCapacity: FleetSeaterCapacity;
+  vehicleCount: number;
+  shiftFormat: string; // e.g. 'General Shift (9 AM - 6 PM)', 'Morning Shift (6 AM - 2 PM)', '24/7 Rotational Roster (3 Shifts)'
+  location: string;
+  monthlyRatePerVehicleINR: number;
+  totalMonthlyBillingINR: number;
+  billingFrequency: BillingFrequency;
+  extraKmRateINR?: number;
+  extraHourRateINR?: number;
+  tollParking?: 'Inclusive' | 'Exclusive / At Actuals';
+  contractStartDate?: string;
+  contractEndDate?: string;
+  status: 'Active' | 'Under Renewal' | 'Expired' | 'Pending Signature';
+  agreementDocumentName?: string;
+  agreementDocumentSize?: string;
+  agreementDocumentUrl?: string;
+  agreementUploadDate?: string;
+  notes?: string;
+}
+
 export interface ClientContact {
   id: string;
   name: string;
@@ -43,6 +80,11 @@ export interface Client {
   address?: string;
   createdDate: string;
   contacts: ClientContact[];
+  deployedFleets?: DeployedFleetContract[];
+  agreementDocumentName?: string;
+  agreementDocumentSize?: string;
+  agreementDocumentUrl?: string;
+  agreementUploadDate?: string;
   notes?: string;
 }
 

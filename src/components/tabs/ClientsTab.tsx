@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import {
   Building2, Plus, FileSpreadsheet, Search, Phone, Mail, MapPin,
-  TrendingUp, Calendar, Trash2, Database, LayoutGrid, Table, Pencil, ShieldCheck
+  TrendingUp, Calendar, Trash2, Database, LayoutGrid, Table, Pencil,
+  ShieldCheck, Truck, Paperclip, Download, CheckCircle2, Clock, DollarSign
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { INDUSTRIES } from '../../utils/seedData';
@@ -18,7 +19,13 @@ export const ClientsTab: React.FC = () => {
   const effectiveSearch = (searchQuery || localSearch).toLowerCase();
 
   const filteredClients = clients.filter((c) => {
-    if (clientTypeFilter !== 'All' && c.clientType !== clientTypeFilter) return false;
+    if (clientTypeFilter !== 'All') {
+      if (clientTypeFilter === 'Existing Business') {
+        if (!c.deployedFleets || c.deployedFleets.length === 0) return false;
+      } else if (c.clientType !== clientTypeFilter) {
+        return false;
+      }
+    }
     if (industryFilter !== 'All' && c.industry !== industryFilter) return false;
     if (tierFilter !== 'All' && c.tier !== tierFilter) return false;
     if (effectiveSearch) {
@@ -27,13 +34,25 @@ export const ClientsTab: React.FC = () => {
       const matchCity = c.city.toLowerCase().includes(effectiveSearch);
       const matchOwner = c.accountOwner.toLowerCase().includes(effectiveSearch);
       const matchContact = c.contacts.some((ct) => ct.name.toLowerCase().includes(effectiveSearch));
-      return matchName || matchCode || matchCity || matchOwner || matchContact;
+      const matchFleet = c.deployedFleets?.some((f) =>
+        f.seaterCapacity.toLowerCase().includes(effectiveSearch) ||
+        f.shiftFormat.toLowerCase().includes(effectiveSearch) ||
+        f.billingFrequency.toLowerCase().includes(effectiveSearch)
+      );
+      return matchName || matchCode || matchCity || matchOwner || matchContact || matchFleet;
     }
     return true;
   });
 
-  const newClientsCount = clients.filter((c) => c.clientType === 'New Client').length;
-  const existingClientsCount = clients.filter((c) => c.clientType === 'Existing Client').length;
+  const totalDeployedFleetsAll = clients.reduce((sum, c) => {
+    return sum + (c.deployedFleets?.reduce((fSum, f) => fSum + (Number(f.vehicleCount) || 0), 0) || 0);
+  }, 0);
+
+  const totalMonthlyBillingAll = clients.reduce((sum, c) => {
+    return sum + (c.deployedFleets?.reduce((fSum, f) => fSum + (Number(f.totalMonthlyBillingINR) || 0), 0) || 0);
+  }, 0);
+
+  const clientsWithAgreementsCount = clients.filter((c) => !!c.agreementDocumentName).length;
 
   return (
     <section>
@@ -53,12 +72,11 @@ export const ClientsTab: React.FC = () => {
             Corporate Client Master Directory
           </h2>
           <p style={{ fontSize: '12.5px', color: '#64748b' }}>
-            Enterprise accounts • New client onboarding &amp; existing client relationship portfolio
+            Enterprise accounts • Active deployed fleets, shift formats, monthly commercials &amp; agreement documents
           </p>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          {/* Bulk Import Clients (CSV) Button */}
           <button
             type="button"
             className="btn btn-primary"
@@ -69,7 +87,7 @@ export const ClientsTab: React.FC = () => {
               alignItems: 'center',
               gap: '6px',
               fontWeight: 700,
-              boxShadow: '0 2px 4px rgba(16, 185, 129, 0.25)'
+              boxShadow: '0 2px 4px rgba(16, 185, 129, 0.25)',
             }}
             onClick={() => openModal('importClients')}
             title="Open Bulk Import Dialog to paste, preview and map columns"
@@ -78,71 +96,261 @@ export const ClientsTab: React.FC = () => {
             <span>📥 Bulk Import Clients (CSV)</span>
           </button>
 
-          <button className="btn btn-primary" onClick={() => openModal('addClient')}>
-            <Plus size={15} />
-            <span>+ Add Single Client</span>
-          </button>
-
-          <button className="btn btn-secondary" onClick={exportClients}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={exportClients}
+            title="Export full client database to CSV file"
+            style={{ display: 'flex', alignItems: 'center', gap: '5px' }}
+          >
             <FileSpreadsheet size={15} />
             <span>Export CSV</span>
+          </button>
+
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => openModal('addClient')}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Plus size={16} />
+            <span>+ Add Client</span>
           </button>
         </div>
       </div>
 
-      {/* Filter Toolbar with View Mode Switcher */}
-      <div className="filter-toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-        <div className="filter-group">
-          <div className="filter-item">
-            <Search size={14} style={{ color: '#64748b' }} />
-            <input
-              type="text"
-              placeholder="Filter by company, city, contact..."
-              value={localSearch}
-              onChange={(e) => setLocalSearch(e.target.value)}
-              style={{ width: '220px' }}
-            />
+      {/* KPI Stats & Existing Business Overview Bar */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: '12px',
+          marginBottom: '16px',
+        }}
+      >
+        <div
+          style={{
+            background: '#ffffff',
+            padding: '12px 16px',
+            borderRadius: 'var(--radius-md)',
+            border: '1px solid var(--border-light)',
+            boxShadow: 'var(--shadow-xs)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+          }}
+        >
+          <div
+            style={{
+              width: '38px',
+              height: '38px',
+              borderRadius: '8px',
+              background: '#e0f2fe',
+              color: '#0284c7',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Building2 size={18} />
           </div>
-
-          <div className="filter-item">
-            <label>Client Type:</label>
-            <select value={clientTypeFilter} onChange={(e) => setClientTypeFilter(e.target.value)}>
-              <option value="All">All Client Types ({clients.length})</option>
-              <option value="New Client">New Clients ({newClientsCount})</option>
-              <option value="Existing Client">Existing Clients ({existingClientsCount})</option>
-            </select>
-          </div>
-
-          <div className="filter-item">
-            <label>Industry:</label>
-            <select value={industryFilter} onChange={(e) => setIndustryFilter(e.target.value)}>
-              <option value="All">All Industries</option>
-              {INDUSTRIES.map((ind) => (
-                <option key={ind} value={ind}>
-                  {ind}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="filter-item">
-            <label>Client Tier:</label>
-            <select value={tierFilter} onChange={(e) => setTierFilter(e.target.value)}>
-              <option value="All">All Tiers</option>
-              <option value="Tier 1 (Enterprise)">Tier 1 (Enterprise)</option>
-              <option value="Tier 2 (Mid-Market)">Tier 2 (Mid-Market)</option>
-              <option value="Tier 3 (Emerging)">Tier 3 (Emerging)</option>
-            </select>
+          <div>
+            <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>
+              Total Clients
+            </div>
+            <div style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>
+              {clients.length} Accounts
+            </div>
           </div>
         </div>
 
-        {/* View Switcher (Table View vs Cards Grid View) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>
-            Showing {filteredClients.length} of {clients.length} Clients
-          </span>
+        <div
+          style={{
+            background: '#ffffff',
+            padding: '12px 16px',
+            borderRadius: 'var(--radius-md)',
+            border: '1px solid var(--border-light)',
+            boxShadow: 'var(--shadow-xs)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+          }}
+        >
+          <div
+            style={{
+              width: '38px',
+              height: '38px',
+              borderRadius: '8px',
+              background: '#fef3c7',
+              color: '#b45309',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Truck size={18} />
+          </div>
+          <div>
+            <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>
+              Deployed Fleets
+            </div>
+            <div style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>
+              {totalDeployedFleetsAll} Active Vehicles
+            </div>
+          </div>
+        </div>
 
-          <div style={{ display: 'flex', background: '#f1f5f9', padding: '3px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+        <div
+          style={{
+            background: '#ffffff',
+            padding: '12px 16px',
+            borderRadius: 'var(--radius-md)',
+            border: '1px solid var(--border-light)',
+            boxShadow: 'var(--shadow-xs)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+          }}
+        >
+          <div
+            style={{
+              width: '38px',
+              height: '38px',
+              borderRadius: '8px',
+              background: '#dcfce7',
+              color: '#15803d',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <DollarSign size={18} />
+          </div>
+          <div>
+            <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>
+              Monthly Commercials
+            </div>
+            <div style={{ fontSize: '18px', fontWeight: 800, color: '#16a34a' }}>
+              ₹{(totalMonthlyBillingAll / 100000).toFixed(2)} Lakhs / mo
+            </div>
+          </div>
+        </div>
+
+        <div
+          style={{
+            background: '#ffffff',
+            padding: '12px 16px',
+            borderRadius: 'var(--radius-md)',
+            border: '1px solid var(--border-light)',
+            boxShadow: 'var(--shadow-xs)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+          }}
+        >
+          <div
+            style={{
+              width: '38px',
+              height: '38px',
+              borderRadius: '8px',
+              background: '#f3e8ff',
+              color: '#7e22ce',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Paperclip size={18} />
+          </div>
+          <div>
+            <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>
+              Agreement Docs
+            </div>
+            <div style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>
+              {clientsWithAgreementsCount} Signed &amp; Active
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Filters & View Toggle Bar */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px',
+          marginBottom: '16px',
+          background: '#ffffff',
+          padding: '12px 18px',
+          borderRadius: 'var(--radius-lg)',
+          border: '1px solid var(--border-light)',
+          boxShadow: 'var(--shadow-xs)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', flex: 1 }}>
+          <div style={{ position: 'relative', minWidth: '220px' }}>
+            <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
+            <input
+              type="text"
+              placeholder="Search by client, fleet, shift, contact..."
+              className="form-control"
+              style={{ paddingLeft: '32px', fontSize: '12.5px', height: '34px' }}
+              value={localSearch}
+              onChange={(e) => setLocalSearch(e.target.value)}
+            />
+          </div>
+
+          <select
+            className="form-control"
+            style={{ width: 'auto', fontSize: '12.5px', height: '34px', fontWeight: 600 }}
+            value={clientTypeFilter}
+            onChange={(e) => setClientTypeFilter(e.target.value)}
+          >
+            <option value="All">All Client Types</option>
+            <option value="Existing Business">🚍 Existing Business &amp; Deployed Fleets</option>
+            <option value="Existing Client">✓ Existing Clients</option>
+            <option value="New Client">★ New Clients / Prospects</option>
+          </select>
+
+          <select
+            className="form-control"
+            style={{ width: 'auto', fontSize: '12.5px', height: '34px' }}
+            value={industryFilter}
+            onChange={(e) => setIndustryFilter(e.target.value)}
+          >
+            <option value="All">All Industries</option>
+            {INDUSTRIES.map((ind) => (
+              <option key={ind} value={ind}>
+                {ind}
+              </option>
+            ))}
+          </select>
+
+          <select
+            className="form-control"
+            style={{ width: 'auto', fontSize: '12.5px', height: '34px' }}
+            value={tierFilter}
+            onChange={(e) => setTierFilter(e.target.value)}
+          >
+            <option value="All">All Tiers</option>
+            <option value="Tier 1 (Enterprise)">Tier 1 (Enterprise)</option>
+            <option value="Tier 2 (Mid-Market)">Tier 2 (Mid-Market)</option>
+            <option value="Tier 3 (Emerging)">Tier 3 (Emerging)</option>
+          </select>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div
+            style={{
+              display: 'flex',
+              background: '#f1f5f9',
+              borderRadius: '8px',
+              padding: '2px',
+              border: '1px solid #e2e8f0',
+            }}
+          >
             <button
               type="button"
               onClick={() => setViewMode('table')}
@@ -163,7 +371,7 @@ export const ClientsTab: React.FC = () => {
               }}
             >
               <Table size={14} />
-              <span>Table View</span>
+              <span>Table</span>
             </button>
             <button
               type="button"
@@ -185,7 +393,7 @@ export const ClientsTab: React.FC = () => {
               }}
             >
               <LayoutGrid size={14} />
-              <span>Cards Grid</span>
+              <span>Cards</span>
             </button>
           </div>
         </div>
@@ -198,7 +406,7 @@ export const ClientsTab: React.FC = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Building2 size={16} style={{ color: '#0284c7' }} />
               <span style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a' }}>
-                Corporate Client Directory Master Table
+                Corporate Client Directory
               </span>
               <span className="pill-badge" style={{ background: '#e0f2fe', color: '#0369a1', fontWeight: 700 }}>
                 {filteredClients.length} Records
@@ -214,29 +422,28 @@ export const ClientsTab: React.FC = () => {
             </button>
           </div>
 
-          <div className="table-responsive" style={{ maxHeight: '620px', overflowY: 'auto' }}>
+          <div className="table-responsive" style={{ maxHeight: '640px', overflowY: 'auto' }}>
             <table className="data-table">
               <thead>
                 <tr>
-                  <th style={{ width: '100px' }}>Client Code</th>
-                  <th style={{ minWidth: '180px' }}>Client Name</th>
+                  <th style={{ width: '95px' }}>Client Code</th>
+                  <th style={{ minWidth: '160px' }}>Client Name</th>
                   <th>Type</th>
                   <th>Industry</th>
-                  <th>Segment</th>
-                  <th>City &amp; Region</th>
-                  <th>Status</th>
-                  <th>Account Owner</th>
+                  <th>City &amp; Hub</th>
+                  <th style={{ minWidth: '220px' }}>Deployed Fleets &amp; Shifts</th>
+                  <th style={{ minWidth: '160px' }}>Commercials &amp; Billing</th>
+                  <th style={{ minWidth: '160px' }}>Agreement Document</th>
                   <th style={{ minWidth: '150px' }}>Primary Contact</th>
-                  <th style={{ minWidth: '160px' }}>Contact Info</th>
-                  <th>Tier</th>
-                  <th>Turnover</th>
-                  <th style={{ textAlign: 'center', minWidth: '180px' }}>Actions</th>
+                  <th style={{ minWidth: '150px' }}>Contact Info</th>
+                  <th>BD Owner</th>
+                  <th style={{ textAlign: 'center', minWidth: '160px' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredClients.length === 0 ? (
                   <tr>
-                    <td colSpan={13} style={{ textAlign: 'center', padding: '36px', color: '#64748b' }}>
+                    <td colSpan={12} style={{ textAlign: 'center', padding: '36px', color: '#64748b' }}>
                       No corporate clients found matching the selected filters.
                     </td>
                   </tr>
@@ -246,6 +453,9 @@ export const ClientsTab: React.FC = () => {
                       client.contacts.find((c) => c.isPrimary) || client.contacts[0] || { name: 'N/A', designation: '', email: '', phone: '' };
                     const otherContacts = client.contacts.filter((c) => c !== primaryContact);
                     const isNew = client.clientType === 'New Client';
+                    const fleets = client.deployedFleets || [];
+                    const totalVehicles = fleets.reduce((sum, f) => sum + (Number(f.vehicleCount) || 0), 0);
+                    const totalMonthly = fleets.reduce((sum, f) => sum + (Number(f.totalMonthlyBillingINR) || 0), 0);
 
                     return (
                       <tr key={client.id} style={{ transition: 'background 0.15s' }}>
@@ -272,6 +482,7 @@ export const ClientsTab: React.FC = () => {
                           >
                             {client.name}
                           </div>
+                          <div style={{ fontSize: '11px', color: '#64748b' }}>{client.segment}</div>
                         </td>
                         <td>
                           <span
@@ -291,37 +502,87 @@ export const ClientsTab: React.FC = () => {
                           <span style={{ fontSize: '11.5px', color: '#475569' }}>{client.industry}</span>
                         </td>
                         <td>
-                          <span
-                            className="pill-badge"
-                            style={{ background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', fontSize: '11px' }}
-                          >
-                            {client.segment}
-                          </span>
-                        </td>
-                        <td>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px' }}>
                             <MapPin size={11} style={{ color: '#64748b' }} />
-                            <span>{client.city}, {client.region}</span>
+                            <span>{client.city}</span>
                           </div>
                         </td>
+
+                        {/* Deployed Fleets & Shifts Column */}
                         <td>
-                          <span
-                            className="pill-badge"
-                            style={{
-                              background: client.status === 'Active' ? '#ecfdf5' : '#fef3c7',
-                              color: client.status === 'Active' ? '#047857' : '#b45309',
-                              fontWeight: 700,
-                              fontSize: '11px',
-                            }}
-                          >
-                            {client.status || 'Active'}
-                          </span>
+                          {fleets.length === 0 ? (
+                            <span style={{ fontSize: '11px', color: '#94a3b8' }}>No active fleet</span>
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span className="pill-badge" style={{ background: '#fef3c7', color: '#b45309', fontWeight: 800, fontSize: '10.5px' }}>
+                                  🚍 {totalVehicles} Vehicles
+                                </span>
+                                <span style={{ fontSize: '11px', color: '#64748b' }}>
+                                  ({fleets.length} {fleets.length === 1 ? 'Roster' : 'Rosters'})
+                                </span>
+                              </div>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px' }}>
+                                {fleets.map((f, fIdx) => (
+                                  <span
+                                    key={fIdx}
+                                    className="pill-badge"
+                                    style={{ background: '#f1f5f9', color: '#334155', fontSize: '9.5px', padding: '1px 5px' }}
+                                    title={`${f.seaterCapacity} (${f.vehicleCount} units) - ${f.shiftFormat} - Billing: ${f.billingFrequency}`}
+                                  >
+                                    {f.seaterCapacity.replace(' Seater', 'S')} (x{f.vehicleCount})
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </td>
+
+                        {/* Commercials & Billing Frequency Column */}
                         <td>
-                          <strong style={{ fontSize: '12px', color: '#0f172a' }}>{client.accountOwner}</strong>
+                          {totalMonthly > 0 ? (
+                            <div>
+                              <div style={{ fontSize: '12px', fontWeight: 800, color: '#16a34a' }}>
+                                ₹{totalMonthly.toLocaleString('en-IN')} / mo
+                              </div>
+                              <div style={{ fontSize: '10.5px', color: '#0284c7', fontWeight: 600 }}>
+                                Billing: {fleets[0]?.billingFrequency || 'Monthly'}
+                              </div>
+                            </div>
+                          ) : (
+                            <span style={{ fontSize: '11px', color: '#94a3b8' }}>On quotation</span>
+                          )}
                         </td>
+
+                        {/* Agreement Document Column */}
                         <td>
-                          {/* Primary Contact & Designation */}
+                          {client.agreementDocumentName ? (
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                background: '#f0fdf4',
+                                border: '1px solid #bbf7d0',
+                                padding: '3px 7px',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                              }}
+                              onClick={() => alert(`Opening agreement: ${client.agreementDocumentName}`)}
+                              title="Click to preview/download agreement"
+                            >
+                              <Paperclip size={12} style={{ color: '#16a34a' }} />
+                              <span style={{ fontSize: '11px', fontWeight: 700, color: '#16a34a', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {client.agreementDocumentName}
+                              </span>
+                            </div>
+                          ) : (
+                            <span style={{ fontSize: '11px', color: '#94a3b8' }}>Pending Upload</span>
+                          )}
+                        </td>
+
+                        {/* Primary Contact */}
+                        <td>
                           <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '12px' }}>
                             {primaryContact.name}
                           </div>
@@ -330,27 +591,21 @@ export const ClientsTab: React.FC = () => {
                               {primaryContact.designation}
                             </div>
                           )}
-
-                          {/* Multiple POCs indicator */}
                           {otherContacts.length > 0 && (
-                            <div style={{ marginTop: '4px' }}>
+                            <div style={{ marginTop: '2px' }}>
                               <span
                                 className="pill-badge"
-                                style={{
-                                  background: '#f1f5f9',
-                                  color: '#475569',
-                                  fontSize: '10px',
-                                  cursor: 'pointer',
-                                  border: '1px solid #cbd5e1',
-                                }}
+                                style={{ background: '#f1f5f9', color: '#475569', fontSize: '9.5px', cursor: 'pointer' }}
                                 onClick={() => openModal('editClient', { clientId: client.id })}
                                 title={otherContacts.map((c) => `${c.name} (${c.designation})`).join('\n')}
                               >
-                                +{otherContacts.length} more POC{otherContacts.length > 1 ? 's' : ''}
+                                +{otherContacts.length} more POCs
                               </span>
                             </div>
                           )}
                         </td>
+
+                        {/* Contact Info */}
                         <td>
                           {primaryContact.phone && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#475569', marginBottom: '2px' }}>
@@ -365,29 +620,18 @@ export const ClientsTab: React.FC = () => {
                             </div>
                           )}
                         </td>
+
                         <td>
-                          <span
-                            className="pill-badge"
-                            style={{
-                              background: client.tier.includes('Tier 1') ? '#fef3c7' : '#f1f5f9',
-                              color: client.tier.includes('Tier 1') ? '#b45309' : '#475569',
-                              fontWeight: 700,
-                              fontSize: '10.5px',
-                            }}
-                          >
-                            {client.tier.split(' ')[0]}
-                          </span>
+                          <strong style={{ fontSize: '11.5px', color: '#0f172a' }}>{client.accountOwner}</strong>
                         </td>
-                        <td style={{ fontSize: '11.5px', fontWeight: 600, color: '#0f172a' }}>
-                          ₹{client.turnoverCr} Cr
-                        </td>
+
+                        {/* Actions */}
                         <td>
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
-                            {/* Edit Button */}
                             <button
                               className="btn btn-secondary btn-xs"
                               style={{ color: '#0284c7', background: '#f0f9ff', borderColor: '#bae6fd' }}
-                              title="Edit Client Master & POCs"
+                              title="Edit Client Master, Fleets & Agreement"
                               onClick={() => openModal('editClient', { clientId: client.id })}
                             >
                               <Pencil size={11} />
@@ -399,15 +643,13 @@ export const ClientsTab: React.FC = () => {
                               onClick={() => openModal('addOpportunity', { clientId: client.id })}
                             >
                               <TrendingUp size={11} style={{ color: '#16a34a' }} />
-                              <span>+ Opp</span>
                             </button>
                             <button
                               className="btn btn-secondary btn-xs"
-                              title="Log Engagement Meeting"
+                              title="Log Meeting"
                               onClick={() => openModal('addActivity', { clientId: client.id, clientType: client.clientType })}
                             >
                               <Calendar size={11} style={{ color: '#0284c7' }} />
-                              <span>+ Log</span>
                             </button>
                             <button
                               className="btn btn-secondary btn-xs"
@@ -438,7 +680,7 @@ export const ClientsTab: React.FC = () => {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(370px, 1fr))',
             gap: '18px',
             marginBottom: '24px',
           }}
@@ -446,6 +688,9 @@ export const ClientsTab: React.FC = () => {
           {filteredClients.map((client) => {
             const isNew = client.clientType === 'New Client';
             const contactsList = client.contacts && client.contacts.length > 0 ? client.contacts : [];
+            const fleets = client.deployedFleets || [];
+            const totalVehicles = fleets.reduce((sum, f) => sum + (Number(f.vehicleCount) || 0), 0);
+            const totalMonthly = fleets.reduce((sum, f) => sum + (Number(f.totalMonthlyBillingINR) || 0), 0);
 
             return (
               <div
@@ -462,30 +707,19 @@ export const ClientsTab: React.FC = () => {
                 }}
               >
                 <div>
-                  {/* Header with New Client vs Existing Client badge */}
+                  {/* Header */}
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '10px' }}>
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <h3
                           style={{ fontSize: '15px', fontWeight: 700, color: '#0f172a', cursor: 'pointer' }}
                           onClick={() => openModal('editClient', { clientId: client.id })}
-                          title="Click to edit client"
                         >
                           {client.name}
                         </h3>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '3px' }}>
-                        <span
-                          style={{
-                            fontFamily: 'var(--font-mono)',
-                            fontSize: '11px',
-                            color: '#0284c7',
-                            fontWeight: 700,
-                            background: '#e0f2fe',
-                            padding: '1px 6px',
-                            borderRadius: '4px',
-                          }}
-                        >
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#0284c7', fontWeight: 700, background: '#e0f2fe', padding: '1px 6px', borderRadius: '4px' }}>
                           {client.code}
                         </span>
                         <span
@@ -497,7 +731,7 @@ export const ClientsTab: React.FC = () => {
                             fontWeight: 700,
                           }}
                         >
-                          {isNew ? '★ New Client' : '✓ Existing Client'}
+                          {isNew ? '★ New' : '✓ Existing'}
                         </span>
                       </div>
                     </div>
@@ -513,11 +747,10 @@ export const ClientsTab: React.FC = () => {
                       >
                         {client.tier.split(' ')[0]}
                       </span>
-                      {/* Quick Edit button on Card Header */}
                       <button
                         className="btn btn-secondary btn-xs"
                         style={{ padding: '3px 6px', color: '#0284c7' }}
-                        title="Edit Client Master & POCs"
+                        title="Edit Client Master & Fleets"
                         onClick={() => openModal('editClient', { clientId: client.id })}
                       >
                         <Pencil size={11} />
@@ -526,7 +759,7 @@ export const ClientsTab: React.FC = () => {
                   </div>
 
                   {/* Details pills */}
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '14px' }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' }}>
                     <span className="pill-badge" style={{ background: '#f8fafc', color: '#475569', border: '1px solid #e2e8f0' }}>
                       {client.industry}
                     </span>
@@ -538,6 +771,86 @@ export const ClientsTab: React.FC = () => {
                     </span>
                   </div>
 
+                  {/* Existing Business: Deployed Fleets Card Section */}
+                  {fleets.length > 0 && (
+                    <div
+                      style={{
+                        background: '#fefce8',
+                        border: '1px solid #fef08a',
+                        borderRadius: '8px',
+                        padding: '10px 12px',
+                        marginBottom: '12px',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', borderBottom: '1px dashed #fde047', paddingBottom: '4px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Truck size={13} style={{ color: '#b45309' }} />
+                          <span style={{ fontSize: '11px', fontWeight: 800, color: '#854d0e', textTransform: 'uppercase' }}>
+                            Deployed Fleets ({totalVehicles} Vehicles)
+                          </span>
+                        </div>
+                        <span style={{ fontSize: '11.5px', fontWeight: 800, color: '#16a34a' }}>
+                          ₹{totalMonthly.toLocaleString('en-IN')}/mo
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                        {fleets.map((f, fIdx) => (
+                          <div
+                            key={fIdx}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              fontSize: '11.5px',
+                              background: '#ffffff',
+                              padding: '4px 8px',
+                              borderRadius: '4px',
+                              border: '1px solid #fef08a',
+                            }}
+                          >
+                            <div>
+                              <strong style={{ color: '#0f172a' }}>{f.seaterCapacity}</strong>
+                              <span style={{ color: '#b45309', fontWeight: 700, marginLeft: '4px' }}>x{f.vehicleCount}</span>
+                              <div style={{ fontSize: '10.5px', color: '#64748b' }}>{f.shiftFormat}</div>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                              <div style={{ fontWeight: 700, color: '#16a34a' }}>₹{f.totalMonthlyBillingINR.toLocaleString('en-IN')}</div>
+                              <span className="pill-badge" style={{ background: '#e0f2fe', color: '#0369a1', fontSize: '9px', padding: '0 4px' }}>
+                                {f.billingFrequency}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Agreement Document link */}
+                      {client.agreementDocumentName && (
+                        <div
+                          style={{
+                            marginTop: '6px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            background: '#f0fdf4',
+                            border: '1px solid #bbf7d0',
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            fontSize: '11px',
+                            cursor: 'pointer',
+                          }}
+                          onClick={() => alert(`Opening agreement: ${client.agreementDocumentName}`)}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#16a34a', fontWeight: 700 }}>
+                            <Paperclip size={11} />
+                            <span>{client.agreementDocumentName}</span>
+                          </div>
+                          <span style={{ color: '#15803d', fontSize: '10px' }}>📄 Valid Agreement</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Points of Contact (POCs) Box with multiple contacts */}
                   <div
                     style={{
@@ -545,7 +858,7 @@ export const ClientsTab: React.FC = () => {
                       border: '1px solid #f1f5f9',
                       borderRadius: '8px',
                       padding: '10px 12px',
-                      marginBottom: '14px',
+                      marginBottom: '12px',
                       fontSize: '12px',
                     }}
                   >
@@ -590,22 +903,12 @@ export const ClientsTab: React.FC = () => {
                             {contact.email && (
                               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                 <Mail size={10} style={{ color: '#0284c7' }} />
-                                <span>{contact.email}</span>
+                                <span style={{ wordBreak: 'break-all' }}>{contact.email}</span>
                               </div>
                             )}
                           </div>
                         </div>
                       ))}
-                    </div>
-                  </div>
-
-                  {/* Account Owner & Turnover */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11.5px', color: '#64748b', marginBottom: '14px' }}>
-                    <div>
-                      BD Owner: <strong style={{ color: '#0f172a' }}>{client.accountOwner}</strong>
-                    </div>
-                    <div>
-                      Turnover: <strong style={{ color: '#0f172a' }}>₹{client.turnoverCr} Cr</strong>
                     </div>
                   </div>
                 </div>
@@ -657,4 +960,3 @@ export const ClientsTab: React.FC = () => {
     </section>
   );
 };
-
