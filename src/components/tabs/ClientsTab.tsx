@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Building2, Plus, FileSpreadsheet, Search, Phone, Mail, MapPin,
-  Users, TrendingUp, Calendar, Trash2, Tag, UserCheck, Sparkles
+  Users, TrendingUp, Calendar, Trash2, Tag, UserCheck, Sparkles, Upload, Database
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { INDUSTRIES } from '../../utils/seedData';
@@ -57,13 +57,21 @@ export const ClientsTab: React.FC = () => {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button
+            className="btn btn-primary"
+            style={{ background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none' }}
+            onClick={() => openModal('importClients')}
+          >
+            <Upload size={15} />
+            <span>📥 Bulk Import Clients (CSV)</span>
+          </button>
           <button className="btn btn-primary" onClick={() => openModal('addClient')}>
             <Plus size={15} />
-            <span>+ Add New Client</span>
+            <span>+ Add Single Client</span>
           </button>
           <button className="btn btn-secondary" onClick={exportClients}>
             <FileSpreadsheet size={15} />
-            <span>Export Clients CSV</span>
+            <span>Export CSV</span>
           </button>
         </div>
       </div>

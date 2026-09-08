@@ -15,6 +15,7 @@ import { DelegationMatrixModal } from './DelegationMatrixModal';
 import { EditTeamModal } from './EditTeamModal';
 import { ApprovalModal } from './ApprovalModal';
 import { DealInceptionModal } from './DealInceptionModal';
+import { ImportClientsModal } from './ImportClientsModal';
 
 export const GlobalModals: React.FC = () => {
   const { activeModal } = useCRM();
@@ -24,6 +25,8 @@ export const GlobalModals: React.FC = () => {
   switch (activeModal.type) {
     case 'addClient':
       return <AddClientModal />;
+    case 'importClients':
+      return <ImportClientsModal />;
     case 'addOpportunity':
       return <AddOpportunityModal />;
     case 'addActivity':

@@ -39,6 +39,7 @@ interface CRMContextType {
   // CRM Entities
   clients: Client[];
   addClient: (client: Omit<Client, 'id' | 'code' | 'createdDate'>) => void;
+  importClients: (newClients: Client[], replaceExisting?: boolean) => void;
   updateClient: (id: string, client: Partial<Client>) => void;
   deleteClient: (id: string) => void;
 
@@ -202,6 +203,23 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdDate: new Date().toISOString().slice(0, 10),
     };
     setClients(prev => [client, ...prev]);
+  };
+
+  const importClients = (importedList: Client[], replaceExisting: boolean = false) => {
+    if (replaceExisting) {
+      setClients(importedList);
+    } else {
+      setClients(prev => {
+        // Merge or append: if code exists update, otherwise append
+        const existingCodes = new Set(prev.map(c => c.code || c.id));
+        const newOnes = importedList.filter(c => !existingCodes.has(c.code || c.id));
+        const updatedList = prev.map(existing => {
+          const match = importedList.find(c => (c.code || c.id) === (existing.code || existing.id));
+          return match ? { ...existing, ...match } : existing;
+        });
+        return [...newOnes, ...updatedList];
+      });
+    }
   };
 
   const updateClient = (id: string, updated: Partial<Client>) => {
@@ -500,6 +518,7 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setSearchQuery,
         clients,
         addClient,
+        importClients,
         updateClient,
         deleteClient,
         opportunities,
