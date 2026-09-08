@@ -58,7 +58,10 @@ class CRMApplication {
   async loadAuthUser() {
     try {
       const res = await fetch('/api/auth/permissions', { credentials: 'same-origin' });
-      if (res.status === 401) { window.location.href = '/login.html'; return; }
+      if (res.status === 401) {
+        console.info('Running in standalone / demo mode');
+        return;
+      }
       if (!res.ok) return;
       const data = await res.json();
       if (data.success) {
