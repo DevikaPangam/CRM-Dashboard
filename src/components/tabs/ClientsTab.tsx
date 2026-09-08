@@ -244,6 +244,7 @@ export const ClientsTab: React.FC = () => {
                   filteredClients.map((client) => {
                     const primaryContact =
                       client.contacts.find((c) => c.isPrimary) || client.contacts[0] || { name: 'N/A', designation: '', email: '', phone: '' };
+                    const otherContacts = client.contacts.filter((c) => c !== primaryContact);
                     const isNew = client.clientType === 'New Client';
 
                     return (
@@ -320,14 +321,39 @@ export const ClientsTab: React.FC = () => {
                           <strong style={{ fontSize: '12px', color: '#0f172a' }}>{client.accountOwner}</strong>
                         </td>
                         <td>
-                          <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '12px' }}>{primaryContact.name}</div>
+                          {/* Primary Contact & Designation */}
+                          <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '12px' }}>
+                            {primaryContact.name}
+                          </div>
                           {primaryContact.designation && (
-                            <span style={{ fontSize: '10.5px', color: '#64748b' }}>{primaryContact.designation}</span>
+                            <div style={{ fontSize: '11px', color: '#0284c7', fontWeight: 600 }}>
+                              {primaryContact.designation}
+                            </div>
+                          )}
+
+                          {/* Multiple POCs indicator */}
+                          {otherContacts.length > 0 && (
+                            <div style={{ marginTop: '4px' }}>
+                              <span
+                                className="pill-badge"
+                                style={{
+                                  background: '#f1f5f9',
+                                  color: '#475569',
+                                  fontSize: '10px',
+                                  cursor: 'pointer',
+                                  border: '1px solid #cbd5e1',
+                                }}
+                                onClick={() => openModal('editClient', { clientId: client.id })}
+                                title={otherContacts.map((c) => `${c.name} (${c.designation})`).join('\n')}
+                              >
+                                +{otherContacts.length} more POC{otherContacts.length > 1 ? 's' : ''}
+                              </span>
+                            </div>
                           )}
                         </td>
                         <td>
                           {primaryContact.phone && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#475569' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#475569', marginBottom: '2px' }}>
                               <Phone size={10} style={{ color: '#0284c7' }} />
                               <span>{primaryContact.phone}</span>
                             </div>
@@ -335,7 +361,7 @@ export const ClientsTab: React.FC = () => {
                           {primaryContact.email && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#0284c7' }}>
                               <Mail size={10} />
-                              <span>{primaryContact.email}</span>
+                              <span style={{ wordBreak: 'break-all' }}>{primaryContact.email}</span>
                             </div>
                           )}
                         </td>
@@ -361,7 +387,7 @@ export const ClientsTab: React.FC = () => {
                             <button
                               className="btn btn-secondary btn-xs"
                               style={{ color: '#0284c7', background: '#f0f9ff', borderColor: '#bae6fd' }}
-                              title="Edit Client Master Record"
+                              title="Edit Client Master & POCs"
                               onClick={() => openModal('editClient', { clientId: client.id })}
                             >
                               <Pencil size={11} />
@@ -412,16 +438,14 @@ export const ClientsTab: React.FC = () => {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))',
             gap: '18px',
             marginBottom: '24px',
           }}
         >
           {filteredClients.map((client) => {
-            const primaryContact =
-              client.contacts.find((c) => c.isPrimary) || client.contacts[0] || { name: 'N/A', designation: '', email: '', phone: '' };
-
             const isNew = client.clientType === 'New Client';
+            const contactsList = client.contacts && client.contacts.length > 0 ? client.contacts : [];
 
             return (
               <div
@@ -493,7 +517,7 @@ export const ClientsTab: React.FC = () => {
                       <button
                         className="btn btn-secondary btn-xs"
                         style={{ padding: '3px 6px', color: '#0284c7' }}
-                        title="Edit Client Master Record"
+                        title="Edit Client Master & POCs"
                         onClick={() => openModal('editClient', { clientId: client.id })}
                       >
                         <Pencil size={11} />
@@ -514,7 +538,7 @@ export const ClientsTab: React.FC = () => {
                     </span>
                   </div>
 
-                  {/* Contact box */}
+                  {/* Points of Contact (POCs) Box with multiple contacts */}
                   <div
                     style={{
                       background: '#f8fafc',
@@ -525,21 +549,54 @@ export const ClientsTab: React.FC = () => {
                       fontSize: '12px',
                     }}
                   >
-                    <div style={{ fontWeight: 600, color: '#0f172a', marginBottom: '4px' }}>
-                      {primaryContact.name} <span style={{ color: '#64748b', fontWeight: 400 }}>• {primaryContact.designation}</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', borderBottom: '1px solid #e2e8f0', paddingBottom: '4px' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                        Points of Contact ({contactsList.length})
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => openModal('editClient', { clientId: client.id })}
+                        style={{ background: 'transparent', border: 'none', color: '#0284c7', fontSize: '11px', fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                      >
+                        + Manage POCs
+                      </button>
                     </div>
-                    {primaryContact.phone && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#475569', marginBottom: '2px' }}>
-                        <Phone size={12} style={{ color: '#0284c7' }} />
-                        <span>{primaryContact.phone}</span>
-                      </div>
-                    )}
-                    {primaryContact.email && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#475569' }}>
-                        <Mail size={12} style={{ color: '#0284c7' }} />
-                        <span>{primaryContact.email}</span>
-                      </div>
-                    )}
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {contactsList.map((contact, cIdx) => (
+                        <div key={contact.id || cIdx} style={{ paddingBottom: cIdx < contactsList.length - 1 ? '6px' : '0', borderBottom: cIdx < contactsList.length - 1 ? '1px dashed #e2e8f0' : 'none' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2px' }}>
+                            <div style={{ fontWeight: 700, color: '#0f172a' }}>
+                              {contact.name}
+                            </div>
+                            {contact.isPrimary && (
+                              <span className="pill-badge" style={{ background: '#e0f2fe', color: '#0369a1', fontSize: '9.5px', padding: '1px 5px' }}>
+                                Primary
+                              </span>
+                            )}
+                          </div>
+                          {contact.designation && (
+                            <div style={{ fontSize: '11px', color: '#0284c7', fontWeight: 600, marginBottom: '2px' }}>
+                              {contact.designation}
+                            </div>
+                          )}
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', fontSize: '11px', color: '#475569', marginTop: '2px' }}>
+                            {contact.phone && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <Phone size={10} style={{ color: '#0284c7' }} />
+                                <span>{contact.phone}</span>
+                              </div>
+                            )}
+                            {contact.email && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <Mail size={10} style={{ color: '#0284c7' }} />
+                                <span>{contact.email}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
                   {/* Account Owner & Turnover */}
