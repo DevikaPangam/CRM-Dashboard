@@ -4,20 +4,20 @@ import {
   Moon, Sun, Compass, Sparkles, CheckCircle2, Eye
 } from 'lucide-react';
 
-type EmbedTheme = 'dark' | 'light' | 'native' | 'standard';
+type EmbedTheme = 'light' | 'dark' | 'native' | 'standard';
 
 export const ProposalCalculatorTab: React.FC = () => {
   const [iframeKey, setIframeKey] = useState<number>(Date.now());
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [themeMode, setThemeMode] = useState<EmbedTheme>('dark'); // 'dark' forces crisp white fonts & high contrast for dark sidebars
+  const [themeMode, setThemeMode] = useState<EmbedTheme>('light'); // 'light' forces solid black font colors on buttons and inputs
 
   const getEmbedUrl = (mode: EmbedTheme) => {
     switch (mode) {
-      case 'dark':
-        return 'https://proposal-formula-rispl.streamlit.app/?embed=true&embed_options=dark_theme';
       case 'light':
         return 'https://proposal-formula-rispl.streamlit.app/?embed=true&embed_options=light_theme';
+      case 'dark':
+        return 'https://proposal-formula-rispl.streamlit.app/?embed=true&embed_options=dark_theme';
       case 'native':
         return 'https://proposal-formula-rispl.streamlit.app/?embedded=true';
       case 'standard':
@@ -121,37 +121,13 @@ export const ProposalCalculatorTab: React.FC = () => {
           >
             <button
               type="button"
-              onClick={() => handleThemeChange('dark')}
-              title="High-Contrast Dark Theme (Fixes dark-on-dark font readability)"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                padding: '4px 9px',
-                fontSize: '11.5px',
-                fontWeight: 700,
-                borderRadius: '6px',
-                border: 'none',
-                cursor: 'pointer',
-                background: themeMode === 'dark' ? '#0f172a' : 'transparent',
-                color: themeMode === 'dark' ? '#ffffff' : '#475569',
-                boxShadow: themeMode === 'dark' ? '0 1px 3px rgba(0,0,0,0.15)' : 'none',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <Moon size={12} style={{ color: themeMode === 'dark' ? '#38bdf8' : '#64748b' }} />
-              <span>Dark (High Contrast)</span>
-            </button>
-
-            <button
-              type="button"
               onClick={() => handleThemeChange('light')}
-              title="Light Theme"
+              title="Light Theme - Solid Black Font Color on Buttons & Options"
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '5px',
-                padding: '4px 9px',
+                padding: '4px 10px',
                 fontSize: '11.5px',
                 fontWeight: 700,
                 borderRadius: '6px',
@@ -164,7 +140,31 @@ export const ProposalCalculatorTab: React.FC = () => {
               }}
             >
               <Sun size={12} style={{ color: themeMode === 'light' ? '#f59e0b' : '#64748b' }} />
-              <span>Light</span>
+              <span>☀️ Light (Black Fonts)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleThemeChange('dark')}
+              title="Dark Theme - White Font Color"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '4px 10px',
+                fontSize: '11.5px',
+                fontWeight: 700,
+                borderRadius: '6px',
+                border: 'none',
+                cursor: 'pointer',
+                background: themeMode === 'dark' ? '#0f172a' : 'transparent',
+                color: themeMode === 'dark' ? '#ffffff' : '#475569',
+                boxShadow: themeMode === 'dark' ? '0 1px 3px rgba(0,0,0,0.15)' : 'none',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <Moon size={12} style={{ color: themeMode === 'dark' ? '#38bdf8' : '#64748b' }} />
+              <span>🌙 Dark (White Fonts)</span>
             </button>
 
             <button
