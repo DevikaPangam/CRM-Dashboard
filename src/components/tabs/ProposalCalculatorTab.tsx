@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Calculator, ExternalLink, RotateCcw, Maximize2, Minimize2,
-  Sparkles, ShieldCheck, CheckCircle2, FileSpreadsheet
+  Sparkles, CheckCircle2, AlertCircle
 } from 'lucide-react';
 
 export const ProposalCalculatorTab: React.FC = () => {
@@ -9,7 +9,18 @@ export const ProposalCalculatorTab: React.FC = () => {
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  const PROPOSAL_CALCULATOR_URL = 'https://proposal-formula-rispl.streamlit.app/';
+  // Streamlit Cloud requires ?embed=true to properly render inside an iframe
+  const PROPOSAL_CALCULATOR_URL = 'https://proposal-formula-rispl.streamlit.app/?embed=true';
+  const DIRECT_URL = 'https://proposal-formula-rispl.streamlit.app/';
+
+  // Auto-dismiss loading overlay after 1.5 seconds so it never traps the UI
+  useEffect(() => {
+    setIsLoading(true);
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [iframeKey]);
 
   const handleReload = () => {
     setIsLoading(true);
@@ -17,11 +28,11 @@ export const ProposalCalculatorTab: React.FC = () => {
   };
 
   const handleOpenExternal = () => {
-    window.open(PROPOSAL_CALCULATOR_URL, '_blank', 'noopener,noreferrer');
+    window.open(DIRECT_URL, '_blank', 'noopener,noreferrer');
   };
 
   return (
-    <section style={{ display: 'flex', flexDirection: 'column', height: isFullscreen ? 'calc(100vh - 120px)' : 'calc(100vh - 160px)' }}>
+    <section style={{ display: 'flex', flexDirection: 'column', height: isFullscreen ? 'calc(100vh - 110px)' : 'calc(100vh - 165px)' }}>
       {/* Top Header & Toolbar */}
       <div
         style={{
@@ -29,8 +40,8 @@ export const ProposalCalculatorTab: React.FC = () => {
           alignItems: 'center',
           justifyContent: 'space-between',
           flexWrap: 'wrap',
-          gap: '14px',
-          marginBottom: '14px',
+          gap: '12px',
+          marginBottom: '12px',
           background: '#ffffff',
           padding: '12px 18px',
           borderRadius: 'var(--radius-lg)',
@@ -56,7 +67,7 @@ export const ProposalCalculatorTab: React.FC = () => {
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h2 style={{ fontSize: '17px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+              <h2 style={{ fontSize: '16.5px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
                 Proposal Calculation &amp; Pricing Engine
               </h2>
               <span
@@ -67,13 +78,13 @@ export const ProposalCalculatorTab: React.FC = () => {
               </span>
             </div>
             <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0 0' }}>
-              Enterprise proposal formulas, route costing, fleet margin calculation &amp; commercial quote generation
+              Enterprise proposal formulas, rate cards, route costing &amp; commercial quotation calculator
             </p>
           </div>
         </div>
 
         {/* Toolbar Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           <button
             type="button"
             className="btn btn-secondary btn-xs"
@@ -128,6 +139,7 @@ export const ProposalCalculatorTab: React.FC = () => {
           minHeight: '650px',
         }}
       >
+        {/* Non-blocking Subtle Loading Indicator */}
         {isLoading && (
           <div
             style={{
@@ -136,31 +148,32 @@ export const ProposalCalculatorTab: React.FC = () => {
               left: 0,
               right: 0,
               bottom: 0,
-              background: 'rgba(255, 255, 255, 0.85)',
-              backdropFilter: 'blur(4px)',
+              background: 'rgba(255, 255, 255, 0.9)',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              zIndex: 10,
+              zIndex: 5,
+              pointerEvents: 'none',
+              transition: 'opacity 0.3s ease',
             }}
           >
             <div
               style={{
-                width: '40px',
-                height: '40px',
+                width: '36px',
+                height: '36px',
                 border: '3px solid #e2e8f0',
                 borderTop: '3px solid #f59e0b',
                 borderRadius: '50%',
                 animation: 'spin 0.8s linear infinite',
-                marginBottom: '12px',
+                marginBottom: '10px',
               }}
             />
             <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>
-              Connecting to Proposal Formula Engine...
+              Calibrating Proposal Formula Engine...
             </div>
-            <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '3px' }}>
-              Loading https://proposal-formula-rispl.streamlit.app/
+            <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>
+              https://proposal-formula-rispl.streamlit.app/?embed=true
             </div>
           </div>
         )}
@@ -176,7 +189,7 @@ export const ProposalCalculatorTab: React.FC = () => {
             border: 'none',
             display: 'block',
           }}
-          allow="clipboard-write; clipboard-read"
+          allow="clipboard-read; clipboard-write; camera; microphone; geolocation"
         />
       </div>
     </section>
