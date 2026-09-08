@@ -1,18 +1,56 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Building2, Plus, FileSpreadsheet, Search, Phone, Mail, MapPin,
-  Users, TrendingUp, Calendar, Trash2, Tag, UserCheck, Sparkles, Upload, Database
+  Users, TrendingUp, Calendar, Trash2, Tag, UserCheck, Sparkles, Upload, Database, CheckCircle2, AlertCircle
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { INDUSTRIES } from '../../utils/seedData';
+import { parseClientsFromCSV } from '../../utils/csvParser';
 
 export const ClientsTab: React.FC = () => {
-  const { clients, deleteClient, openModal, exportClients, searchQuery } = useCRM();
+  const { clients, deleteClient, openModal, exportClients, searchQuery, importClients } = useCRM();
 
   const [clientTypeFilter, setClientTypeFilter] = useState('All');
   const [industryFilter, setIndustryFilter] = useState('All');
   const [tierFilter, setTierFilter] = useState('All');
   const [localSearch, setLocalSearch] = useState('');
+  const [uploadFeedback, setUploadFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleDirectCSVUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      if (!text) {
+        setUploadFeedback({ type: 'error', message: 'Failed to read file contents.' });
+        return;
+      }
+      try {
+        const parsed = parseClientsFromCSV(text, 'New Client');
+        if (parsed.length === 0) {
+          setUploadFeedback({
+            type: 'error',
+            message: `No valid client records found in "${file.name}". Please ensure CSV has valid header columns.`
+          });
+        } else {
+          importClients(parsed, false);
+          setUploadFeedback({
+            type: 'success',
+            message: `✓ Successfully uploaded & imported ${parsed.length} client accounts from "${file.name}" into Directory!`
+          });
+        }
+      } catch (err) {
+        setUploadFeedback({ type: 'error', message: 'Error parsing CSV file format.' });
+      }
+    };
+    reader.readAsText(file);
+    // Reset file input so the same file can be re-uploaded if desired
+    e.target.value = '';
+  };
 
   const effectiveSearch = (searchQuery || localSearch).toLowerCase();
 
@@ -36,6 +74,15 @@ export const ClientsTab: React.FC = () => {
 
   return (
     <section>
+      {/* Hidden File Input for Direct CSV Upload */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept=".csv, .txt, text/csv"
+        style={{ display: 'none' }}
+        onChange={handleDirectCSVUpload}
+      />
+
       {/* Top Header Bar */}
       <div
         style={{
@@ -44,7 +91,7 @@ export const ClientsTab: React.FC = () => {
           justifyContent: 'space-between',
           flexWrap: 'wrap',
           gap: '14px',
-          marginBottom: '20px',
+          marginBottom: '16px',
         }}
       >
         <div>
@@ -56,25 +103,101 @@ export const ClientsTab: React.FC = () => {
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          {/* Direct Upload CSV Button */}
           <button
+            type="button"
             className="btn btn-primary"
-            style={{ background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none' }}
-            onClick={() => openModal('importClients')}
+            style={{
+              background: 'linear-gradient(135deg, #0284c7, #0369a1)',
+              border: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontWeight: 700,
+              boxShadow: '0 2px 4px rgba(2, 132, 199, 0.25)'
+            }}
+            onClick={() => fileInputRef.current?.click()}
+            title="Select & upload a CSV file directly from your computer"
           >
             <Upload size={15} />
+            <span>📤 Upload CSV File</span>
+          </button>
+
+          {/* Bulk Import Modal Launcher Button */}
+          <button
+            type="button"
+            className="btn btn-primary"
+            style={{
+              background: 'linear-gradient(135deg, #10b981, #059669)',
+              border: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontWeight: 700,
+              boxShadow: '0 2px 4px rgba(16, 185, 129, 0.25)'
+            }}
+            onClick={() => openModal('importClients')}
+            title="Open Bulk Import Dialog to paste, preview and map columns"
+          >
+            <Database size={15} />
             <span>📥 Bulk Import Clients (CSV)</span>
           </button>
+
           <button className="btn btn-primary" onClick={() => openModal('addClient')}>
             <Plus size={15} />
             <span>+ Add Single Client</span>
           </button>
+
           <button className="btn btn-secondary" onClick={exportClients}>
             <FileSpreadsheet size={15} />
             <span>Export CSV</span>
           </button>
         </div>
       </div>
+
+      {/* Upload Feedback Toast / Banner */}
+      {uploadFeedback && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '12px 16px',
+            borderRadius: '8px',
+            marginBottom: '16px',
+            background: uploadFeedback.type === 'success' ? '#f0fdf4' : '#fef2f2',
+            border: `1px solid ${uploadFeedback.type === 'success' ? '#bbf7d0' : '#fecaca'}`,
+            color: uploadFeedback.type === 'success' ? '#166534' : '#991b1b',
+            fontSize: '13px',
+            fontWeight: 600,
+            animation: 'fadeIn 0.3s ease-in-out'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {uploadFeedback.type === 'success' ? (
+              <CheckCircle2 size={18} style={{ color: '#16a34a' }} />
+            ) : (
+              <AlertCircle size={18} style={{ color: '#dc2626' }} />
+            )}
+            <span>{uploadFeedback.message}</span>
+          </div>
+          <button
+            onClick={() => setUploadFeedback(null)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'inherit',
+              cursor: 'pointer',
+              fontWeight: 700,
+              fontSize: '14px',
+              padding: '2px 6px'
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Filter Toolbar with Client Type pills */}
       <div className="filter-toolbar">
