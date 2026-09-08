@@ -1027,7 +1027,7 @@ export const INITIAL_USERS: User[] = [
     status: 'Active',
     allowed_tabs: [
       'tab-dashboard', 'tab-clients', 'tab-team', 'tab-segments',
-      'tab-opportunities', 'tab-activities', 'tab-followups',
+      'tab-opportunities', 'tab-calculator', 'tab-activities', 'tab-followups',
       'tab-internal', 'tab-documents', 'tab-review', 'tab-users'
     ]
   },
@@ -1040,7 +1040,7 @@ export const INITIAL_USERS: User[] = [
     status: 'Active',
     allowed_tabs: [
       'tab-dashboard', 'tab-clients', 'tab-team', 'tab-opportunities',
-      'tab-activities', 'tab-followups', 'tab-internal', 'tab-documents', 'tab-review'
+      'tab-calculator', 'tab-activities', 'tab-followups', 'tab-internal', 'tab-documents', 'tab-review'
     ]
   },
   {
@@ -1051,7 +1051,7 @@ export const INITIAL_USERS: User[] = [
     role_name: 'BD Lead - Enterprise',
     status: 'Active',
     allowed_tabs: [
-      'tab-dashboard', 'tab-clients', 'tab-opportunities',
+      'tab-dashboard', 'tab-clients', 'tab-opportunities', 'tab-calculator',
       'tab-activities', 'tab-followups', 'tab-documents'
     ]
   },
@@ -1064,7 +1064,7 @@ export const INITIAL_USERS: User[] = [
     status: 'Active',
     allowed_tabs: [
       'tab-dashboard', 'tab-clients', 'tab-team', 'tab-opportunities',
-      'tab-activities', 'tab-followups', 'tab-internal', 'tab-documents', 'tab-review'
+      'tab-calculator', 'tab-activities', 'tab-followups', 'tab-internal', 'tab-documents', 'tab-review'
     ]
   },
   {
@@ -1075,7 +1075,7 @@ export const INITIAL_USERS: User[] = [
     role_name: 'Executive Leadership',
     status: 'Active',
     allowed_tabs: [
-      'tab-dashboard', 'tab-review', 'tab-opportunities', 'tab-team', 'tab-segments', 'tab-documents'
+      'tab-dashboard', 'tab-review', 'tab-opportunities', 'tab-calculator', 'tab-team', 'tab-segments', 'tab-documents'
     ]
   }
 ];

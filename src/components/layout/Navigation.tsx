@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   LayoutDashboard, Building2, UserCheck, Layers, GitBranch, Calendar,
-  Clock, Workflow, Paperclip, Presentation, ShieldCheck, RotateCcw, Download
+  Clock, Workflow, Paperclip, Presentation, ShieldCheck, RotateCcw, Download, Calculator
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 
@@ -59,6 +59,13 @@ export const Navigation: React.FC = () => {
       label: 'Leads & Opportunities',
       icon: <GitBranch size={16} />,
       badge: opportunities.length,
+    },
+    {
+      id: 'tab-calculator',
+      label: 'Proposal Calculator',
+      icon: <Calculator size={16} style={{ color: '#f59e0b' }} />,
+      badge: 'Formula',
+      badgeStyle: { background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a' },
     },
     {
       id: 'tab-activities',

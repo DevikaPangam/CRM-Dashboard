@@ -9,6 +9,7 @@ const ALL_TABS = [
   { id: 'tab-team', label: 'BD Team & Owners', desc: 'BD executive performance, targets & regions' },
   { id: 'tab-segments', label: 'Business Segments', desc: 'Practice lines, margin targets & service division' },
   { id: 'tab-opportunities', label: 'Leads & Opportunities', desc: 'Full opportunity pipeline table & stages' },
+  { id: 'tab-calculator', label: 'Proposal Calculator', desc: 'Live Streamlit commercial proposal & pricing formula engine' },
   { id: 'tab-activities', label: 'Engagement & Interactions', desc: 'Chronological timeline of meetings & calls' },
   { id: 'tab-followups', label: 'Follow-up Tracker', desc: 'Overdue alerts, action items & due dates' },
   { id: 'tab-internal', label: 'Internal BD Activities', desc: 'Cross-department tasks & approval workflows' },

@@ -13,6 +13,7 @@ import { InternalTab } from './components/tabs/InternalTab';
 import { DocumentsTab } from './components/tabs/DocumentsTab';
 import { ReviewTab } from './components/tabs/ReviewTab';
 import { UsersTab } from './components/tabs/UsersTab';
+import { ProposalCalculatorTab } from './components/tabs/ProposalCalculatorTab';
 import { GlobalModals } from './components/modals/GlobalModals';
 
 export const App: React.FC = () => {
@@ -30,6 +31,8 @@ export const App: React.FC = () => {
         return <SegmentsTab />;
       case 'tab-opportunities':
         return <OpportunitiesTab />;
+      case 'tab-calculator':
+        return <ProposalCalculatorTab />;
       case 'tab-activities':
         return <ActivitiesTab />;
       case 'tab-followups':

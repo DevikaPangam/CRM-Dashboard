@@ -9,6 +9,7 @@ const ALL_TABS = [
   { id: 'tab-team', label: 'BD Team & Owners' },
   { id: 'tab-segments', label: 'Business Segments' },
   { id: 'tab-opportunities', label: 'Leads & Opportunities' },
+  { id: 'tab-calculator', label: 'Proposal Calculator' },
   { id: 'tab-activities', label: 'Engagement & Interactions' },
   { id: 'tab-followups', label: 'Follow-up Tracker' },
   { id: 'tab-internal', label: 'Internal BD Activities' },
