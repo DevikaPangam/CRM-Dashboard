@@ -19,7 +19,8 @@ const DESIGNATION_PRESETS = [
 ];
 
 export const AddClientModal: React.FC = () => {
-  const { closeModal, addClient, clients, segments, teamMembers } = useCRM();
+  const { closeModal, addClient, clients, segments, teamMembers, currentUser } = useCRM();
+  const isAdmin = currentUser.role === 'System Administrator' || currentUser.role_name === 'super_admin';
 
   // Next auto-generated client code
   const autoClientCode = `CLT-${clients.length + 1001}`;
@@ -31,7 +32,7 @@ export const AddClientModal: React.FC = () => {
     segment: segments[0]?.name || 'Employee Transportation',
     city: '',
     status: 'Active' as ClientStatus,
-    accountOwner: teamMembers[0]?.name || 'Aditya Patil',
+    accountOwner: 'Devika Pangam',
 
     // Optional fields (with safe defaults)
     clientType: 'New Client' as ClientType,
@@ -425,12 +426,13 @@ export const AddClientModal: React.FC = () => {
             {/* 6. Account Owner */}
             <div className="form-group" style={{ marginBottom: '16px' }}>
               <label style={{ fontWeight: 700, fontSize: '12.5px', color: '#1e293b' }}>
-                Account Owner (BD Manager) <span style={{ color: '#dc2626' }}>*</span>
+                Account Owner (BD Manager) {!isAdmin && '(System Admin Only)'} <span style={{ color: '#dc2626' }}>*</span>
               </label>
               <select
                 required
                 className="form-control"
                 value={formData.accountOwner}
+                disabled={!isAdmin}
                 onChange={(e) => setFormData({ ...formData, accountOwner: e.target.value })}
               >
                 {teamMembers.map((tm) => (

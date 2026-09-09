@@ -20,7 +20,8 @@ const DESIGNATION_PRESETS = [
 ];
 
 export const EditClientModal: React.FC = () => {
-  const { closeModal, clients, updateClient, segments, teamMembers, activeModal } = useCRM();
+  const { closeModal, clients, updateClient, segments, teamMembers, activeModal, currentUser } = useCRM();
+  const isAdmin = currentUser.role === 'System Administrator' || currentUser.role_name === 'super_admin';
 
   const clientId = activeModal.data?.clientId || activeModal.data?.id;
   const existingClient = clients.find((c) => c.id === clientId);
@@ -473,12 +474,13 @@ export const EditClientModal: React.FC = () => {
             {/* 6. Account Owner */}
             <div className="form-group" style={{ marginBottom: '16px' }}>
               <label style={{ fontWeight: 700, fontSize: '12.5px', color: '#1e293b' }}>
-                Account Owner (BD Manager) <span style={{ color: '#dc2626' }}>*</span>
+                Account Owner (BD Manager) {!isAdmin && '(System Admin Only)'} <span style={{ color: '#dc2626' }}>*</span>
               </label>
               <select
                 required
                 className="form-control"
                 value={formData.accountOwner}
+                disabled={!isAdmin}
                 onChange={(e) => setFormData({ ...formData, accountOwner: e.target.value })}
               >
                 {teamMembers.map((tm) => (

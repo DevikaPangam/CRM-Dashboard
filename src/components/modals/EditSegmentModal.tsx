@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { X, Layers, Save } from 'lucide-react';
+import { X, Layers, Save, ShieldAlert } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { BusinessSegment } from '../../types/crm';
 
 export const EditSegmentModal: React.FC = () => {
-  const { closeModal, activeModal, updateSegment, teamMembers } = useCRM();
+  const { closeModal, activeModal, updateSegment, teamMembers, currentUser } = useCRM();
+  const isAdmin = currentUser.role === 'System Administrator' || currentUser.role_name === 'super_admin';
   const segmentToEdit: BusinessSegment | undefined = activeModal.data;
 
   const [formData, setFormData] = useState({
     name: segmentToEdit?.name || '',
     category: segmentToEdit?.category || 'Corporate Mobility',
     targetMarginPct: segmentToEdit?.targetMarginPct || 20,
-    leadOwner: segmentToEdit?.leadOwner || (teamMembers[0]?.name || 'Aditya Patil'),
+    leadOwner: segmentToEdit?.leadOwner || 'Devika Pangam',
     description: segmentToEdit?.description || '',
   });
 
@@ -26,6 +27,25 @@ export const EditSegmentModal: React.FC = () => {
       });
     }
   }, [segmentToEdit]);
+
+  if (!isAdmin) {
+    return (
+      <div className="modal-overlay" onClick={closeModal}>
+        <div className="modal-content-box" style={{ maxWidth: '420px', textAlign: 'center', padding: '24px' }}>
+          <ShieldAlert size={36} style={{ color: '#dc2626', margin: '0 auto 12px auto' }} />
+          <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', marginBottom: '8px' }}>
+            Access Restricted
+          </h3>
+          <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '20px' }}>
+            Only System Administrators have permission to edit business segments and assign Practice Leads.
+          </p>
+          <button className="btn btn-secondary" onClick={closeModal}>
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!segmentToEdit) return null;
 

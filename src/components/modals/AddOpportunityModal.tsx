@@ -4,7 +4,8 @@ import { useCRM } from '../../context/CRMContext';
 import { PIPELINE_STAGES, LEAD_SOURCES } from '../../utils/seedData';
 
 export const AddOpportunityModal: React.FC = () => {
-  const { closeModal, addOpportunity, clients, segments, teamMembers } = useCRM();
+  const { closeModal, addOpportunity, clients, segments, teamMembers, currentUser } = useCRM();
+  const isAdmin = currentUser.role === 'System Administrator' || currentUser.role_name === 'super_admin';
 
   const [formData, setFormData] = useState({
     title: '',
@@ -197,10 +198,11 @@ export const AddOpportunityModal: React.FC = () => {
 
             <div className="form-grid-2">
               <div className="form-group">
-                <label>BD Owner</label>
+                <label>BD Owner {!isAdmin && '(System Admin Only)'}</label>
                 <select
                   className="form-control"
                   value={formData.owner}
+                  disabled={!isAdmin}
                   onChange={(e) => setFormData({ ...formData, owner: e.target.value })}
                 >
                   {teamMembers.map((tm) => (

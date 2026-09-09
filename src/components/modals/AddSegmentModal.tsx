@@ -1,17 +1,37 @@
 import React, { useState } from 'react';
-import { X, Layers } from 'lucide-react';
+import { X, Layers, ShieldAlert } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 
 export const AddSegmentModal: React.FC = () => {
-  const { closeModal, addSegment, teamMembers } = useCRM();
+  const { closeModal, addSegment, teamMembers, currentUser } = useCRM();
+  const isAdmin = currentUser.role === 'System Administrator' || currentUser.role_name === 'super_admin';
 
   const [formData, setFormData] = useState({
     name: '',
     category: 'Corporate Mobility',
     targetMarginPct: 20,
-    leadOwner: teamMembers[0]?.name || 'Aditya Patil',
+    leadOwner: 'Devika Pangam',
     description: '',
   });
+
+  if (!isAdmin) {
+    return (
+      <div className="modal-overlay" onClick={closeModal}>
+        <div className="modal-content-box" style={{ maxWidth: '420px', textAlign: 'center', padding: '24px' }}>
+          <ShieldAlert size={36} style={{ color: '#dc2626', margin: '0 auto 12px auto' }} />
+          <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', marginBottom: '8px' }}>
+            Access Restricted
+          </h3>
+          <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '20px' }}>
+            Only System Administrators have permission to create business segments and assign Practice Leads.
+          </p>
+          <button className="btn btn-secondary" onClick={closeModal}>
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,7 +56,7 @@ export const AddSegmentModal: React.FC = () => {
         <div className="modal-header-section">
           <div className="modal-header-title">
             <Layers size={18} style={{ color: '#10b981' }} />
-            <span>Add Business Segment</span>
+            <span>Add Business Segment (System Admin)</span>
           </div>
           <button className="modal-close-btn" onClick={closeModal}>
             <X size={18} />
@@ -83,7 +103,7 @@ export const AddSegmentModal: React.FC = () => {
             </div>
 
             <div className="form-group">
-              <label>Practice Lead / Segment Head</label>
+              <label>Practice Lead / Segment Head (Admin Only)</label>
               <select
                 className="form-control"
                 value={formData.leadOwner}
