@@ -98,9 +98,8 @@ export async function getHierarchyOptions(): Promise<HierarchyOptions> {
       { id: '10000000-0000-0000-0000-000000000004', name: 'Legal & Contract Compliance', code: 'LEGAL' },
     ],
     managers: [
-      { id: '00000000-0000-0000-0000-000000000001', full_name: 'Rajendra Bhosale', role: 'super_admin', designation: 'Managing Director' },
-      { id: '00000000-0000-0000-0000-000000000002', full_name: 'Vikram Shinde', role: 'bd_director', designation: 'Director - Business Development' },
-      { id: '00000000-0000-0000-0000-000000000003', full_name: 'Amit Deshmukh', role: 'bd_manager', designation: 'Senior Manager - Corporate Sales' },
+      { id: '00000000-0000-0000-0000-000000000001', full_name: 'Devika Pangam', role: 'super_admin', designation: 'System Administrator' },
+      { id: '00000000-0000-0000-0000-000000000002', full_name: 'Rahul Sharma', role: 'bd_manager', designation: 'Senior BD Manager' },
     ],
   };
 }

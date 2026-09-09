@@ -76,7 +76,7 @@ export const INITIAL_PROPOSALS: ProposalRecord[] = [
     submittedBy: 'u-bd-exec-1',
     submittedByName: 'Anand Shinde',
     approvedBy: 'u-bd-director',
-    approvedByName: 'Vikram Shinde',
+    approvedByName: 'Devika Pangam',
     approvedDate: '2026-02-15',
     notes: 'Initial approved annual master commercial proposal.',
     createdAt: '2026-02-10',
