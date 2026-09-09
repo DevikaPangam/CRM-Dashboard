@@ -38,6 +38,12 @@ export interface ProposalRecord {
   rejectionReason?: string;
   notes?: string;
   createdAt: string;
+  delegatedDepartment?: string;
+  delegatedOwner?: string;
+  delegationStatus?: string;
+  delegationMilestone?: string;
+  slaDaysRemaining?: number;
+  delegationRemarks?: string;
 }
 
 export interface CreateProposalPayload {
@@ -55,6 +61,8 @@ export interface CreateProposalPayload {
   notes?: string;
   userId?: string;
   userName?: string;
+  delegatedDepartment?: string;
+  delegatedOwner?: string;
 }
 
 export const INITIAL_PROPOSALS: ProposalRecord[] = [
@@ -80,6 +88,12 @@ export const INITIAL_PROPOSALS: ProposalRecord[] = [
     approvedDate: '2026-02-15',
     notes: 'Initial approved annual master commercial proposal.',
     createdAt: '2026-02-10',
+    delegatedDepartment: 'Management',
+    delegatedOwner: 'Devika Pangam (COO/Admin)',
+    delegationStatus: 'Approved & Handed Off',
+    delegationMilestone: 'Executive Board approval on strategic enterprise terms',
+    slaDaysRemaining: 0,
+    delegationRemarks: 'Final master pricing signed off.',
   },
   {
     id: 'prop-102',
@@ -100,6 +114,12 @@ export const INITIAL_PROPOSALS: ProposalRecord[] = [
     submittedByName: 'Priya Deshmukh',
     notes: 'Submitted for executive pricing review.',
     createdAt: '2026-03-01',
+    delegatedDepartment: 'Pricing & Commercials',
+    delegatedOwner: 'Sunil Mehta (CFO)',
+    delegationStatus: 'Pending Action',
+    delegationMilestone: 'Discount margin calculation & gross profit threshold approval',
+    slaDaysRemaining: 2,
+    delegationRemarks: 'Pending CFO clearance for target gross margin.',
   },
 ];
 
@@ -354,6 +374,44 @@ export const proposalService = {
           approved_by_name: approverName,
           rejection_reason: reason.trim(),
           approved_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', proposalId)
+        .eq('organization_id', organizationId);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  },
+
+  /**
+   * Delegates a proposal to a department with SLA and milestone deliverables
+   */
+  async delegateProposal(
+    proposalId: string,
+    organizationId: string,
+    delegation: {
+      delegatedDepartment: string;
+      delegatedOwner: string;
+      delegationStatus?: string;
+      delegationMilestone?: string;
+      slaDaysRemaining?: number;
+      delegationRemarks?: string;
+    }
+  ): Promise<{ success: boolean; error?: string }> {
+    if (!isSupabaseConfigured()) return { success: true };
+
+    try {
+      const { error } = await (supabase.from('proposals') as any)
+        .update({
+          delegated_department: delegation.delegatedDepartment,
+          delegated_owner: delegation.delegatedOwner,
+          delegation_status: delegation.delegationStatus || 'Pending Action',
+          delegation_milestone: delegation.delegationMilestone,
+          sla_days_remaining: delegation.slaDaysRemaining ?? 2,
+          delegation_remarks: delegation.delegationRemarks,
           updated_at: new Date().toISOString(),
         })
         .eq('id', proposalId)
