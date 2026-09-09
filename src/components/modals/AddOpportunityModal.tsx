@@ -18,7 +18,7 @@ export const AddOpportunityModal: React.FC = () => {
     stage: 'Requirement Discussion',
     probability: 30,
     status: 'In Process' as const,
-    owner: teamMembers[0]?.name || 'Rahul Sharma',
+    owner: teamMembers[0]?.name || 'Aditya Patil',
     leadSource: LEAD_SOURCES[0],
     expectedCloseDate: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
     fleetSize: 10,

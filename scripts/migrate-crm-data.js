@@ -53,7 +53,7 @@ function loadLegacyData() {
   const users = [
     { id: 'usr-1', name: 'Rajesh Patil', email: 'rajesh.patil@rajmudragroup.com', role: 'super_admin', department: 'Executive Management', designation: 'Managing Director', status: 'active' },
     { id: 'usr-2', name: 'Vikram Shinde', email: 'vikram.shinde@rajmudragroup.com', role: 'bd_director', department: 'Business Development', designation: 'Director - Business Development', status: 'active' },
-    { id: 'usr-3', name: 'Rahul Sharma', email: 'rahul.sharma@rajmudragroup.com', role: 'bd_manager', department: 'Corporate Mobility', designation: 'Senior BD Manager', status: 'active' },
+    { id: 'usr-3', name: 'Aditya Patil', email: 'aditya.patil@rajmudragroup.com', role: 'bd_manager', department: 'Corporate Mobility', designation: 'Senior BD Manager', status: 'active' },
     { id: 'usr-4', name: 'Aditya Patil', email: 'aditya.patil@rajmudragroup.com', role: 'bd_sr_exec', department: 'Corporate Mobility', designation: 'Senior BD Executive', status: 'active' },
     { id: 'usr-5', name: 'Pooja Kulkarni', email: 'pooja.kulkarni@rajmudragroup.com', role: 'bd_exec', department: 'Logistics Solutions', designation: 'BD Executive', status: 'active' },
     { id: 'usr-6', name: 'Amit Deshmukh', email: 'amit.deshmukh@rajmudragroup.com', role: 'analyst', department: 'Pricing & Strategy', designation: 'Commercial Pricing Analyst', status: 'active' },

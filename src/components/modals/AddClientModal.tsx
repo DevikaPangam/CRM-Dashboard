@@ -31,7 +31,7 @@ export const AddClientModal: React.FC = () => {
     segment: segments[0]?.name || 'Employee Transportation',
     city: '',
     status: 'Active' as ClientStatus,
-    accountOwner: teamMembers[0]?.name || 'Rahul Sharma',
+    accountOwner: teamMembers[0]?.name || 'Aditya Patil',
 
     // Optional fields (with safe defaults)
     clientType: 'New Client' as ClientType,

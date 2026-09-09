@@ -11,7 +11,7 @@ export const EditSegmentModal: React.FC = () => {
     name: segmentToEdit?.name || '',
     category: segmentToEdit?.category || 'Corporate Mobility',
     targetMarginPct: segmentToEdit?.targetMarginPct || 20,
-    leadOwner: segmentToEdit?.leadOwner || (teamMembers[0]?.name || 'Rahul Sharma'),
+    leadOwner: segmentToEdit?.leadOwner || (teamMembers[0]?.name || 'Aditya Patil'),
     description: segmentToEdit?.description || '',
   });
 

@@ -9,7 +9,7 @@ export const AddSegmentModal: React.FC = () => {
     name: '',
     category: 'Corporate Mobility',
     targetMarginPct: 20,
-    leadOwner: teamMembers[0]?.name || 'Rahul Sharma',
+    leadOwner: teamMembers[0]?.name || 'Aditya Patil',
     description: '',
   });
 

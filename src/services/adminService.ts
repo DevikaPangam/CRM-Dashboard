@@ -99,7 +99,7 @@ export async function getHierarchyOptions(): Promise<HierarchyOptions> {
     ],
     managers: [
       { id: '00000000-0000-0000-0000-000000000001', full_name: 'Devika Pangam', role: 'super_admin', designation: 'System Administrator' },
-      { id: '00000000-0000-0000-0000-000000000002', full_name: 'Rahul Sharma', role: 'bd_manager', designation: 'Senior BD Manager' },
+      { id: '00000000-0000-0000-0000-000000000002', full_name: 'Aditya Patil', role: 'bd_sr_exec', designation: 'Senior BD Executive' },
     ],
   };
 }

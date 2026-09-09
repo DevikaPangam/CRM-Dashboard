@@ -14,7 +14,7 @@ export const AddInternalModal: React.FC = () => {
     clientName: clients[0]?.name || '',
     opportunityId: '',
     opportunityTitle: '',
-    assignedTo: teamMembers[0]?.name || 'Rahul Sharma',
+    assignedTo: teamMembers[0]?.name || 'Aditya Patil',
     assignedBy: 'Devika Pangam (Admin)',
     dueDate: new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10),
     priority: 'High' as const,

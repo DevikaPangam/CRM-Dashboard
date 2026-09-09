@@ -107,7 +107,7 @@ export function parseClientsFromCSV(csvText: string, defaultClientType: 'New Cli
     const turnoverCr = turnoverIdx !== -1 && row[turnoverIdx] ? parseFloat(row[turnoverIdx].replace(/[^0-9.]/g, '')) || 100 : 100;
     const employees = employeesIdx !== -1 && row[employeesIdx] ? parseInt(row[employeesIdx].replace(/[^0-9]/g, ''), 10) || 500 : 500;
     const status = statusIdx !== -1 && row[statusIdx] ? (row[statusIdx] as any) : 'Active';
-    const accountOwner = ownerIdx !== -1 && row[ownerIdx] ? row[ownerIdx] : 'Rahul Sharma';
+    const accountOwner = ownerIdx !== -1 && row[ownerIdx] ? row[ownerIdx] : 'Aditya Patil';
     const contactName = contactIdx !== -1 && row[contactIdx] ? row[contactIdx] : 'Primary Contact';
     const email = emailIdx !== -1 && row[emailIdx] ? row[emailIdx] : `${name.toLowerCase().replace(/[^a-z0-9]/g, '')}@corp.demo`;
     const phone = phoneIdx !== -1 && row[phoneIdx] ? row[phoneIdx] : '+91 98000 00000';
@@ -155,11 +155,11 @@ export function parseClientsFromCSV(csvText: string, defaultClientType: 'New Cli
 }
 
 export const SAMPLE_CLIENTS_CSV = `Client Code,Client Name,Industry,Segment,City,State,Region,Tier,Turnover (Cr),Employees,Status,Account Owner,Primary Contact,Email,Phone
-"CLT-1001","ABC Manufacturing Ltd","Manufacturing & Heavy Industry","Employee Transportation","Pune","Maharashtra","West","Tier 1 (Enterprise)",450,3200,"Active","Rahul Sharma","Rajesh Kulkarni","rajesh.k@abcmanufacturing.demo","+91 98231 44550"
-"CLT-1002","XYZ Automotive Components","Automotive & Engineering","Warehouse Logistics","Gurugram","Haryana","North","Tier 1 (Enterprise)",800,4500,"Active","Ananya Verma","Harsh Vardhan","h.vardhan@xyzauto.demo","+91 98110 77890"
-"CLT-1003","Global Foods & Beverages","FMCG & Retail","Cold Chain Logistics","Bengaluru","Karnataka","South","Tier 1 (Enterprise)",1200,5800,"Active","Vikram Malhotra","Meera Deshmukh","meera.d@globalfoods.demo","+91 97400 33211"
-"CLT-1004","Prime Healthcare Solutions","Healthcare & Pharma","Last Mile Delivery","Hyderabad","Telangana","South","Tier 2 (Mid-Market)",320,1800,"Active","Pooja Nair","Dr. Srinivas Rao","srao@primehealth.demo","+91 98480 12345"
-"CLT-1005","Metro Logistics Hub","E-commerce & Logistics","Contract Logistics","Mumbai","Maharashtra","West","Tier 2 (Mid-Market)",210,950,"Active","Siddharth Roy","Amitabh Sen","amitabh.s@metrohub.demo","+91 98200 99887"
-"CLT-1006","Sunrise Industries","Manufacturing & Heavy Industry","Fleet Management","Ahmedabad","Gujarat","West","Tier 2 (Mid-Market)",180,800,"Active","Rahul Sharma","Bhavin Patel","bhavin.p@sunriseenergy.demo","+91 98980 44321"
-"CLT-1007","Apex Tech Solutions","Information Technology & ITES","Corporate Travel","Bengaluru","Karnataka","South","Tier 1 (Enterprise)",1500,7500,"Active","Ananya Verma","Deepa Narayan","deepa.n@apextech.demo","+91 99000 77123"
-"CLT-1008","Zenith Retail Warehousing","FMCG & Retail","Warehouse Logistics","Chennai","Tamil Nadu","South","Tier 2 (Mid-Market)",290,1200,"Active","Vikram Malhotra","Karthik Subramanian","karthik.s@zenithretail.demo","+91 98401 55667"`;
+"CLT-1001","ABC Manufacturing Ltd","Manufacturing & Heavy Industry","Employee Transportation","Pune","Maharashtra","West","Tier 1 (Enterprise)",450,3200,"Active","Aditya Patil","Rajesh Kulkarni","rajesh.k@abcmanufacturing.demo","+91 98231 44550"
+"CLT-1002","XYZ Automotive Components","Automotive & Engineering","Warehouse Logistics","Gurugram","Haryana","North","Tier 1 (Enterprise)",800,4500,"Active","Pooja Kulkarni","Harsh Vardhan","h.vardhan@xyzauto.demo","+91 98110 77890"
+"CLT-1003","Global Foods & Beverages","FMCG & Retail","Cold Chain Logistics","Bengaluru","Karnataka","South","Tier 1 (Enterprise)",1200,5800,"Active","Rajesh Patil","Meera Deshmukh","meera.d@globalfoods.demo","+91 97400 33211"
+"CLT-1004","Prime Healthcare Solutions","Healthcare & Pharma","Last Mile Delivery","Hyderabad","Telangana","South","Tier 2 (Mid-Market)",320,1800,"Active","Devika Pangam","Dr. Srinivas Rao","srao@primehealth.demo","+91 98480 12345"
+"CLT-1005","Metro Logistics Hub","E-commerce & Logistics","Contract Logistics","Mumbai","Maharashtra","West","Tier 2 (Mid-Market)",210,950,"Active","Suresh Joshi","Amitabh Sen","amitabh.s@metrohub.demo","+91 98200 99887"
+"CLT-1006","Sunrise Industries","Manufacturing & Heavy Industry","Fleet Management","Ahmedabad","Gujarat","West","Tier 2 (Mid-Market)",180,800,"Active","Aditya Patil","Bhavin Patel","bhavin.p@sunriseenergy.demo","+91 98980 44321"
+"CLT-1007","Apex Tech Solutions","Information Technology & ITES","Corporate Travel","Bengaluru","Karnataka","South","Tier 1 (Enterprise)",1500,7500,"Active","Pooja Kulkarni","Deepa Narayan","deepa.n@apextech.demo","+91 99000 77123"
+"CLT-1008","Zenith Retail Warehousing","FMCG & Retail","Warehouse Logistics","Chennai","Tamil Nadu","South","Tier 2 (Mid-Market)",290,1200,"Active","Rajesh Patil","Karthik Subramanian","karthik.s@zenithretail.demo","+91 98401 55667"`;

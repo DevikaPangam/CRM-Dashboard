@@ -21,7 +21,7 @@ export const AddActivityModal: React.FC = () => {
     opportunityTitle: matchedOpp?.title || '',
     date: new Date().toISOString().slice(0, 10),
     time: '11:00',
-    conductedBy: teamMembers[0]?.name || 'Rahul Sharma',
+    conductedBy: teamMembers[0]?.name || 'Aditya Patil',
     contactPerson: defaultClient?.contacts[0]?.name || 'Client Representative',
     location: 'Client HQ',
     keyDiscussion: '',

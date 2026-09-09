@@ -93,7 +93,7 @@ const localAuditLogs: AuditLogRecord[] = [
     id: 'audit-seed-3',
     organizationId: '00000000-0000-0000-0000-000000000001',
     userId: '00000000-0000-0000-0000-000000000011',
-    userName: 'Rahul Sharma',
+    userName: 'Aditya Patil',
     action: 'DATA_EXPORT_CSV',
     entityType: 'opportunities',
     entityId: 'export-opps-sep26',
