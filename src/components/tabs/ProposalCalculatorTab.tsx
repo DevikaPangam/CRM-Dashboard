@@ -21,7 +21,22 @@ export const ProposalCalculatorTab: React.FC = () => {
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [themeMode, setThemeMode] = useState<EmbedTheme>('light');
-  const [proposals, setProposals] = useState<ProposalRecord[]>(INITIAL_PROPOSALS);
+
+  // Proposals - persisted in localStorage so new entries survive navigation
+  const PROPOSALS_STORAGE_KEY = 'CORPBD_CRM_REACT_V5_proposals_v1';
+  const loadStoredProposals = (): ProposalRecord[] => {
+    try {
+      const stored = localStorage.getItem(PROPOSALS_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored) as ProposalRecord[];
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {
+      // ignore
+    }
+    return INITIAL_PROPOSALS;
+  };
+  const [proposals, setProposals] = useState<ProposalRecord[]>(loadStoredProposals);
   const [showVersions, setShowVersions] = useState<boolean>(true);
 
   // Modals & Panels State
@@ -43,19 +58,19 @@ export const ProposalCalculatorTab: React.FC = () => {
   const [auditFilter, setAuditFilter] = useState<string>('All');
   const [isLoadingLogs, setIsLoadingLogs] = useState<boolean>(false);
 
-  // Form State for New Proposal
-  const [createForm, setCreateForm] = useState({
-    opportunityTitle: 'Enterprise Fleet Contract 2026',
-    clientName: clients[0]?.name || 'Tata Consultancy Services',
+  // Form State for New Proposal - always pre-filled with valid defaults
+  const DEFAULT_CREATE_FORM = {
+    opportunityTitle: '',
+    clientName: '',
     fleetSize: 25,
     vehicleType: '40 Seater – AC Executive Bus',
     monthlyRateINR: 180000,
-    totalCommercialValueINR: 54000000,
     marginPct: 22.0,
     delegatedDepartment: 'Operations',
     delegatedOwner: 'Manish Rawat (VP - Ops)',
-    notes: 'Standard 3-year commercial contract with diesel index clause.',
-  });
+    notes: 'Standard 3-year commercial contract with quarterly diesel index escalation.',
+  };
+  const [createForm, setCreateForm] = useState({ ...DEFAULT_CREATE_FORM });
 
   // Form State for Delegation Matrix
   const [delegateForm, setDelegateForm] = useState({
@@ -69,10 +84,26 @@ export const ProposalCalculatorTab: React.FC = () => {
 
   const orgId = profile?.organization_id || '00000000-0000-0000-0000-000000000001';
 
-  // Load proposals & initial audit logs
+  // Persist proposals to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem(PROPOSALS_STORAGE_KEY, JSON.stringify(proposals));
+    } catch {
+      // ignore
+    }
+  }, [proposals]);
+
+  // Load proposals from Supabase (if configured) and merge with local
   useEffect(() => {
     proposalService.fetchProposals(orgId).then((data) => {
-      if (data && data.length > 0) setProposals(data);
+      if (data && data.length > 0) {
+        setProposals((current) => {
+          // Merge: keep locally-created proposals not on server, plus all server proposals
+          const serverIds = new Set(data.map((p) => p.id));
+          const localOnly = current.filter((p) => !serverIds.has(p.id) && p.id.startsWith('prop-'));
+          return [...localOnly, ...data];
+        });
+      }
     });
     refreshAuditLogs();
   }, [orgId]);
@@ -371,19 +402,9 @@ Raj Mudra Transport Governance Platform • Separation of Duties Enforced
 
         refreshAuditLogs();
         setShowCreateModal(false);
-        // Reset form
-        setCreateForm({
-          opportunityTitle: '',
-          clientName: '',
-          fleetSize: 25,
-          vehicleType: '40 Seater – AC Executive Bus',
-          monthlyRateINR: 180000,
-          totalCommercialValueINR: 0,
-          marginPct: 22.0,
-          delegatedDepartment: 'Operations',
-          delegatedOwner: 'Manish Rawat (VP - Ops)',
-          notes: '',
-        });
+        // Reset form to defaults for next use
+        setCreateForm({ ...DEFAULT_CREATE_FORM });
+        setCreateError(null);
       } else {
         setCreateError(res.error || 'Failed to create proposal. Please try again.');
       }
