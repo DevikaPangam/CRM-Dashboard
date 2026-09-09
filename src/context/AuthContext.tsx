@@ -194,10 +194,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!isCloudConnected) {
       setIsLoading(false);
       const mockAuthed = localStorage.getItem('CORPBD_MOCK_AUTHENTICATED');
-      if (mockAuthed === 'false') {
-        setAuthState('UNAUTHENTICATED');
-      } else {
+      if (mockAuthed === 'true') {
+        const emailLower = localStorage.getItem('CORPBD_MOCK_EMAIL') || 'devika.admin@corpbd.com';
+        const isSuper = emailLower.startsWith('devika') || emailLower.includes('admin');
+        setProfile({
+          id: '00000000-0000-0000-0000-000000000001',
+          organization_id: '00000000-0000-0000-0000-000000000001',
+          email: emailLower,
+          full_name: 'Devika Pangam',
+          role: isSuper ? 'super_admin' : 'bd_exec',
+          status: 'active',
+          department: 'Management',
+          designation: 'System Administrator',
+          employee_id: 'EMP-001',
+          phone: '+91 99999 00001',
+          avatar_url: '',
+          team_id: null,
+          manager_id: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        } as unknown as ProfileRow);
         setAuthState('AUTHENTICATED');
+      } else {
+        setAuthState('UNAUTHENTICATED');
       }
       return;
     }
@@ -274,6 +293,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setProfile(mockProfile);
       setAuthState('AUTHENTICATED');
       localStorage.setItem('CORPBD_MOCK_AUTHENTICATED', 'true');
+      localStorage.setItem('CORPBD_MOCK_EMAIL', emailLower);
       logAuthEvent('LOGIN_SUCCESS', email, { mode: 'mock_local' });
       return { success: true };
     }
@@ -340,7 +360,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setPermissions([]);
     setAuthState('UNAUTHENTICATED');
     setAccessDeniedReason(null);
-    localStorage.setItem('CORPBD_MOCK_AUTHENTICATED', 'false');
+    localStorage.removeItem('CORPBD_MOCK_AUTHENTICATED');
+    localStorage.removeItem('CORPBD_MOCK_EMAIL');
   };
 
   // Password Reset Request (Enforces @rajmudragroup.com corporate domain)
