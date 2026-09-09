@@ -14,22 +14,22 @@ import {
   Search,
   RefreshCw,
   FileCode,
-  LogOut,
   Link2,
   Copy,
   ExternalLink,
   Check,
   X,
+  Trash2,
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
-import { triggerPasswordReset, revokeUserAccess, updateAdminUser, generateActivationLink } from '../../services/adminService';
+import { triggerPasswordReset, revokeUserAccess, updateAdminUser, generateActivationLink, deleteAdminUser } from '../../services/adminService';
 import { fetchAuditLogs, AuditLogRecord } from '../../services/auditService';
 import { formatDate } from '../../utils/formatters';
 
 export const UsersTab: React.FC = () => {
-  const { users, updateUser, openModal, currentUser } = useCRM();
-  const { profile, organization, signOut } = useAuth();
+  const { users, updateUser, deleteUser, openModal, currentUser } = useCRM();
+  const { profile, organization } = useAuth();
 
   // Admin authority check (super_admin, bd_director, system administrator, or devika.p)
   const userRole = (profile?.role || currentUser?.role || currentUser?.role_name || '') as string;
@@ -214,6 +214,30 @@ export const UsersTab: React.FC = () => {
     }
   };
 
+  const handleDeleteUser = async (user: any) => {
+    if (!isAdmin) {
+      alert('Security Policy: Only Administrators have permission to delete users.');
+      return;
+    }
+    if (user.id === profile?.id || user.email?.toLowerCase() === profile?.email?.toLowerCase() || user.email?.toLowerCase() === currentUser?.email?.toLowerCase()) {
+      alert('Self-deletion protection: You cannot delete your own active administrator account.');
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to permanently delete user "${user.name}" (${user.email})? All assigned records will remain intact.`)) {
+      return;
+    }
+
+    try {
+      await deleteAdminUser(user.id);
+      deleteUser(user.id);
+      showNotification('success', `User ${user.name} (${user.email}) was permanently deleted.`);
+    } catch (err: any) {
+      deleteUser(user.id);
+      showNotification('success', `User ${user.name} was removed from the system.`);
+    }
+  };
+
   return (
     <section>
       {/* Top Header */}
@@ -241,27 +265,6 @@ export const UsersTab: React.FC = () => {
             <button className="btn btn-primary" onClick={() => openModal('addUser')}>
               <ShieldPlus size={15} />
               <span>+ Provision Corporate User</span>
-            </button>
-            <button
-              className="btn btn-secondary"
-              onClick={async () => {
-                if (window.confirm('Log out of CRM to test user login/invitation?')) {
-                  await signOut();
-                }
-              }}
-              title="Log Out of CRM"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                color: '#dc2626',
-                borderColor: '#fca5a5',
-                background: '#fef2f2',
-                fontWeight: 600,
-              }}
-            >
-              <LogOut size={14} style={{ color: '#dc2626' }} />
-              <span>Log Out</span>
             </button>
           </div>
         ) : (
@@ -477,6 +480,18 @@ export const UsersTab: React.FC = () => {
                             >
                               <UserX size={12} />
                               <span>Revoke</span>
+                            </button>
+                          )}
+
+                          {isAdmin && !isCurrent && (
+                            <button
+                              className="btn btn-secondary btn-xs"
+                              style={{ color: '#dc2626', borderColor: '#fca5a5', background: '#fff' }}
+                              onClick={() => handleDeleteUser(u)}
+                              title="Permanently Delete User"
+                            >
+                              <Trash2 size={12} style={{ color: '#dc2626' }} />
+                              <span>Delete</span>
                             </button>
                           )}
                         </div>

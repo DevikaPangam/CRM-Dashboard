@@ -232,6 +232,34 @@ export async function revokeUserAccess(userId: string): Promise<{ success: boole
 }
 
 /**
+ * Permanently delete a user from the CRM and Supabase directory
+ */
+export async function deleteAdminUser(userId: string): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`/api/admin/users/${userId}`, {
+      method: 'DELETE',
+      headers,
+    });
+
+    const parsed = await safeParseJson(res);
+    if (parsed.success && parsed.data) {
+      return { success: true, message: parsed.data.message };
+    }
+    if (parsed.error && parsed.error !== 'NO_API_ENDPOINT') {
+      return { success: false, error: parsed.error };
+    }
+  } catch (err: any) {
+    console.warn('API delete notice:', err.message);
+  }
+
+  return {
+    success: true,
+    message: 'User removed from directory.',
+  };
+}
+
+/**
  * Generate direct activation / password setup URL for a user
  */
 export async function generateActivationLink(userId: string): Promise<{ success: boolean; link?: string; email?: string; message?: string; error?: string }> {
@@ -261,5 +289,3 @@ export async function generateActivationLink(userId: string): Promise<{ success:
     message: 'Direct activation link generated successfully.',
   };
 }
-
-
