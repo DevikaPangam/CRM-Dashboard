@@ -28,7 +28,15 @@ export const ProposalCalculatorTab: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
   const [selectedProposalForView, setSelectedProposalForView] = useState<ProposalRecord | null>(null);
   const [selectedProposalForDelegate, setSelectedProposalForDelegate] = useState<ProposalRecord | null>(null);
-  
+
+  // Create form state
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  // Delegation form state
+  const [isDelegating, setIsDelegating] = useState<boolean>(false);
+  const [delegateError, setDelegateError] = useState<string | null>(null);
+
   // Audit Trail State
   const [showAuditLogs, setShowAuditLogs] = useState<boolean>(false);
   const [auditLogsList, setAuditLogsList] = useState<AuditLogRecord[]>([]);
@@ -248,102 +256,141 @@ Raj Mudra Transport Governance Platform • Separation of Duties Enforced
   const handleSaveDelegation = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedProposalForDelegate) return;
+    setIsDelegating(true);
+    setDelegateError(null);
 
-    const res = await proposalService.delegateProposal(selectedProposalForDelegate.id, orgId, delegateForm);
-    if (res.success) {
-      setProposals((prev) =>
-        prev.map((item) =>
-          item.id === selectedProposalForDelegate.id
-            ? {
-                ...item,
-                delegatedDepartment: delegateForm.delegatedDepartment,
-                delegatedOwner: delegateForm.delegatedOwner,
-                delegationStatus: delegateForm.delegationStatus,
-                delegationMilestone: delegateForm.delegationMilestone,
-                slaDaysRemaining: Number(delegateForm.slaDaysRemaining) || 0,
-                delegationRemarks: delegateForm.delegationRemarks,
-              }
-            : item
-        )
-      );
+    try {
+      const res = await proposalService.delegateProposal(selectedProposalForDelegate.id, orgId, delegateForm);
+      if (res.success) {
+        setProposals((prev) =>
+          prev.map((item) =>
+            item.id === selectedProposalForDelegate.id
+              ? {
+                  ...item,
+                  delegatedDepartment: delegateForm.delegatedDepartment,
+                  delegatedOwner: delegateForm.delegatedOwner,
+                  delegationStatus: delegateForm.delegationStatus,
+                  delegationMilestone: delegateForm.delegationMilestone,
+                  slaDaysRemaining: Number(delegateForm.slaDaysRemaining) || 0,
+                  delegationRemarks: delegateForm.delegationRemarks,
+                }
+              : item
+          )
+        );
 
-      await logAuditEvent({
-        organizationId: orgId,
-        userId: authUser?.id,
-        userName: profile?.full_name || currentUser?.name || 'Devika Pangam',
-        action: 'PROPOSAL_DELEGATED',
-        entityType: 'proposals',
-        entityId: selectedProposalForDelegate.id,
-        oldValues: {
-          delegatedDepartment: selectedProposalForDelegate.delegatedDepartment,
-          delegatedOwner: selectedProposalForDelegate.delegatedOwner,
-        },
-        newValues: delegateForm,
-        metadata: {
-          proposalCode: selectedProposalForDelegate.proposalCode,
-          department: delegateForm.delegatedDepartment,
-          owner: delegateForm.delegatedOwner,
-          slaDays: delegateForm.slaDaysRemaining,
-        },
-      });
+        await logAuditEvent({
+          organizationId: orgId,
+          userId: authUser?.id,
+          userName: profile?.full_name || currentUser.name || 'Devika Pangam',
+          action: 'PROPOSAL_DELEGATED',
+          entityType: 'proposals',
+          entityId: selectedProposalForDelegate.id,
+          oldValues: {
+            delegatedDepartment: selectedProposalForDelegate.delegatedDepartment,
+            delegatedOwner: selectedProposalForDelegate.delegatedOwner,
+          },
+          newValues: delegateForm,
+          metadata: {
+            proposalCode: selectedProposalForDelegate.proposalCode,
+            department: delegateForm.delegatedDepartment,
+            owner: delegateForm.delegatedOwner,
+            slaDays: delegateForm.slaDaysRemaining,
+          },
+        });
 
-      refreshAuditLogs();
-      setSelectedProposalForDelegate(null);
+        refreshAuditLogs();
+        setSelectedProposalForDelegate(null);
+      } else {
+        setDelegateError(res.error || 'Failed to save delegation.');
+      }
+    } catch (err: any) {
+      setDelegateError(err?.message || 'An unexpected error occurred.');
+    } finally {
+      setIsDelegating(false);
     }
   };
 
   // Handle New Proposal Version Creation & log audit event
   const handleCreateProposal = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
+    setCreateError(null);
 
-    const totalVal = Number(createForm.monthlyRateINR) * Number(createForm.fleetSize) * 12;
+    try {
+      if (!createForm.clientName.trim() || !createForm.opportunityTitle.trim()) {
+        setCreateError('Client Name and Opportunity Title are required.');
+        setIsSaving(false);
+        return;
+      }
 
-    const res = await proposalService.createProposalVersion({
-      organizationId: orgId,
-      opportunityTitle: createForm.opportunityTitle,
-      clientName: createForm.clientName,
-      fleetSize: Number(createForm.fleetSize) || 10,
-      vehicleType: createForm.vehicleType,
-      monthlyRateINR: Number(createForm.monthlyRateINR) || 150000,
-      totalCommercialValueINR: totalVal,
-      marginPct: Number(createForm.marginPct) || 20,
-      notes: createForm.notes,
-      userId: authUser?.id,
-      userName: profile?.full_name || currentUser?.name || 'Devika Pangam',
-      delegatedDepartment: createForm.delegatedDepartment,
-      delegatedOwner: createForm.delegatedOwner,
-    });
+      const totalVal = Number(createForm.monthlyRateINR) * Number(createForm.fleetSize) * 12;
 
-    if (res.success && res.proposal) {
-      const newPropWithDelegation: ProposalRecord = {
-        ...res.proposal,
+      const res = await proposalService.createProposalVersion({
+        organizationId: orgId,
+        opportunityTitle: createForm.opportunityTitle,
+        clientName: createForm.clientName,
+        fleetSize: Number(createForm.fleetSize) || 10,
+        vehicleType: createForm.vehicleType,
+        monthlyRateINR: Number(createForm.monthlyRateINR) || 150000,
+        totalCommercialValueINR: totalVal,
+        marginPct: Number(createForm.marginPct) || 20,
+        notes: createForm.notes,
+        userId: authUser?.id,
+        userName: profile?.full_name || currentUser.name || 'Devika Pangam',
         delegatedDepartment: createForm.delegatedDepartment,
         delegatedOwner: createForm.delegatedOwner,
-        delegationStatus: 'Pending Action',
-        delegationMilestone: 'Technical Feasibility & Pricing Sign-off',
-        slaDaysRemaining: 3,
-      };
-
-      setProposals([newPropWithDelegation, ...proposals]);
-
-      await logAuditEvent({
-        organizationId: orgId,
-        userId: authUser?.id,
-        userName: profile?.full_name || currentUser?.name || 'Devika Pangam',
-        action: 'PROPOSAL_CREATED',
-        entityType: 'proposals',
-        entityId: res.proposal.id,
-        newValues: newPropWithDelegation,
-        metadata: {
-          proposalCode: res.proposal.proposalCode,
-          clientName: res.proposal.clientName,
-          totalCommercialValueINR: totalVal,
-          marginPct: createForm.marginPct,
-        },
       });
 
-      refreshAuditLogs();
-      setShowCreateModal(false);
+      if (res.success && res.proposal) {
+        const newPropWithDelegation: ProposalRecord = {
+          ...res.proposal,
+          delegatedDepartment: createForm.delegatedDepartment,
+          delegatedOwner: createForm.delegatedOwner,
+          delegationStatus: 'Pending Action',
+          delegationMilestone: 'Technical Feasibility & Pricing Sign-off',
+          slaDaysRemaining: 3,
+        };
+
+        setProposals((prev) => [newPropWithDelegation, ...prev]);
+
+        await logAuditEvent({
+          organizationId: orgId,
+          userId: authUser?.id,
+          userName: profile?.full_name || currentUser.name || 'Devika Pangam',
+          action: 'PROPOSAL_CREATED',
+          entityType: 'proposals',
+          entityId: res.proposal.id,
+          newValues: newPropWithDelegation,
+          metadata: {
+            proposalCode: res.proposal.proposalCode,
+            clientName: res.proposal.clientName,
+            totalCommercialValueINR: totalVal,
+            marginPct: createForm.marginPct,
+          },
+        });
+
+        refreshAuditLogs();
+        setShowCreateModal(false);
+        // Reset form
+        setCreateForm({
+          opportunityTitle: '',
+          clientName: '',
+          fleetSize: 25,
+          vehicleType: '40 Seater – AC Executive Bus',
+          monthlyRateINR: 180000,
+          totalCommercialValueINR: 0,
+          marginPct: 22.0,
+          delegatedDepartment: 'Operations',
+          delegatedOwner: 'Manish Rawat (VP - Ops)',
+          notes: '',
+        });
+      } else {
+        setCreateError(res.error || 'Failed to create proposal. Please try again.');
+      }
+    } catch (err: any) {
+      setCreateError(err?.message || 'An unexpected error occurred while creating the proposal.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -1104,15 +1151,32 @@ Raj Mudra Transport Governance Platform • Separation of Duties Enforced
                 <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '10px', fontSize: '11.5px' }}>
                   Computed Total Annual Value: <strong>₹{((createForm.monthlyRateINR * createForm.fleetSize * 12) / 10000000).toFixed(2)} Cr</strong> (₹{(createForm.monthlyRateINR * createForm.fleetSize * 12).toLocaleString('en-IN')})
                 </div>
+
+                {createError && (
+                  <div style={{
+                    background: '#fef2f2',
+                    border: '1px solid #fecaca',
+                    borderRadius: '6px',
+                    padding: '10px 14px',
+                    marginTop: '10px',
+                    color: '#991b1b',
+                    fontSize: '12.5px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                  }}>
+                    ⚠️ {createError}
+                  </div>
+                )}
               </div>
 
               <div className="modal-footer-section">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowCreateModal(false)}>
+                <button type="button" className="btn btn-secondary" onClick={() => { setShowCreateModal(false); setCreateError(null); }} disabled={isSaving}>
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-success" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <button type="submit" className="btn btn-success" disabled={isSaving} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Save size={14} />
-                  <span>Create Proposal Version</span>
+                  <span>{isSaving ? 'Creating...' : 'Create Proposal Version'}</span>
                 </button>
               </div>
             </form>
@@ -1354,13 +1418,27 @@ Raj Mudra Transport Governance Platform • Separation of Duties Enforced
                 </div>
               </div>
 
+              {delegateError && (
+                <div style={{
+                  background: '#fef2f2',
+                  border: '1px solid #fecaca',
+                  borderRadius: '6px',
+                  padding: '10px 14px',
+                  margin: '0 24px 12px 24px',
+                  color: '#991b1b',
+                  fontSize: '12.5px',
+                }}>
+                  ⚠️ {delegateError}
+                </div>
+              )}
+
               <div className="modal-footer-section">
-                <button type="button" className="btn btn-secondary" onClick={() => setSelectedProposalForDelegate(null)}>
+                <button type="button" className="btn btn-secondary" onClick={() => { setSelectedProposalForDelegate(null); setDelegateError(null); }} disabled={isDelegating}>
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <button type="submit" className="btn btn-primary" disabled={isDelegating} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Save size={14} />
-                  <span>Apply Delegation Matrix</span>
+                  <span>{isDelegating ? 'Saving...' : 'Apply Delegation Matrix'}</span>
                 </button>
               </div>
             </form>
