@@ -327,7 +327,7 @@ export const crmDataService = {
 
   // OPPORTUNITIES
   async fetchOpportunities(orgId: string): Promise<Opportunity[]> {
-    if (!isSupabaseConfigured()) return INITIAL_OPPORTUNITIES;
+    if (!isSupabaseConfigured()) return [];
     try {
       const { data, error } = await (supabase.from('opportunities') as any)
         .select('*')
@@ -335,11 +335,11 @@ export const crmDataService = {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      if (!data || data.length === 0) return INITIAL_OPPORTUNITIES;
+      if (!data || data.length === 0) return [];
       return (data as any[]).map(transformOpportunityFromDB);
     } catch (err) {
-      console.warn('Supabase fetchOpportunities error, using fallback:', err);
-      return INITIAL_OPPORTUNITIES;
+      console.warn('Supabase fetchOpportunities error, returning empty list:', err);
+      return [];
     }
   },
 
@@ -369,7 +369,7 @@ export const crmDataService = {
 
   // ACTIVITIES
   async fetchActivities(orgId: string): Promise<Activity[]> {
-    if (!isSupabaseConfigured()) return INITIAL_ACTIVITIES;
+    if (!isSupabaseConfigured()) return [];
     try {
       const { data, error } = await (supabase.from('activities') as any)
         .select('*')
@@ -377,11 +377,11 @@ export const crmDataService = {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      if (!data || data.length === 0) return INITIAL_ACTIVITIES;
+      if (!data || data.length === 0) return [];
       return (data as any[]).map(transformActivityFromDB);
     } catch (err) {
-      console.warn('Supabase fetchActivities error, using fallback:', err);
-      return INITIAL_ACTIVITIES;
+      console.warn('Supabase fetchActivities error, returning empty list:', err);
+      return [];
     }
   },
 
@@ -419,7 +419,7 @@ export const crmDataService = {
 
   // FOLLOWUPS
   async fetchFollowups(orgId: string): Promise<Followup[]> {
-    if (!isSupabaseConfigured()) return INITIAL_FOLLOWUPS;
+    if (!isSupabaseConfigured()) return [];
     try {
       const { data, error } = await (supabase.from('followups') as any)
         .select('*')
@@ -427,11 +427,11 @@ export const crmDataService = {
         .order('due_date', { ascending: true });
 
       if (error) throw error;
-      if (!data || data.length === 0) return INITIAL_FOLLOWUPS;
+      if (!data || data.length === 0) return [];
       return (data as any[]).map(transformFollowupFromDB);
     } catch (err) {
-      console.warn('Supabase fetchFollowups error, using fallback:', err);
-      return INITIAL_FOLLOWUPS;
+      console.warn('Supabase fetchFollowups error, returning empty list:', err);
+      return [];
     }
   },
 
@@ -475,7 +475,7 @@ export const crmDataService = {
 
   // DOCUMENTS
   async fetchDocuments(orgId: string): Promise<CRMDocument[]> {
-    if (!isSupabaseConfigured()) return INITIAL_DOCUMENTS;
+    if (!isSupabaseConfigured()) return [];
     try {
       const { data, error } = await (supabase.from('documents') as any)
         .select('*')
@@ -483,11 +483,11 @@ export const crmDataService = {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      if (!data || data.length === 0) return INITIAL_DOCUMENTS;
+      if (!data || data.length === 0) return [];
       return (data as any[]).map(transformDocumentFromDB);
     } catch (err) {
-      console.warn('Supabase fetchDocuments error, using fallback:', err);
-      return INITIAL_DOCUMENTS;
+      console.warn('Supabase fetchDocuments error, returning empty list:', err);
+      return [];
     }
   },
 

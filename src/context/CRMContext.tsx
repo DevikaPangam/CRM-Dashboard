@@ -102,7 +102,7 @@ interface CRMContextType {
 
 const CRMContext = createContext<CRMContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'CORPBD_CRM_REACT_V4';
+const STORAGE_KEY = 'CORPBD_CRM_REACT_V5';
 
 export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { profile, authUser } = useAuth();
