@@ -1059,67 +1059,15 @@ export const INITIAL_DOCUMENTS: CRMDocument[] = [
 export const INITIAL_TEAM_MEMBERS: TeamMember[] = [
   {
     id: 'BD-01',
-    name: 'Aditya Patil',
-    title: 'Senior BD Manager',
-    email: 'aditya.patil@rajmudragroup.com',
-    phone: '+91 98201 22334',
-    region: 'North & West',
-    annualTargetINR: 50000000,
-    achievedINR: 36800000,
-    activeOppsCount: 4,
-    avatarBg: '#3b82f6',
-    status: 'Active'
-  },
-  {
-    id: 'BD-02',
-    name: 'Pooja Kulkarni',
-    title: 'BD Lead - Enterprise',
-    email: 'pooja.kulkarni@rajmudragroup.com',
-    phone: '+91 98110 44556',
-    region: 'West & South',
-    annualTargetINR: 60000000,
-    achievedINR: 48400000,
-    activeOppsCount: 5,
-    avatarBg: '#8b5cf6',
-    status: 'Active'
-  },
-  {
-    id: 'BD-03',
-    name: 'Rajesh Patil',
-    title: 'Key Accounts Director',
-    email: 'rajesh.patil@rajmudragroup.com',
-    phone: '+91 99300 77889',
-    region: 'South Region',
-    annualTargetINR: 80000000,
-    achievedINR: 62000000,
-    activeOppsCount: 6,
-    avatarBg: '#10b981',
-    status: 'Active'
-  },
-  {
-    id: 'BD-04',
     name: 'Devika Pangam',
-    title: 'BD Executive - North',
-    email: 'devika.pangam@rajmudragroup.com',
-    phone: '+91 98450 11223',
-    region: 'North & Central',
-    annualTargetINR: 35000000,
-    achievedINR: 24500000,
-    activeOppsCount: 3,
+    title: 'Managing Director & System Administrator',
+    email: 'devika.p@rajmudragroup.com',
+    phone: '+91 99999 00000',
+    region: 'All Corporate Business Segments & Regions',
+    annualTargetINR: 265000000,
+    achievedINR: 199700000,
+    activeOppsCount: 22,
     avatarBg: '#f59e0b',
-    status: 'Active'
-  },
-  {
-    id: 'BD-05',
-    name: 'Suresh Joshi',
-    title: 'BD Executive - West',
-    email: 'suresh.joshi@rajmudragroup.com',
-    phone: '+91 98230 99001',
-    region: 'West Region',
-    annualTargetINR: 40000000,
-    achievedINR: 28000000,
-    activeOppsCount: 4,
-    avatarBg: '#06b6d4',
     status: 'Active'
   }
 ];
@@ -1130,7 +1078,7 @@ export const INITIAL_SEGMENTS: BusinessSegment[] = [
     name: 'Employee Transportation',
     category: 'Corporate Mobility',
     targetMarginPct: 22,
-    leadOwner: 'Aditya Patil',
+    leadOwner: 'Devika Pangam',
     description: 'Corporate employee commute, cab fleet operations, shuttle buses and green EV transport.',
     activeClientsCount: 8,
     pipelineValueINR: 42000000
@@ -1140,7 +1088,7 @@ export const INITIAL_SEGMENTS: BusinessSegment[] = [
     name: 'Warehouse Logistics',
     category: 'Supply Chain & 3PL',
     targetMarginPct: 25,
-    leadOwner: 'Pooja Kulkarni',
+    leadOwner: 'Devika Pangam',
     description: 'Grade-A dedicated warehousing, multi-client distribution centers, WMS software and inventory management.',
     activeClientsCount: 6,
     pipelineValueINR: 58000000
@@ -1160,7 +1108,7 @@ export const INITIAL_SEGMENTS: BusinessSegment[] = [
     name: 'Contract Logistics',
     category: 'End-to-End 3PL',
     targetMarginPct: 20,
-    leadOwner: 'Suresh Joshi',
+    leadOwner: 'Devika Pangam',
     description: 'End-to-end 3PL / 4PL long-term contracts, supply chain planning, multimodal transport and packaging.',
     activeClientsCount: 4,
     pipelineValueINR: 34000000
@@ -1170,7 +1118,7 @@ export const INITIAL_SEGMENTS: BusinessSegment[] = [
     name: 'Corporate Travel',
     category: 'Executive Mobility',
     targetMarginPct: 28,
-    leadOwner: 'Aditya Patil',
+    leadOwner: 'Devika Pangam',
     description: 'Executive VIP travel, airport transfers, corporate event logistics and luxury car rentals.',
     activeClientsCount: 7,
     pipelineValueINR: 22000000
@@ -1180,7 +1128,7 @@ export const INITIAL_SEGMENTS: BusinessSegment[] = [
     name: 'Supply Chain Solutions',
     category: 'Consulting & Multimodal',
     targetMarginPct: 24,
-    leadOwner: 'Rajesh Patil',
+    leadOwner: 'Devika Pangam',
     description: 'Consulting, network optimization, freight forwarding, customs clearance and port handling.',
     activeClientsCount: 5,
     pipelineValueINR: 48000000
@@ -1200,7 +1148,7 @@ export const INITIAL_SEGMENTS: BusinessSegment[] = [
     name: 'Cold Chain Logistics',
     category: 'Temperature-Controlled',
     targetMarginPct: 26,
-    leadOwner: 'Rajesh Patil',
+    leadOwner: 'Devika Pangam',
     description: 'Temperature-controlled reefer trucks, cold storage, perishable pharma & food distribution.',
     activeClientsCount: 4,
     pipelineValueINR: 36000000
