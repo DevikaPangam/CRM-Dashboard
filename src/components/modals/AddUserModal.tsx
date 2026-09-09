@@ -17,10 +17,15 @@ const ROLE_OPTIONS: Array<{ value: UserRoleEnum; label: string; description: str
 ];
 
 export const AddUserModal: React.FC = () => {
-  const { closeModal, addUser } = useCRM();
+  const { closeModal, addUser, currentUser } = useCRM();
   const { profile } = useAuth();
 
-  const isSuperAdmin = profile?.role === 'super_admin';
+  const userRole = (profile?.role || currentUser?.role || currentUser?.role_name || '') as string;
+  const isSuperAdmin =
+    userRole === 'super_admin' ||
+    userRole === 'System Administrator' ||
+    currentUser?.role === 'System Administrator' ||
+    currentUser?.role_name === 'super_admin';
 
   const [hierarchy, setHierarchy] = useState<HierarchyOptions>({
     organizations: [{ id: '00000000-0000-0000-0000-000000000001', name: 'Rajmudra Group', slug: 'rajmudra-group' }],
