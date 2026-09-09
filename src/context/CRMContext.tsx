@@ -44,7 +44,7 @@ interface CRMContextType {
   // CRM Entities
   clients: Client[];
   addClient: (client: Omit<Client, 'id' | 'code' | 'createdDate'>) => void;
-  importClients: (newClients: Client[], replaceExisting?: boolean) => void;
+  importClients: (newClients: Client[], replaceExisting?: boolean) => Promise<void>;
   updateClient: (id: string, client: Partial<Client>) => void;
   deleteClient: (id: string) => void;
 
@@ -329,19 +329,37 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const importClients = (importedList: Client[], replaceExisting: boolean = false) => {
+  const importClients = async (importedList: Client[], replaceExisting: boolean = false) => {
+    let finalClients: Client[] = [];
     if (replaceExisting) {
-      setClients(importedList);
+      finalClients = importedList;
     } else {
-      setClients((prev) => {
-        const existingCodes = new Set(prev.map((c) => c.code || c.id));
-        const newOnes = importedList.filter((c) => !existingCodes.has(c.code || c.id));
-        const updatedList = prev.map((existing) => {
-          const match = importedList.find((c) => (c.code || c.id) === (existing.code || existing.id));
-          return match ? { ...existing, ...match } : existing;
-        });
-        return [...newOnes, ...updatedList];
+      const existingCodes = new Set(clients.map((c) => c.code || c.id));
+      const newOnes = importedList.filter((c) => !existingCodes.has(c.code || c.id));
+      const updatedList = clients.map((existing) => {
+        const match = importedList.find((c) => (c.code || c.id) === (existing.code || existing.id));
+        return match ? { ...existing, ...match } : existing;
       });
+      finalClients = [...newOnes, ...updatedList];
+    }
+
+    setClients(finalClients);
+
+    try {
+      localStorage.setItem(`${STORAGE_KEY}_clients`, JSON.stringify(finalClients));
+    } catch (err) {
+      console.warn('Could not save imported clients to localStorage:', err);
+    }
+
+    if (isSupabaseConfigured() && currentOrgId) {
+      try {
+        setIsLoadingData(true);
+        await crmDataService.batchInsertClients(importedList, currentOrgId, authUser?.id);
+      } catch (err) {
+        console.warn('Could not sync importClients to Supabase:', err);
+      } finally {
+        setIsLoadingData(false);
+      }
     }
   };
 

@@ -260,6 +260,53 @@ export const crmDataService = {
     return transformClientFromDB(data, client.contacts || []);
   },
 
+  async batchInsertClients(clientsList: Client[], orgId: string, userId?: string): Promise<Client[]> {
+    if (!isSupabaseConfigured() || clientsList.length === 0) return clientsList;
+    try {
+      const dbPayloads = clientsList.map((c) => transformClientToDB(c, orgId, userId));
+      const { data: insertedClients, error: clientErr } = await (supabase.from('clients') as any)
+        .upsert(dbPayloads, { onConflict: 'organization_id,client_code' })
+        .select();
+
+      if (clientErr) {
+        console.warn('Supabase batchInsertClients upsert error, trying individual insert:', clientErr);
+        for (const client of clientsList) {
+          try {
+            await this.insertClient(client, orgId, userId);
+          } catch (e) {
+            console.warn('Individual client insert error:', e);
+          }
+        }
+      }
+
+      // Also upsert primary contacts into contacts table
+      const contactPayloads: any[] = [];
+      clientsList.forEach((c) => {
+        const clientDbId = (insertedClients || []).find((ic: any) => ic.client_code === c.code)?.id || c.id;
+        c.contacts.forEach((con) => {
+          contactPayloads.push({
+            organization_id: orgId,
+            client_id: clientDbId,
+            name: con.name,
+            designation: con.designation,
+            email: con.email,
+            phone: con.phone,
+            is_primary: con.isPrimary,
+          });
+        });
+      });
+
+      if (contactPayloads.length > 0) {
+        await (supabase.from('contacts') as any).upsert(contactPayloads);
+      }
+
+      return clientsList;
+    } catch (err) {
+      console.warn('batchInsertClients exception:', err);
+      return clientsList;
+    }
+  },
+
   async updateClient(id: string, updates: Partial<Client>, orgId: string): Promise<void> {
     if (!isSupabaseConfigured()) return;
     const dbPayload = transformClientToDB(updates, orgId);

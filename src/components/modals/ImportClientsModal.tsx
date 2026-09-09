@@ -52,13 +52,17 @@ export const ImportClientsModal: React.FC = () => {
     document.body.removeChild(link);
   };
 
-  const handleCommitImport = () => {
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  const handleCommitImport = async () => {
     if (parsedClients.length === 0) {
       alert('No valid client records detected in CSV. Please verify file content.');
       return;
     }
 
-    importClients(parsedClients, replaceExisting);
+    setIsSubmitting(true);
+    await importClients(parsedClients, replaceExisting);
+    setIsSubmitting(false);
     setImportSuccess(true);
     setTimeout(() => {
       closeModal();
@@ -359,11 +363,15 @@ export const ImportClientsModal: React.FC = () => {
               type="button"
               className="btn btn-primary"
               onClick={handleCommitImport}
-              disabled={parsedClients.length === 0}
+              disabled={parsedClients.length === 0 || isSubmitting}
               style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 18px' }}
             >
-              <Upload size={14} />
-              <span>Import All {parsedClients.length} Clients in One Go</span>
+              <Upload size={14} className={isSubmitting ? 'animate-spin' : ''} />
+              <span>
+                {isSubmitting
+                  ? 'Saving Records to Cloud Database...'
+                  : `Import All ${parsedClients.length} Clients in One Go`}
+              </span>
             </button>
           )}
         </div>
