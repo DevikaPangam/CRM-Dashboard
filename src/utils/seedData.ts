@@ -1213,59 +1213,14 @@ export const INITIAL_USERS: User[] = [
     name: 'Devika Pangam',
     email: 'devika.p@rajmudragroup.com',
     role: 'System Administrator',
-    role_name: 'System Administrator',
+    role_name: 'super_admin',
+    department: 'Executive Management & Administration',
+    designation: 'Managing Director / System Administrator',
     status: 'Active',
     allowed_tabs: [
       'tab-dashboard', 'tab-clients', 'tab-team', 'tab-segments',
       'tab-opportunities', 'tab-calculator', 'tab-activities', 'tab-followups',
       'tab-internal', 'tab-documents', 'tab-review', 'tab-users'
-    ]
-  },
-  {
-    id: 'USR-002',
-    name: 'Aditya Patil',
-    email: 'aditya.patil@rajmudragroup.com',
-    role: 'BD Manager',
-    role_name: 'Senior BD Manager',
-    status: 'Active',
-    allowed_tabs: [
-      'tab-dashboard', 'tab-clients', 'tab-team', 'tab-opportunities',
-      'tab-calculator', 'tab-activities', 'tab-followups', 'tab-internal', 'tab-documents', 'tab-review'
-    ]
-  },
-  {
-    id: 'USR-003',
-    name: 'Pooja Kulkarni',
-    email: 'pooja.kulkarni@rajmudragroup.com',
-    role: 'BD Executive',
-    role_name: 'BD Lead - Enterprise',
-    status: 'Active',
-    allowed_tabs: [
-      'tab-dashboard', 'tab-clients', 'tab-opportunities', 'tab-calculator',
-      'tab-activities', 'tab-followups', 'tab-documents'
-    ]
-  },
-  {
-    id: 'USR-004',
-    name: 'Rajesh Patil',
-    email: 'rajesh.patil@rajmudragroup.com',
-    role: 'BD Manager',
-    role_name: 'Key Accounts Director',
-    status: 'Active',
-    allowed_tabs: [
-      'tab-dashboard', 'tab-clients', 'tab-team', 'tab-opportunities',
-      'tab-calculator', 'tab-activities', 'tab-followups', 'tab-internal', 'tab-documents', 'tab-review'
-    ]
-  },
-  {
-    id: 'USR-005',
-    name: 'Executive Reviewer',
-    email: 'management@corpbd.com',
-    role: 'Management Reviewer',
-    role_name: 'Executive Leadership',
-    status: 'Active',
-    allowed_tabs: [
-      'tab-dashboard', 'tab-review', 'tab-opportunities', 'tab-calculator', 'tab-team', 'tab-segments', 'tab-documents'
     ]
   }
 ];

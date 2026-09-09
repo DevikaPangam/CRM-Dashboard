@@ -2,6 +2,16 @@ export type CurrencyMode = 'INR' | 'USD';
 
 export type UserRole = 'System Administrator' | 'BD Manager' | 'BD Executive' | 'Management Reviewer' | 'Viewer';
 
+export interface SegmentPermission {
+  segmentKey: string;
+  segmentLabel: string;
+  canView: boolean;
+  canAdd: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+  canExport: boolean;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -12,6 +22,7 @@ export interface User {
   designation?: string;
   status: 'Active' | 'Inactive';
   allowed_tabs: string[];
+  permissions?: SegmentPermission[];
 }
 
 export type FleetSeaterCapacity =

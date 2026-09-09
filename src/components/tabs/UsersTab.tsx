@@ -419,21 +419,46 @@ export const UsersTab: React.FC = () => {
                         </button>
                       </td>
                       <td>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', maxWidth: '340px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxWidth: '340px' }}>
                           {u.role === 'System Administrator' || u.role_name === 'super_admin' ? (
-                            <span className="pill-badge" style={{ background: '#e0f2fe', color: '#0284c7', fontWeight: 600 }}>
-                              Full Access (All Modules)
-                            </span>
-                          ) : (
-                            (u.allowed_tabs || ['tab-dashboard', 'tab-clients', 'tab-opportunities']).map((tabId: string) => (
-                              <span
-                                key={tabId}
-                                className="pill-badge"
-                                style={{ background: '#f8fafc', color: '#475569', border: '1px solid #e2e8f0', fontSize: '10px' }}
-                              >
-                                {tabId.replace('tab-', '')}
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                              <span className="pill-badge" style={{ background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', fontWeight: 700, fontSize: '10px' }}>
+                                👁️ View All
                               </span>
-                            ))
+                              <span className="pill-badge" style={{ background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', fontWeight: 700, fontSize: '10px' }}>
+                                ➕ Add All
+                              </span>
+                              <span className="pill-badge" style={{ background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', fontWeight: 700, fontSize: '10px' }}>
+                                ✏️ Edit All
+                              </span>
+                              <span className="pill-badge" style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', fontWeight: 700, fontSize: '10px' }}>
+                                🗑️ Delete All
+                              </span>
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                              {u.permissions ? (
+                                u.permissions.map((p) => (
+                                  <div key={p.segmentKey} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '4px', padding: '2px 6px', fontSize: '10.5px' }}>
+                                    <span style={{ fontWeight: 600, color: '#334155', marginRight: '4px' }}>{p.segmentKey}:</span>
+                                    {p.canAdd && <span style={{ color: '#059669', marginRight: '2px' }} title="Addition / Create">➕</span>}
+                                    {p.canEdit && <span style={{ color: '#2563eb', marginRight: '2px' }} title="Edit / Update">✏️</span>}
+                                    {p.canDelete && <span style={{ color: '#dc2626', marginRight: '2px' }} title="Delete">🗑️</span>}
+                                    {p.canView && <span style={{ color: '#4f46e5' }} title="View">👁️</span>}
+                                  </div>
+                                ))
+                              ) : (
+                                (u.allowed_tabs || ['tab-dashboard', 'tab-clients', 'tab-opportunities']).map((tabId: string) => (
+                                  <span
+                                    key={tabId}
+                                    className="pill-badge"
+                                    style={{ background: '#f8fafc', color: '#475569', border: '1px solid #e2e8f0', fontSize: '10px' }}
+                                  >
+                                    {tabId.replace('tab-', '')}
+                                  </span>
+                                ))
+                              )}
+                            </div>
                           )}
                         </div>
                       </td>

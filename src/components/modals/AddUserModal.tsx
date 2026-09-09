@@ -5,6 +5,9 @@ import { useAuth } from '../../context/AuthContext';
 import { validateCorporateEmail } from '../../utils/authValidators';
 import { provisionUser, getHierarchyOptions, HierarchyOptions } from '../../services/adminService';
 import { UserRoleEnum, UserStatusEnum } from '../../types/database.types';
+import { SegmentPermissionsMatrix } from '../common/SegmentPermissionsMatrix';
+import { getDefaultPermissionsForRole } from '../../utils/rbacPermissions';
+import { SegmentPermission } from '../../types/crm';
 
 const ROLE_OPTIONS: Array<{ value: UserRoleEnum; label: string; description: string; requiresSuperAdmin?: boolean }> = [
   { value: 'super_admin', label: 'Super Administrator', description: 'Full system & tenant management authority', requiresSuperAdmin: true },
@@ -47,6 +50,8 @@ export const AddUserModal: React.FC = () => {
     tempPassword: '',
   });
 
+  const [permissions, setPermissions] = useState<SegmentPermission[]>(() => getDefaultPermissionsForRole('bd_exec'));
+
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -77,6 +82,7 @@ export const AddUserModal: React.FC = () => {
     else if (role === 'analyst') designation = 'Commercial Analyst';
 
     setFormData({ ...formData, role, designation });
+    setPermissions(getDefaultPermissionsForRole(role));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -134,14 +140,17 @@ export const AddUserModal: React.FC = () => {
       else if (formData.role === 'bd_director' || formData.role === 'bd_manager') legacyRole = 'BD Manager';
       else if (formData.role === 'management_viewer') legacyRole = 'Management Reviewer';
 
-      // Update local CRM state
+      // Update local CRM state with permissions
       addUser({
         name: formData.fullName.trim(),
         email: formData.workEmail.trim().toLowerCase(),
         role: legacyRole,
         role_name: formData.role,
+        department: formData.department.trim(),
+        designation: formData.designation.trim(),
         status: formData.status === 'active' ? 'Active' : 'Inactive',
         allowed_tabs: ['tab-dashboard', 'tab-clients', 'tab-opportunities', 'tab-activities', 'tab-followups'],
+        permissions,
       });
 
       setSuccessMessage(result.message || 'User provisioned successfully!');
@@ -341,8 +350,15 @@ export const AddUserModal: React.FC = () => {
               </div>
             </div>
 
+            {/* Granular Segment Permissions Matrix */}
+            <SegmentPermissionsMatrix
+              permissions={permissions}
+              onChange={setPermissions}
+              roleName={formData.role}
+            />
+
             {/* Row 5: Account Status & Provisioning Method */}
-            <div className="form-grid-2">
+            <div className="form-grid-2" style={{ marginTop: '16px' }}>
               <div className="form-group">
                 <label>Initial Account Status</label>
                 <select

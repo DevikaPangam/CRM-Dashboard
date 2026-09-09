@@ -28,8 +28,17 @@ export const Header: React.FC = () => {
     isCloudConnected
   } = useAuth();
 
-  const displayName = profile?.full_name || currentUser.name;
-  const displayRole = profile?.role || currentUser.role;
+  const displayName =
+    (profile?.full_name && profile.full_name !== 'System Administrator')
+      ? profile.full_name
+      : (currentUser?.name && currentUser.name !== 'System Administrator')
+      ? currentUser.name
+      : (authUser?.email ? authUser.email.split('@')[0].replace('.', ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Devika Pangam');
+
+  const displayRole =
+    (profile?.role === 'super_admin' || currentUser?.role === 'System Administrator' || currentUser?.role_name === 'super_admin')
+      ? 'Super Admin'
+      : (profile?.role || currentUser?.role || 'Super Admin');
 
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);

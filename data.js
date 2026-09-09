@@ -971,40 +971,31 @@ const SEED_DATA = {
       name: 'Aditya Patil',
       email: 'aditya.patil@rajmudragroup.com',
       role: 'BD Manager',
-      status: 'Active',
-      allowedTabs: [
-        'tab-dashboard', 'tab-clients', 'tab-team', 'tab-opportunities',
-        'tab-activities', 'tab-followups', 'tab-internal', 'tab-review'
-      ],
-      allowedSegments: ['Employee Transportation', 'Corporate Travel', 'Fleet Management'],
+      status: 'Revoked',
+      allowedTabs: [],
+      allowedSegments: [],
       dateCreated: '2026-01-15',
-      lastLogin: 'Today'
+      lastLogin: '2026-09-05'
     },
     {
       id: 'USR-003',
       name: 'Pooja Kulkarni',
       email: 'pooja.kulkarni@rajmudragroup.com',
       role: 'BD Executive',
-      status: 'Active',
-      allowedTabs: [
-        'tab-dashboard', 'tab-clients', 'tab-opportunities',
-        'tab-activities', 'tab-followups'
-      ],
-      allowedSegments: ['Warehouse Logistics'],
+      status: 'Revoked',
+      allowedTabs: [],
+      allowedSegments: [],
       dateCreated: '2026-01-20',
-      lastLogin: 'Yesterday'
+      lastLogin: '2026-09-05'
     },
     {
       id: 'USR-004',
       name: 'Rajesh Patil',
       email: 'rajesh.patil@rajmudragroup.com',
       role: 'BD Manager',
-      status: 'Active',
-      allowedTabs: [
-        'tab-dashboard', 'tab-clients', 'tab-opportunities',
-        'tab-activities', 'tab-followups', 'tab-internal', 'tab-review'
-      ],
-      allowedSegments: ['Cold Chain Logistics', 'Supply Chain Solutions'],
+      status: 'Revoked',
+      allowedTabs: [],
+      allowedSegments: [],
       dateCreated: '2026-02-01',
       lastLogin: '2026-09-05'
     },
@@ -1013,11 +1004,9 @@ const SEED_DATA = {
       name: 'Executive Board & Management',
       email: 'board.review@corpbd.com',
       role: 'Management Viewer',
-      status: 'Active',
-      allowedTabs: [
-        'tab-dashboard', 'tab-clients', 'tab-opportunities', 'tab-review'
-      ],
-      allowedSegments: ['All'],
+      status: 'Revoked',
+      allowedTabs: [],
+      allowedSegments: [],
       dateCreated: '2026-01-01',
       lastLogin: '2026-09-04'
     }

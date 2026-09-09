@@ -1,0 +1,163 @@
+import React from 'react';
+import { SegmentPermission } from '../../types/crm';
+import { getDefaultPermissionsForRole } from '../../utils/rbacPermissions';
+import { CheckSquare, Square, RotateCcw, ShieldCheck } from 'lucide-react';
+
+interface Props {
+  permissions: SegmentPermission[];
+  onChange: (permissions: SegmentPermission[]) => void;
+  roleName?: string;
+  readOnly?: boolean;
+}
+
+export const SegmentPermissionsMatrix: React.FC<Props> = ({
+  permissions,
+  onChange,
+  roleName = 'bd_exec',
+  readOnly = false,
+}) => {
+  const handleToggle = (segmentKey: string, field: keyof Omit<SegmentPermission, 'segmentKey' | 'segmentLabel'>) => {
+    if (readOnly) return;
+    const updated = permissions.map((p) => {
+      if (p.segmentKey === segmentKey) {
+        return { ...p, [field]: !p[field] };
+      }
+      return p;
+    });
+    onChange(updated);
+  };
+
+  const handleSelectAll = (field: keyof Omit<SegmentPermission, 'segmentKey' | 'segmentLabel'>, value: boolean) => {
+    if (readOnly) return;
+    const updated = permissions.map((p) => ({ ...p, [field]: value }));
+    onChange(updated);
+  };
+
+  const handleResetDefaults = () => {
+    if (readOnly) return;
+    const defaults = getDefaultPermissionsForRole(roleName);
+    onChange(defaults);
+  };
+
+  return (
+    <div style={{ marginTop: '16px', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <ShieldCheck size={17} style={{ color: '#0284c7' }} />
+          <strong style={{ fontSize: '13.5px', color: '#0f172a' }}>
+            Segment Action Permissions Matrix (Add, Edit, Delete Controls)
+          </strong>
+        </div>
+
+        {!readOnly && (
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => handleSelectAll('canAdd', true)}
+              style={{ fontSize: '11px', padding: '4px 8px' }}
+            >
+              + Allow All Addition
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => handleSelectAll('canEdit', true)}
+              style={{ fontSize: '11px', padding: '4px 8px' }}
+            >
+              + Allow All Edit
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={handleResetDefaults}
+              style={{ fontSize: '11px', padding: '4px 8px', color: '#0284c7', borderColor: '#bae6fd' }}
+            >
+              <RotateCcw size={12} />
+              Reset Defaults
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div style={{ overflowX: 'auto' }}>
+        <table className="crm-table" style={{ fontSize: '12px', width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
+              <th style={{ textAlign: 'left', padding: '8px 10px', color: '#475569', fontWeight: 700 }}>Segment / Module</th>
+              <th style={{ textAlign: 'center', padding: '8px', color: '#4f46e5', width: '15%' }}>👁️ View</th>
+              <th style={{ textAlign: 'center', padding: '8px', color: '#059669', width: '15%' }}>➕ Addition</th>
+              <th style={{ textAlign: 'center', padding: '8px', color: '#2563eb', width: '15%' }}>✏️ Edit</th>
+              <th style={{ textAlign: 'center', padding: '8px', color: '#dc2626', width: '15%' }}>🗑️ Delete</th>
+              <th style={{ textAlign: 'center', padding: '8px', color: '#9333ea', width: '15%' }}>📥 Export</th>
+            </tr>
+          </thead>
+          <tbody>
+            {permissions.map((perm) => (
+              <tr key={perm.segmentKey} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                <td style={{ padding: '8px 10px', fontWeight: 600, color: '#1e293b' }}>
+                  {perm.segmentLabel}
+                </td>
+
+                {/* View */}
+                <td style={{ textAlign: 'center', padding: '6px' }}>
+                  <input
+                    type="checkbox"
+                    checked={perm.canView}
+                    disabled={readOnly}
+                    onChange={() => handleToggle(perm.segmentKey, 'canView')}
+                    style={{ width: '16px', height: '16px', cursor: readOnly ? 'default' : 'pointer', accentColor: '#4f46e5' }}
+                  />
+                </td>
+
+                {/* Addition (Create) */}
+                <td style={{ textAlign: 'center', padding: '6px' }}>
+                  <input
+                    type="checkbox"
+                    checked={perm.canAdd}
+                    disabled={readOnly}
+                    onChange={() => handleToggle(perm.segmentKey, 'canAdd')}
+                    style={{ width: '16px', height: '16px', cursor: readOnly ? 'default' : 'pointer', accentColor: '#059669' }}
+                  />
+                </td>
+
+                {/* Edit */}
+                <td style={{ textAlign: 'center', padding: '6px' }}>
+                  <input
+                    type="checkbox"
+                    checked={perm.canEdit}
+                    disabled={readOnly}
+                    onChange={() => handleToggle(perm.segmentKey, 'canEdit')}
+                    style={{ width: '16px', height: '16px', cursor: readOnly ? 'default' : 'pointer', accentColor: '#2563eb' }}
+                  />
+                </td>
+
+                {/* Delete */}
+                <td style={{ textAlign: 'center', padding: '6px' }}>
+                  <input
+                    type="checkbox"
+                    checked={perm.canDelete}
+                    disabled={readOnly}
+                    onChange={() => handleToggle(perm.segmentKey, 'canDelete')}
+                    style={{ width: '16px', height: '16px', cursor: readOnly ? 'default' : 'pointer', accentColor: '#dc2626' }}
+                  />
+                </td>
+
+                {/* Export */}
+                <td style={{ textAlign: 'center', padding: '6px' }}>
+                  <input
+                    type="checkbox"
+                    checked={perm.canExport}
+                    disabled={readOnly}
+                    onChange={() => handleToggle(perm.segmentKey, 'canExport')}
+                    style={{ width: '16px', height: '16px', cursor: readOnly ? 'default' : 'pointer', accentColor: '#9333ea' }}
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};

@@ -4,6 +4,9 @@ import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
 import { updateAdminUser, triggerPasswordReset, revokeUserAccess, getHierarchyOptions, HierarchyOptions } from '../../services/adminService';
 import { UserRoleEnum, UserStatusEnum } from '../../types/database.types';
+import { SegmentPermissionsMatrix } from '../common/SegmentPermissionsMatrix';
+import { getDefaultPermissionsForRole } from '../../utils/rbacPermissions';
+import { SegmentPermission } from '../../types/crm';
 
 const ROLE_OPTIONS: Array<{ value: UserRoleEnum; label: string; description: string; requiresSuperAdmin?: boolean }> = [
   { value: 'super_admin', label: 'Super Administrator', description: 'Full system & tenant management authority', requiresSuperAdmin: true },
@@ -50,6 +53,12 @@ export const EditUserModal: React.FC = () => {
     status: (userToEdit?.status?.toLowerCase() === 'inactive' ? 'inactive' : 'active') as UserStatusEnum,
   });
 
+  const [permissions, setPermissions] = useState<SegmentPermission[]>(() =>
+    userToEdit?.permissions && userToEdit.permissions.length > 0
+      ? userToEdit.permissions
+      : getDefaultPermissionsForRole(userToEdit?.role_name || userToEdit?.role || 'bd_exec')
+  );
+
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -93,6 +102,7 @@ export const EditUserModal: React.FC = () => {
     else if (role === 'analyst') designation = 'Commercial Analyst';
 
     setFormData({ ...formData, role, designation });
+    setPermissions(getDefaultPermissionsForRole(role));
   };
 
   const handleSaveChanges = async (e: React.FormEvent) => {
@@ -140,7 +150,10 @@ export const EditUserModal: React.FC = () => {
         email: formData.email.trim(),
         role: legacyRole,
         role_name: formData.role,
+        department: formData.department.trim(),
+        designation: formData.designation.trim(),
         status: formData.status === 'active' ? 'Active' : 'Inactive',
+        permissions,
       });
 
       setSuccessMessage('User profile and access permissions updated successfully.');
@@ -370,6 +383,13 @@ export const EditUserModal: React.FC = () => {
                 </select>
               </div>
             </div>
+
+            {/* Granular Segment Permissions Matrix */}
+            <SegmentPermissionsMatrix
+              permissions={permissions}
+              onChange={setPermissions}
+              roleName={formData.role}
+            />
 
             {/* Security Actions Panel */}
             <div
