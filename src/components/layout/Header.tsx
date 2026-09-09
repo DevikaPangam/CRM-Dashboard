@@ -28,17 +28,25 @@ export const Header: React.FC = () => {
     isCloudConnected
   } = useAuth();
 
-  const displayName =
-    (profile?.full_name && profile.full_name !== 'System Administrator')
-      ? profile.full_name
-      : (currentUser?.name && currentUser.name !== 'System Administrator')
-      ? currentUser.name
-      : (authUser?.email ? authUser.email.split('@')[0].replace('.', ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Devika Pangam');
+  const currentEmail = (profile?.email || authUser?.email || currentUser?.email || '').toLowerCase();
+  const isSuperAdminUser =
+    currentEmail.startsWith('devika') ||
+    profile?.role === 'super_admin' ||
+    currentUser?.role === 'System Administrator' ||
+    currentUser?.role_name === 'super_admin';
 
-  const displayRole =
-    (profile?.role === 'super_admin' || currentUser?.role === 'System Administrator' || currentUser?.role_name === 'super_admin')
-      ? 'Super Admin'
-      : (profile?.role || currentUser?.role || 'Super Admin');
+  const displayName =
+    profile?.full_name && profile.full_name !== 'System Administrator'
+      ? profile.full_name
+      : currentUser?.name && currentUser.name !== 'System Administrator' && currentUser.email?.toLowerCase() === currentEmail
+      ? currentUser.name
+      : currentEmail
+      ? currentEmail.split('@')[0].replace('.', ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+      : 'User';
+
+  const displayRole = isSuperAdminUser
+    ? 'Super Admin'
+    : (profile?.role || currentUser?.role || 'BD Executive').replace('_', ' ');
 
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
@@ -115,7 +123,7 @@ export const Header: React.FC = () => {
               <span
                 className="user-role-badge-pill"
                 style={{
-                  background: displayRole.includes('Admin') || displayRole.includes('super_admin') 
+                  background: isSuperAdminUser
                     ? 'linear-gradient(135deg, #10b981, #059669)' 
                     : '#0284c7',
                   color: '#ffffff',
@@ -133,49 +141,23 @@ export const Header: React.FC = () => {
               <div className="user-dropdown-header">
                 <div style={{ fontWeight: 700, color: '#0f172a' }}>{organization?.name || 'Rajmudra Group'}</div>
                 <div style={{ fontSize: '11px', fontWeight: 500, color: '#64748b' }}>
-                  {profile?.email || authUser?.email || currentUser.email}
+                  {currentEmail}
                 </div>
               </div>
 
-              {!isCloudConnected && (
-                <>
-                  <div style={{ padding: '6px 12px', fontSize: '11px', fontWeight: 600, color: '#64748b', background: '#f8fafc' }}>
-                    Switch Active User (Offline Demo)
-                  </div>
-                  <div style={{ maxHeight: '180px', overflowY: 'auto' }}>
-                    {users.map(u => (
-                      <div
-                        key={u.id}
-                        className={`user-select-item ${u.id === currentUser.id ? 'active' : ''}`}
-                        onClick={() => {
-                          setCurrentUser(u);
-                          setUserMenuOpen(false);
-                        }}
-                      >
-                        <div className="user-avatar-circle" style={{ width: '26px', height: '26px', fontSize: '11px' }}>
-                          {getInitials(u.name)}
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 600, fontSize: '12px' }}>{u.name}</div>
-                          <div style={{ fontSize: '11px', color: '#64748b' }}>{u.role}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-
               <div style={{ padding: '8px 12px', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <button
-                  className="btn btn-secondary btn-xs"
-                  style={{ width: '100%' }}
-                  onClick={() => {
-                    setCurrentTab('tab-users');
-                    setUserMenuOpen(false);
-                  }}
-                >
-                  <Shield size={12} /> Users &amp; Permissions
-                </button>
+                {isSuperAdminUser && (
+                  <button
+                    className="btn btn-secondary btn-xs"
+                    style={{ width: '100%' }}
+                    onClick={() => {
+                      setCurrentTab('tab-users');
+                      setUserMenuOpen(false);
+                    }}
+                  >
+                    <Shield size={12} /> Users &amp; Permissions
+                  </button>
+                )}
                 <button
                   className="btn btn-danger btn-xs"
                   style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}

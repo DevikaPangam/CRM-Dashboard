@@ -5,6 +5,7 @@ import {
   Calculator, ChevronLeft, ChevronRight, Sparkles, Database
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
+import { useAuth } from '../../context/AuthContext';
 
 interface NavTabItem {
   id: string;
@@ -156,10 +157,18 @@ export const Navigation: React.FC = () => {
     }
   ];
 
+  const { profile } = useAuth();
+  const currentEmail = (profile?.email || currentUser?.email || '').toLowerCase();
+  const isSuperAdminUser =
+    currentEmail.startsWith('devika') ||
+    profile?.role === 'super_admin' ||
+    currentUser?.role === 'System Administrator' ||
+    currentUser?.role_name === 'super_admin';
+
   const filterTab = (tab: NavTabItem) => {
-    if (currentUser.role === 'System Administrator') return true;
+    if (isSuperAdminUser) return true;
     if (tab.adminOnly) return false;
-    return currentUser.allowed_tabs?.includes(tab.id);
+    return (currentUser?.allowed_tabs || ['tab-dashboard', 'tab-clients', 'tab-opportunities', 'tab-calculator', 'tab-activities', 'tab-followups', 'tab-documents']).includes(tab.id);
   };
 
   return (

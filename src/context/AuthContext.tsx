@@ -187,6 +187,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [isCloudConnected]);
 
+  const getProfileForEmail = (emailLower: string): ProfileRow => {
+    const isSuper = emailLower.startsWith('devika') || emailLower.includes('super_admin');
+    const nameFromEmail = emailLower.split('@')[0].replace('.', ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    const fullName = isSuper
+      ? 'Devika Pangam'
+      : emailLower.includes('connect')
+      ? 'Connect Support Team'
+      : nameFromEmail;
+    const designation = isSuper ? 'Managing Director / System Administrator' : 'Corporate BD Member';
+    const role = isSuper ? 'super_admin' : 'bd_exec';
+    const id = isSuper ? '00000000-0000-0000-0000-000000000001' : `USR-${emailLower.replace(/[^a-z0-9]/g, '')}`;
+
+    return {
+      id,
+      organization_id: '00000000-0000-0000-0000-000000000001',
+      email: emailLower,
+      full_name: fullName,
+      role,
+      status: 'active',
+      department: isSuper ? 'Executive Management' : 'Business Development',
+      designation,
+      employee_id: `EMP-${emailLower.slice(0, 3).toUpperCase()}`,
+      phone: '+91 99999 00000',
+      avatar_url: '',
+      team_id: null,
+      manager_id: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    } as unknown as ProfileRow;
+  };
+
   // Initialize and listen to Supabase Auth State changes
   useEffect(() => {
     let isMounted = true;
@@ -195,25 +226,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(false);
       const mockAuthed = localStorage.getItem('CORPBD_MOCK_AUTHENTICATED');
       if (mockAuthed === 'true') {
-        const emailLower = localStorage.getItem('CORPBD_MOCK_EMAIL') || 'devika.admin@corpbd.com';
-        const isSuper = emailLower.startsWith('devika') || emailLower.includes('admin');
-        setProfile({
-          id: '00000000-0000-0000-0000-000000000001',
-          organization_id: '00000000-0000-0000-0000-000000000001',
-          email: emailLower,
-          full_name: 'Devika Pangam',
-          role: isSuper ? 'super_admin' : 'bd_exec',
-          status: 'active',
-          department: 'Management',
-          designation: 'System Administrator',
-          employee_id: 'EMP-001',
-          phone: '+91 99999 00001',
-          avatar_url: '',
-          team_id: null,
-          manager_id: null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        } as unknown as ProfileRow);
+        const emailLower = (localStorage.getItem('CORPBD_MOCK_EMAIL') || 'devika.p@rajmudragroup.com').toLowerCase();
+        setProfile(getProfileForEmail(emailLower));
         setAuthState('AUTHENTICATED');
       } else {
         setAuthState('UNAUTHENTICATED');
@@ -272,24 +286,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (!isCloudConnected) {
       const emailLower = email.trim().toLowerCase();
-      const isSuper = emailLower.startsWith('devika') || emailLower.includes('admin');
-      const mockProfile = {
-        id: '00000000-0000-0000-0000-000000000001',
-        organization_id: '00000000-0000-0000-0000-000000000001',
-        email: emailLower,
-        full_name: 'Devika Pangam',
-        role: isSuper ? 'super_admin' : 'bd_exec',
-        status: 'active',
-        department: 'Management',
-        designation: 'System Administrator',
-        employee_id: 'EMP-001',
-        phone: '+91 99999 00001',
-        avatar_url: '',
-        team_id: null,
-        manager_id: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      } as unknown as ProfileRow;
+      const mockProfile = getProfileForEmail(emailLower);
       setProfile(mockProfile);
       setAuthState('AUTHENTICATED');
       localStorage.setItem('CORPBD_MOCK_AUTHENTICATED', 'true');
