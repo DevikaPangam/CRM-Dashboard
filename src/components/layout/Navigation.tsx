@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import {
   LayoutDashboard, Building2, UserCheck, Layers, GitBranch, Calendar,
   Clock, Workflow, Paperclip, Presentation, ShieldCheck, RotateCcw, Download,
-  Calculator, ChevronLeft, ChevronRight, Sparkles, Database
+  Calculator, ChevronLeft, ChevronRight, Sparkles, Database, LogOut
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
+import { useAuth } from '../../context/AuthContext';
 
 interface NavTabItem {
   id: string;
@@ -22,6 +23,7 @@ interface NavSection {
 }
 
 export const Navigation: React.FC = () => {
+  const { signOut } = useAuth();
   const {
     currentTab,
     setCurrentTab,
@@ -248,6 +250,27 @@ export const Navigation: React.FC = () => {
                 <span>Backup</span>
               </button>
             </div>
+            <button
+              type="button"
+              className="sidebar-footer-btn"
+              onClick={async () => {
+                if (window.confirm('Are you sure you want to log out of CorpBD CRM?')) {
+                  await signOut();
+                }
+              }}
+              style={{
+                width: '100%',
+                marginTop: '6px',
+                background: 'rgba(239, 68, 68, 0.1)',
+                color: '#ef4444',
+                borderColor: 'rgba(239, 68, 68, 0.25)',
+                fontWeight: 600
+              }}
+              title="Log Out of CRM"
+            >
+              <LogOut size={13} />
+              <span>Log Out</span>
+            </button>
             <div className="sidebar-version-badge">
               <span>CorpBD Suite v2.0 • Active</span>
             </div>
@@ -269,6 +292,19 @@ export const Navigation: React.FC = () => {
               title="Backup Data"
             >
               <Download size={14} />
+            </button>
+            <button
+              type="button"
+              className="sidebar-footer-icon-btn"
+              onClick={async () => {
+                if (window.confirm('Are you sure you want to log out of CorpBD CRM?')) {
+                  await signOut();
+                }
+              }}
+              title="Log Out"
+              style={{ color: '#ef4444' }}
+            >
+              <LogOut size={14} />
             </button>
           </div>
         )}

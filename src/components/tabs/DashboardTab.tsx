@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   TrendingUp,
   DollarSign,
@@ -12,17 +12,22 @@ import {
   AlertTriangle,
   ArrowRight,
   Filter,
+  Users,
+  Activity as ActivityIcon,
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
+import { useRBAC } from '../../context/RBACContext';
 import { formatCurrency, formatDate, getStageBadgeClass } from '../../utils/formatters';
 import { FunnelChart } from '../charts/FunnelChart';
 import { MonthlyTrendChart } from '../charts/MonthlyTrendChart';
 import { StageBarChart } from '../charts/StageBarChart';
 import { SegmentPieChart } from '../charts/SegmentPieChart';
+import { computeMetricsFromRecords } from '../../services/reportingService';
 
 export const DashboardTab: React.FC = () => {
   const {
     currentUser,
+    clients,
     opportunities,
     activities,
     followups,
@@ -36,36 +41,24 @@ export const DashboardTab: React.FC = () => {
     segments,
   } = useCRM();
 
+  const { hasPermission, canExport } = useRBAC();
+
+  const canCreateOpp = hasPermission('opportunities', 'create');
+  const canExportData = canExport('opportunities');
+
   // Filter opportunities based on active dashboard filters
-  const filteredOpps = opportunities.filter((opp) => {
-    if (filters.bdOwner !== 'All' && opp.owner !== filters.bdOwner) return false;
-    if (filters.segment !== 'All' && opp.segment !== filters.segment) return false;
-    return true;
-  });
+  const filteredOpps = useMemo(() => {
+    return opportunities.filter((opp) => {
+      if (filters.bdOwner !== 'All' && opp.owner !== filters.bdOwner) return false;
+      if (filters.segment !== 'All' && opp.segment !== filters.segment) return false;
+      return true;
+    });
+  }, [opportunities, filters.bdOwner, filters.segment]);
 
-  const totalPipelineINR = filteredOpps
-    .filter((o) => o.status !== 'Won' && o.status !== 'Lost')
-    .reduce((sum, o) => sum + (o.dealValueINR || 0), 0);
-
-  const weightedRevenueINR = filteredOpps
-    .filter((o) => o.status !== 'Won' && o.status !== 'Lost')
-    .reduce((sum, o) => sum + ((o.dealValueINR || 0) * (o.probability || 0)) / 100, 0);
-
-  const wonOpps = filteredOpps.filter((o) => o.status === 'Won');
-  const wonRevenueINR = wonOpps.reduce((sum, o) => sum + (o.dealValueINR || 0), 0);
-
-  const closedCount = filteredOpps.filter((o) => o.status === 'Won' || o.status === 'Lost').length;
-  const winRatePct = closedCount > 0 ? Math.round((wonOpps.length / closedCount) * 100) : 67;
-
-  const activeDealsCount = filteredOpps.filter((o) => o.status !== 'Won' && o.status !== 'Lost').length;
-  const avgDealSizeINR = activeDealsCount > 0 ? totalPipelineINR / activeDealsCount : 0;
-
-  const overdueFollowups = followups.filter((f) => {
-    if (f.status === 'Completed') return false;
-    const due = new Date(f.dueDate).getTime();
-    const today = new Date().setHours(0, 0, 0, 0);
-    return due < today;
-  });
+  // Compute live metrics from production CRM records
+  const metrics = useMemo(() => {
+    return computeMetricsFromRecords(clients, filteredOpps, activities, followups);
+  }, [clients, filteredOpps, activities, followups]);
 
   return (
     <section>
@@ -90,14 +83,18 @@ export const DashboardTab: React.FC = () => {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <button className="btn btn-primary" onClick={() => openModal('addOpportunity')}>
-            <Plus size={15} />
-            <span>+ New Opportunity</span>
-          </button>
-          <button className="btn btn-secondary" onClick={exportOpportunities}>
-            <FileSpreadsheet size={15} />
-            <span>Export CSV</span>
-          </button>
+          {canCreateOpp && (
+            <button className="btn btn-primary" onClick={() => openModal('addOpportunity')}>
+              <Plus size={15} />
+              <span>+ New Opportunity</span>
+            </button>
+          )}
+          {canExportData && (
+            <button className="btn btn-secondary" onClick={exportOpportunities}>
+              <FileSpreadsheet size={15} />
+              <span>Export CSV</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -171,7 +168,7 @@ export const DashboardTab: React.FC = () => {
         )}
       </div>
 
-      {/* KPI Stats Grid with Horizontal Scroll Protection */}
+      {/* Primary KPI Stats Grid */}
       <div className="dashboard-scroll-section">
         <div className="kpi-grid" style={{ minWidth: '850px' }}>
           <div className="kpi-card" style={{ borderLeft: '4px solid #0284c7' }}>
@@ -181,9 +178,9 @@ export const DashboardTab: React.FC = () => {
                 <TrendingUp size={18} />
               </div>
             </div>
-            <div className="kpi-value">{formatCurrency(totalPipelineINR, currency)}</div>
+            <div className="kpi-value">{formatCurrency(metrics.pipelineValueINR, currency)}</div>
             <div className="kpi-subtext">
-              <span>{activeDealsCount} qualified opportunities</span>
+              <span>{metrics.activeOpportunities} active ({metrics.totalOpportunities} total)</span>
             </div>
           </div>
 
@@ -194,7 +191,7 @@ export const DashboardTab: React.FC = () => {
                 <Target size={18} />
               </div>
             </div>
-            <div className="kpi-value">{formatCurrency(weightedRevenueINR, currency)}</div>
+            <div className="kpi-value">{formatCurrency(metrics.weightedPipelineINR, currency)}</div>
             <div className="kpi-subtext">
               <span>Probability-weighted revenue</span>
             </div>
@@ -207,10 +204,10 @@ export const DashboardTab: React.FC = () => {
                 <Award size={18} />
               </div>
             </div>
-            <div className="kpi-value">{formatCurrency(wonRevenueINR, currency)}</div>
+            <div className="kpi-value">{formatCurrency(metrics.wonRevenueINR, currency)}</div>
             <div className="kpi-subtext">
-              <span style={{ color: '#16a34a', fontWeight: 600 }}>{winRatePct}% Win Rate</span>
-              <span>• {wonOpps.length} deals closed</span>
+              <span style={{ color: '#16a34a', fontWeight: 600 }}>{metrics.winRatePct}% Win Rate</span>
+              <span>• {metrics.wonOpportunities} deals won</span>
             </div>
           </div>
 
@@ -221,7 +218,7 @@ export const DashboardTab: React.FC = () => {
                 <DollarSign size={18} />
               </div>
             </div>
-            <div className="kpi-value">{formatCurrency(avgDealSizeINR, currency)}</div>
+            <div className="kpi-value">{formatCurrency(metrics.averageDealSizeINR, currency)}</div>
             <div className="kpi-subtext">
               <span>Per annual corporate contract</span>
             </div>
@@ -234,12 +231,99 @@ export const DashboardTab: React.FC = () => {
                 <Clock size={18} />
               </div>
             </div>
-            <div className="kpi-value" style={{ color: overdueFollowups.length > 0 ? '#dc2626' : '#16a34a' }}>
-              {overdueFollowups.length}
+            <div className="kpi-value" style={{ color: metrics.overdueFollowups > 0 ? '#dc2626' : '#16a34a' }}>
+              {metrics.overdueFollowups}
             </div>
             <div className="kpi-subtext">
-              <span>{overdueFollowups.length > 0 ? 'Requires immediate action' : 'All clear & updated'}</span>
+              <span>{metrics.upcomingFollowups} upcoming next 7 days</span>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Secondary Operational Quick Bar */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: '12px',
+          margin: '14px 0 20px 0',
+        }}
+      >
+        <div
+          style={{
+            background: '#ffffff',
+            borderRadius: '10px',
+            border: '1px solid #e2e8f0',
+            padding: '12px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <div>
+            <div style={{ fontSize: '11.5px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>
+              Corporate Accounts
+            </div>
+            <div style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
+              {metrics.activeClients}{' '}
+              <span style={{ fontSize: '12px', fontWeight: 500, color: '#64748b' }}>
+                / {metrics.totalClients} Active
+              </span>
+            </div>
+          </div>
+          <div style={{ padding: '8px', background: '#eff6ff', borderRadius: '8px', color: '#2563eb' }}>
+            <Users size={16} />
+          </div>
+        </div>
+
+        <div
+          style={{
+            background: '#ffffff',
+            borderRadius: '10px',
+            border: '1px solid #e2e8f0',
+            padding: '12px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <div>
+            <div style={{ fontSize: '11.5px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>
+              Activity Volume (30D)
+            </div>
+            <div style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
+              {metrics.activityVolume30d}{' '}
+              <span style={{ fontSize: '12px', fontWeight: 500, color: '#64748b' }}>Interactions</span>
+            </div>
+          </div>
+          <div style={{ padding: '8px', background: '#f0fdf4', borderRadius: '8px', color: '#16a34a' }}>
+            <ActivityIcon size={16} />
+          </div>
+        </div>
+
+        <div
+          style={{
+            background: '#ffffff',
+            borderRadius: '10px',
+            border: '1px solid #e2e8f0',
+            padding: '12px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <div>
+            <div style={{ fontSize: '11.5px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>
+              Upcoming Follow-ups (7D)
+            </div>
+            <div style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
+              {metrics.upcomingFollowups}{' '}
+              <span style={{ fontSize: '12px', fontWeight: 500, color: '#64748b' }}>Scheduled</span>
+            </div>
+          </div>
+          <div style={{ padding: '8px', background: '#faf5ff', borderRadius: '8px', color: '#9333ea' }}>
+            <Calendar size={16} />
           </div>
         </div>
       </div>

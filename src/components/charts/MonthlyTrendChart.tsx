@@ -3,14 +3,15 @@ import './ChartSetup';
 import { Line } from 'react-chartjs-2';
 import { useCRM } from '../../context/CRMContext';
 import { formatCurrency } from '../../utils/formatters';
+import { computeMonthlyTrendsFromOpportunities } from '../../services/reportingService';
 
 export const MonthlyTrendChart: React.FC = () => {
-  const { currency } = useCRM();
+  const { opportunities, currency } = useCRM();
 
-  const months = ['Apr 2026', 'May 2026', 'Jun 2026', 'Jul 2026', 'Aug 2026', 'Sep 2026 (YTD)'];
-  // Scaled realistic revenue trends in INR
-  const pipelineTrendsINR = [45000000, 52000000, 68000000, 74000000, 89000000, 104800000];
-  const wonTrendsINR = [12000000, 15000000, 22000000, 31000000, 39000000, 51200000];
+  const trendData = computeMonthlyTrendsFromOpportunities(opportunities);
+  const months = trendData.map((t) => t.month);
+  const pipelineTrendsINR = trendData.map((t) => t.pipelineValueINR);
+  const wonTrendsINR = trendData.map((t) => t.wonValueINR);
 
   const data = {
     labels: months,

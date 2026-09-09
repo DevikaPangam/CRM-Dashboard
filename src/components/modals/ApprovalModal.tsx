@@ -1,50 +1,110 @@
 import React, { useState } from 'react';
-import { X, CheckCircle2, XCircle, ShieldAlert, Save } from 'lucide-react';
+import { X, CheckCircle2, XCircle, ShieldAlert, Save, AlertTriangle } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
+import { useAuth } from '../../context/AuthContext';
+import { proposalService } from '../../services/proposalService';
 
 export const ApprovalModal: React.FC = () => {
   const { closeModal, activeModal, updateTaskStatus, updateOpportunity, updateOpportunityDelegation, currentUser } = useCRM();
-  const data = activeModal.data; // { type: 'task' | 'opportunity' | 'delegation', item: any }
+  const { profile, authUser } = useAuth();
+  const data = activeModal.data; // { type: 'task' | 'opportunity' | 'delegation' | 'proposal', item: any }
 
   const [decision, setDecision] = useState<'Approved' | 'Rejected'>('Approved');
   const [remarks, setRemarks] = useState('');
-  const [approverName, setApproverName] = useState(currentUser.name || 'Department Head');
+  const [approverName, setApproverName] = useState(profile?.full_name || currentUser.name || 'Department Head');
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   if (!data || !data.item) return null;
 
   const { type, item } = data;
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const today = new Date().toISOString().slice(0, 10);
+  // Separation of Duties Check: User cannot approve their own item
+  const isOwner =
+    (item.ownerId && item.ownerId === authUser?.id) ||
+    (item.submittedBy && item.submittedBy === authUser?.id) ||
+    (item.owner && item.owner === currentUser.name) ||
+    (item.assignedBy && item.assignedBy === currentUser.name);
 
-    if (type === 'task') {
-      updateTaskStatus(
-        item.id,
-        decision as any,
-        remarks || (decision === 'Approved' ? 'Approved by department head.' : 'Request rejected.')
-      );
-    } else if (type === 'opportunity') {
-      updateOpportunity(item.id, {
-        approvalStatus: decision,
-        approvalRemarks: remarks || (decision === 'Approved' ? 'Deal terms approved.' : 'Deal proposal rejected.'),
-        approvedBy: approverName,
-        approvedDate: today,
-        status: decision === 'Rejected' ? 'Lost' : item.status,
-      });
-    } else if (type === 'delegation') {
-      updateOpportunityDelegation(item.id, {
-        delegationStatus: decision === 'Approved' ? 'Approved & Handed Off' : 'Rejected',
-        delegationRemarks: remarks || `${decision} by ${approverName}`,
-      });
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+
+    if (decision === 'Approved' && isOwner) {
+      setErrorMessage('Security Policy Violation: Separation of Duties prevents approving records that you created or own.');
+      return;
     }
 
-    closeModal();
+    if (decision === 'Rejected' && !remarks.trim()) {
+      setErrorMessage('A rejection reason is required to give actionable feedback to the author.');
+      return;
+    }
+
+    setLoading(true);
+    const today = new Date().toISOString().slice(0, 10);
+    const orgId = profile?.organization_id || '00000000-0000-0000-0000-000000000001';
+
+    try {
+      if (type === 'proposal') {
+        if (decision === 'Approved') {
+          const res = await proposalService.approveProposal(
+            item,
+            orgId,
+            authUser?.id || '',
+            approverName,
+            remarks
+          );
+          if (!res.success) {
+            setErrorMessage(res.error || 'Failed to approve proposal.');
+            setLoading(false);
+            return;
+          }
+        } else {
+          const res = await proposalService.rejectProposal(
+            item.id,
+            orgId,
+            authUser?.id || '',
+            approverName,
+            remarks
+          );
+          if (!res.success) {
+            setErrorMessage(res.error || 'Failed to reject proposal.');
+            setLoading(false);
+            return;
+          }
+        }
+      } else if (type === 'task') {
+        updateTaskStatus(
+          item.id,
+          decision as any,
+          remarks || (decision === 'Approved' ? 'Approved by department head.' : 'Request rejected.')
+        );
+      } else if (type === 'opportunity') {
+        updateOpportunity(item.id, {
+          approvalStatus: decision,
+          approvalRemarks: remarks || (decision === 'Approved' ? 'Deal terms approved.' : 'Deal proposal rejected.'),
+          approvedBy: approverName,
+          approvedDate: today,
+          status: decision === 'Rejected' ? 'Lost' : item.status,
+        });
+      } else if (type === 'delegation') {
+        updateOpportunityDelegation(item.id, {
+          delegationStatus: decision === 'Approved' ? 'Approved & Handed Off' : 'Rejected',
+          delegationRemarks: remarks || `${decision} by ${approverName}`,
+        });
+      }
+
+      closeModal();
+    } catch (err: any) {
+      setErrorMessage(err.message || 'An unexpected error occurred during approval submission.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="modal-overlay" onClick={closeModal}>
-      <div className="modal-content-box" style={{ maxWidth: '580px' }} onClick={(e) => e.stopPropagation()}>
+      <div className="modal-content-box" style={{ maxWidth: '620px' }} onClick={(e) => e.stopPropagation()}>
         <div
           className="modal-header-section"
           style={{
@@ -59,7 +119,7 @@ export const ApprovalModal: React.FC = () => {
               <XCircle size={18} style={{ color: '#dc2626' }} />
             )}
             <span style={{ color: decision === 'Approved' ? '#166534' : '#991b1b' }}>
-              {decision === 'Approved' ? 'Approve Workflow & Deal' : 'Reject Workflow / Request'}
+              {decision === 'Approved' ? 'Executive Commercial Approval' : 'Reject Workflow / Request'}
             </span>
           </div>
           <button className="modal-close-btn" onClick={closeModal}>
@@ -69,6 +129,49 @@ export const ApprovalModal: React.FC = () => {
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
           <div className="modal-body-section">
+            {errorMessage && (
+              <div
+                style={{
+                  background: '#fef2f2',
+                  border: '1px solid #fecaca',
+                  borderRadius: '6px',
+                  padding: '10px 14px',
+                  marginBottom: '14px',
+                  color: '#991b1b',
+                  fontSize: '12.5px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                <AlertTriangle size={16} style={{ color: '#dc2626', flexShrink: 0 }} />
+                <span>{errorMessage}</span>
+              </div>
+            )}
+
+            {/* Separation of Duties Warning */}
+            {isOwner && decision === 'Approved' && (
+              <div
+                style={{
+                  background: '#fffbeb',
+                  border: '1px solid #fef08a',
+                  borderRadius: '6px',
+                  padding: '10px 14px',
+                  marginBottom: '14px',
+                  color: '#92400e',
+                  fontSize: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                <ShieldAlert size={16} style={{ color: '#d97706', flexShrink: 0 }} />
+                <span>
+                  <strong>Separation of Duties Policy:</strong> You are the author/owner of this item. An independent Director / Manager must sign off.
+                </span>
+              </div>
+            )}
+
             {/* Target Item Overview */}
             <div
               style={{
@@ -80,11 +183,14 @@ export const ApprovalModal: React.FC = () => {
               }}
             >
               <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#0f172a' }}>
-                {item.title || item.name}
+                {item.title || item.proposalCode || item.name}
               </div>
               <div style={{ fontSize: '12px', color: '#64748b', marginTop: '3px' }}>
                 {item.clientName && <span>Client: <strong>{item.clientName}</strong> • </span>}
-                {item.department && <span>Department: <strong>{item.department}</strong> • </span>}
+                {item.totalCommercialValueINR && (
+                  <span>Deal Value: <strong>₹{(item.totalCommercialValueINR / 10000000).toFixed(2)} Cr</strong> • </span>
+                )}
+                {item.versionLabel && <span>Version: <strong>{item.versionLabel}</strong> • </span>}
                 {item.stage && <span>Pipeline Stage: <strong>{item.stage}</strong></span>}
               </div>
             </div>
@@ -143,7 +249,7 @@ export const ApprovalModal: React.FC = () => {
 
             {/* Approver Name */}
             <div className="form-group">
-              <label>Authorized Approver Name</label>
+              <label>Authorized Approver</label>
               <input
                 type="text"
                 required
@@ -153,7 +259,7 @@ export const ApprovalModal: React.FC = () => {
               />
             </div>
 
-            {/* Approval / Rejection Remarks */}
+            {/* Remarks */}
             <div className="form-group">
               <label>
                 {decision === 'Approved' ? 'Approval Conditions / Remarks' : 'Rejection Reason & Remarks *'}
@@ -171,34 +277,20 @@ export const ApprovalModal: React.FC = () => {
                 onChange={(e) => setRemarks(e.target.value)}
               />
             </div>
-
-            <div
-              style={{
-                fontSize: '11.5px',
-                color: decision === 'Approved' ? '#166534' : '#991b1b',
-                background: decision === 'Approved' ? '#f0fdf4' : '#fef2f2',
-                padding: '8px 12px',
-                borderRadius: '6px',
-                border: `1px solid ${decision === 'Approved' ? '#bbf7d0' : '#fecaca'}`,
-              }}
-            >
-              {decision === 'Approved'
-                ? '✓ This approval with your remarks will be recorded in the audit log and the workflow status will be updated to Approved.'
-                : '⚠ Rejecting this item will update the status to Rejected and notify the business development owner with the provided remarks.'}
-            </div>
           </div>
 
           <div className="modal-footer-section">
-            <button type="button" className="btn btn-secondary" onClick={closeModal}>
+            <button type="button" className="btn btn-secondary" onClick={closeModal} disabled={loading}>
               Cancel
             </button>
             <button
               type="submit"
+              disabled={loading || (decision === 'Approved' && isOwner)}
               className={`btn ${decision === 'Approved' ? 'btn-success' : 'btn-danger'}`}
               style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
             >
               <Save size={14} />
-              <span>Submit {decision}</span>
+              <span>{loading ? 'Submitting...' : `Submit ${decision}`}</span>
             </button>
           </div>
         </form>

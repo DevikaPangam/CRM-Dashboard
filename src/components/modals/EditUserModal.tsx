@@ -1,141 +1,269 @@
 import React, { useState, useEffect } from 'react';
-import { X, Shield, Save } from 'lucide-react';
+import { X, Shield, Save, Mail, AlertTriangle, KeyRound, UserX, CheckCircle, RefreshCw } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
-import { User, UserRole } from '../../types/crm';
+import { useAuth } from '../../context/AuthContext';
+import { updateAdminUser, triggerPasswordReset, revokeUserAccess, getHierarchyOptions, HierarchyOptions } from '../../services/adminService';
+import { UserRoleEnum, UserStatusEnum } from '../../types/database.types';
 
-const ALL_TABS = [
-  { id: 'tab-dashboard', label: 'Management Dashboard', desc: 'KPI cards, conversion funnel & pipeline trends' },
-  { id: 'tab-clients', label: 'Client Master', desc: 'Enterprise accounts, contact details & directory' },
-  { id: 'tab-team', label: 'BD Team & Owners', desc: 'BD executive performance, targets & regions' },
-  { id: 'tab-segments', label: 'Business Segments', desc: 'Practice lines, margin targets & service division' },
-  { id: 'tab-opportunities', label: 'Leads & Opportunities', desc: 'Full opportunity pipeline table & stages' },
-  { id: 'tab-calculator', label: 'Proposal Calculator', desc: 'Live Streamlit commercial proposal & pricing formula engine' },
-  { id: 'tab-activities', label: 'Engagement & Interactions', desc: 'Chronological timeline of meetings & calls' },
-  { id: 'tab-followups', label: 'Follow-up Tracker', desc: 'Overdue alerts, action items & due dates' },
-  { id: 'tab-internal', label: 'Internal BD Activities', desc: 'Cross-department tasks & approval workflows' },
-  { id: 'tab-review', label: 'Monthly Management Review', desc: 'MMR executive analytics & win/loss retrospectives' },
-  { id: 'tab-users', label: 'Users & Permissions', desc: 'System administrator security & RBAC management' },
+const ROLE_OPTIONS: Array<{ value: UserRoleEnum; label: string; description: string; requiresSuperAdmin?: boolean }> = [
+  { value: 'super_admin', label: 'Super Administrator', description: 'Full system & tenant management authority', requiresSuperAdmin: true },
+  { value: 'bd_director', label: 'BD Director', description: 'Strategic pipeline oversight, MMR & approvals' },
+  { value: 'bd_manager', label: 'BD Manager', description: 'Team leader, pipeline reviews & commercial proposals' },
+  { value: 'bd_sr_exec', label: 'Senior BD Executive', description: 'Enterprise deal inception & key accounts' },
+  { value: 'bd_exec', label: 'BD Executive', description: 'Daily client interactions, leads & follow-ups' },
+  { value: 'management_viewer', label: 'Management Reviewer', description: 'Read-only executive analytics & reports' },
+  { value: 'analyst', label: 'Business Analyst', description: 'Data export & analytics dashboards' },
 ];
 
 export const EditUserModal: React.FC = () => {
-  const { closeModal, activeModal, updateUser, currentUser } = useCRM();
-  const userToEdit: User | undefined = activeModal.data;
+  const { closeModal, activeModal, updateUser } = useCRM();
+  const { profile } = useAuth();
+  const userToEdit: any = activeModal.data;
+
+  const isSuperAdmin = profile?.role === 'super_admin';
+  const isEditingSelf = userToEdit && profile?.id === userToEdit.id;
+
+  const [hierarchy, setHierarchy] = useState<HierarchyOptions>({
+    organizations: [],
+    teams: [],
+    managers: [],
+  });
+
+  // Map legacy role to UserRoleEnum if needed
+  const getMappedRole = (roleStr?: string): UserRoleEnum => {
+    if (roleStr === 'System Administrator' || roleStr === 'super_admin') return 'super_admin';
+    if (roleStr === 'BD Manager' || roleStr === 'bd_director' || roleStr === 'bd_manager') return 'bd_manager';
+    if (roleStr === 'Management Reviewer' || roleStr === 'management_viewer') return 'management_viewer';
+    if (roleStr === 'Senior BD Executive' || roleStr === 'bd_sr_exec') return 'bd_sr_exec';
+    if (roleStr === 'Business Analyst' || roleStr === 'analyst') return 'analyst';
+    return 'bd_exec';
+  };
 
   const [formData, setFormData] = useState({
-    name: userToEdit?.name || '',
+    fullName: userToEdit?.name || userToEdit?.full_name || '',
     email: userToEdit?.email || '',
-    role: (userToEdit?.role || 'BD Executive') as UserRole,
-    status: (userToEdit?.status || 'Active') as 'Active' | 'Inactive',
-    allowed_tabs: userToEdit?.allowed_tabs || [],
+    role: getMappedRole(userToEdit?.role_name || userToEdit?.role),
+    department: userToEdit?.department || 'Business Development',
+    designation: userToEdit?.designation || 'BD Executive',
+    teamId: userToEdit?.team_id || '',
+    managerId: userToEdit?.manager_id || '',
+    status: (userToEdit?.status?.toLowerCase() === 'inactive' ? 'inactive' : 'active') as UserStatusEnum,
   });
+
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    getHierarchyOptions().then((opts) => {
+      if (isMounted) setHierarchy(opts);
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (userToEdit) {
       setFormData({
-        name: userToEdit.name,
-        email: userToEdit.email,
-        role: userToEdit.role,
-        status: userToEdit.status,
-        allowed_tabs: userToEdit.allowed_tabs || [],
+        fullName: userToEdit.name || userToEdit.full_name || '',
+        email: userToEdit.email || '',
+        role: getMappedRole(userToEdit.role_name || userToEdit.role),
+        department: userToEdit.department || 'Business Development',
+        designation: userToEdit.designation || 'BD Executive',
+        teamId: userToEdit.team_id || '',
+        managerId: userToEdit.manager_id || '',
+        status: (userToEdit.status?.toLowerCase() === 'inactive' || userToEdit.status?.toLowerCase() === 'suspended' ? 'inactive' : 'active') as UserStatusEnum,
       });
     }
   }, [userToEdit]);
 
   if (!userToEdit) return null;
 
-  // Guard: Only System Administrator can grant/edit user permissions
-  const isAdmin = currentUser.role === 'System Administrator';
+  const handleRoleChange = (role: UserRoleEnum) => {
+    let designation = formData.designation;
+    if (role === 'super_admin') designation = 'Managing Director / System Admin';
+    else if (role === 'bd_director') designation = 'Director - Business Development';
+    else if (role === 'bd_manager') designation = 'Senior Manager - Corporate Sales';
+    else if (role === 'bd_sr_exec') designation = 'Senior BD Executive';
+    else if (role === 'bd_exec') designation = 'BD Executive';
+    else if (role === 'management_viewer') designation = 'Executive Reviewer';
+    else if (role === 'analyst') designation = 'Commercial Analyst';
 
-  const toggleTab = (tabId: string) => {
-    setFormData((prev) => {
-      const exists = prev.allowed_tabs.includes(tabId);
-      const updated = exists ? prev.allowed_tabs.filter((t) => t !== tabId) : [...prev.allowed_tabs, tabId];
-      return { ...prev, allowed_tabs: updated };
-    });
+    setFormData({ ...formData, role, designation });
   };
 
-  const handleRolePreset = (role: UserRole) => {
-    let tabs = ['tab-dashboard', 'tab-clients', 'tab-opportunities', 'tab-activities', 'tab-followups'];
-    if (role === 'System Administrator') {
-      tabs = ALL_TABS.map((t) => t.id);
-    } else if (role === 'BD Manager') {
-      tabs = ['tab-dashboard', 'tab-clients', 'tab-team', 'tab-opportunities', 'tab-activities', 'tab-followups', 'tab-internal', 'tab-review'];
-    } else if (role === 'Management Reviewer') {
-      tabs = ['tab-dashboard', 'tab-review', 'tab-opportunities', 'tab-team', 'tab-segments'];
-    }
-    setFormData({ ...formData, role, allowed_tabs: tabs });
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSaveChanges = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isAdmin) {
-      alert('Security Alert: Only System Administrators can modify user permissions.');
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    if (isEditingSelf && formData.role !== profile?.role) {
+      setErrorMessage('Security Alert: You cannot modify your own administrator role.');
       return;
     }
-    if (!formData.name.trim() || !formData.email.trim()) return;
 
-    updateUser(userToEdit.id, {
-      name: formData.name,
-      email: formData.email,
-      role: formData.role,
-      role_name: formData.role,
-      status: formData.status,
-      allowed_tabs: formData.allowed_tabs,
-    });
+    if (formData.role === 'super_admin' && !isSuperAdmin) {
+      setErrorMessage('Security Alert: Only a Super Administrator can assign the Super Admin role.');
+      return;
+    }
 
-    closeModal();
+    setLoading(true);
+
+    try {
+      const res = await updateAdminUser(userToEdit.id, {
+        full_name: formData.fullName.trim(),
+        role: formData.role,
+        department: formData.department.trim(),
+        designation: formData.designation.trim(),
+        team_id: formData.teamId || null,
+        manager_id: formData.managerId || null,
+        status: formData.status,
+      });
+
+      if (!res.success) {
+        setErrorMessage(res.error || 'Failed to update user profile.');
+        setLoading(false);
+        return;
+      }
+
+      // Map display role for CRMContext
+      let legacyRole: any = 'BD Executive';
+      if (formData.role === 'super_admin') legacyRole = 'System Administrator';
+      else if (formData.role === 'bd_director' || formData.role === 'bd_manager') legacyRole = 'BD Manager';
+      else if (formData.role === 'management_viewer') legacyRole = 'Management Reviewer';
+
+      updateUser(userToEdit.id, {
+        name: formData.fullName.trim(),
+        email: formData.email.trim(),
+        role: legacyRole,
+        role_name: formData.role,
+        status: formData.status === 'active' ? 'Active' : 'Inactive',
+      });
+
+      setSuccessMessage('User profile and access permissions updated successfully.');
+      setTimeout(() => {
+        closeModal();
+      }, 1200);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'An unexpected error occurred.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!window.confirm(`Send password reset email to ${formData.email}?`)) return;
+    setActionLoading('reset');
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    const res = await triggerPasswordReset(userToEdit.id);
+    setActionLoading(null);
+    if (res.success) {
+      setSuccessMessage(`Password reset link sent to ${formData.email}.`);
+    } else {
+      setErrorMessage(res.error || 'Failed to trigger password reset.');
+    }
+  };
+
+  const handleRevokeAccess = async () => {
+    if (isEditingSelf) {
+      alert('You cannot revoke your own active administrator account.');
+      return;
+    }
+    if (!window.confirm(`Revoke all active sessions and suspend account for ${formData.fullName}?`)) return;
+
+    setActionLoading('revoke');
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    const res = await revokeUserAccess(userToEdit.id);
+    setActionLoading(null);
+    if (res.success) {
+      setFormData((prev) => ({ ...prev, status: 'suspended' as any }));
+      updateUser(userToEdit.id, { status: 'Inactive' });
+      setSuccessMessage(`Access revoked for ${formData.fullName}. Account is now suspended.`);
+    } else {
+      setErrorMessage(res.error || 'Failed to revoke access.');
+    }
   };
 
   return (
     <div className="modal-overlay" onClick={closeModal}>
-      <div className="modal-content-box" style={{ maxWidth: '720px' }} onClick={(e) => e.stopPropagation()}>
+      <div className="modal-content-box" style={{ maxWidth: '780px' }} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header-section">
           <div className="modal-header-title">
-            <Shield size={18} style={{ color: '#dc2626' }} />
-            <span>Edit User &amp; Module Permissions ({userToEdit.name})</span>
+            <Shield size={18} style={{ color: '#0284c7' }} />
+            <span>Manage User &amp; Access Controls ({formData.fullName})</span>
           </div>
           <button className="modal-close-btn" onClick={closeModal}>
             <X size={18} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-          <div className="modal-body-section">
-            {!isAdmin && (
+        <form onSubmit={handleSaveChanges} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+          <div className="modal-body-section" style={{ maxHeight: '72vh', overflowY: 'auto' }}>
+            {errorMessage && (
               <div
                 style={{
-                  background: '#fee2e2',
+                  background: '#fef2f2',
                   border: '1px solid #fecaca',
                   borderRadius: '6px',
-                  padding: '10px',
+                  padding: '10px 14px',
                   marginBottom: '14px',
                   color: '#991b1b',
-                  fontSize: '12px',
+                  fontSize: '12.5px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
                 }}
               >
-                ⚠ Access Restricted: You must be logged in as a <strong>System Administrator</strong> to modify user roles and permissions.
+                <AlertTriangle size={16} style={{ color: '#dc2626', flexShrink: 0 }} />
+                <span>{errorMessage}</span>
               </div>
             )}
 
+            {successMessage && (
+              <div
+                style={{
+                  background: '#f0fdf4',
+                  border: '1px solid #bbf7d0',
+                  borderRadius: '6px',
+                  padding: '10px 14px',
+                  marginBottom: '14px',
+                  color: '#166534',
+                  fontSize: '12.5px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                <CheckCircle size={16} style={{ color: '#16a34a', flexShrink: 0 }} />
+                <span>{successMessage}</span>
+              </div>
+            )}
+
+            {/* Row 1: Full Name & Email */}
             <div className="form-grid-2">
               <div className="form-group">
                 <label>User Full Name *</label>
                 <input
                   type="text"
                   required
-                  disabled={!isAdmin}
                   className="form-control"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  value={formData.fullName}
+                  onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                 />
               </div>
 
               <div className="form-group">
-                <label>Corporate Email *</label>
+                <label>Corporate Work Email</label>
                 <input
                   type="email"
                   required
-                  disabled={!isAdmin}
                   className="form-control"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -143,107 +271,160 @@ export const EditUserModal: React.FC = () => {
               </div>
             </div>
 
+            {/* Row 2: Role & Department */}
             <div className="form-grid-2">
               <div className="form-group">
-                <label>Assigned Role (Sets Default Preset)</label>
+                <label>Assigned System Role *</label>
                 <select
                   className="form-control"
-                  disabled={!isAdmin}
                   value={formData.role}
-                  onChange={(e) => handleRolePreset(e.target.value as UserRole)}
+                  disabled={isEditingSelf}
+                  onChange={(e) => handleRoleChange(e.target.value as UserRoleEnum)}
                 >
-                  <option value="System Administrator">System Administrator (Full Access)</option>
-                  <option value="BD Manager">BD Manager (Pipeline &amp; Review)</option>
-                  <option value="BD Executive">BD Executive (Field &amp; Accounts)</option>
-                  <option value="Management Reviewer">Management Reviewer (Executive MMR)</option>
-                  <option value="Viewer">Viewer (Read-Only)</option>
+                  {ROLE_OPTIONS.map((opt) => (
+                    <option
+                      key={opt.value}
+                      value={opt.value}
+                      disabled={opt.requiresSuperAdmin && !isSuperAdmin}
+                    >
+                      {opt.label} {opt.requiresSuperAdmin && !isSuperAdmin ? '(Super Admin Only)' : ''}
+                    </option>
+                  ))}
                 </select>
+                {isEditingSelf && (
+                  <span style={{ fontSize: '11px', color: '#991b1b', marginTop: '3px', display: 'block' }}>
+                    Self-escalation protection: Administrators cannot modify their own assigned role.
+                  </span>
+                )}
+              </div>
+
+              <div className="form-group">
+                <label>Department</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={formData.department}
+                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                />
+              </div>
+            </div>
+
+            {/* Row 3: Designation & Status */}
+            <div className="form-grid-2">
+              <div className="form-group">
+                <label>Designation</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={formData.designation}
+                  onChange={(e) => setFormData({ ...formData, designation: e.target.value })}
+                />
               </div>
 
               <div className="form-group">
                 <label>Account Status</label>
                 <select
                   className="form-control"
-                  disabled={!isAdmin}
                   value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+                  disabled={isEditingSelf}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value as UserStatusEnum })}
                 >
-                  <option value="Active">Active</option>
-                  <option value="Inactive">Inactive / Suspended</option>
+                  <option value="active">Active (Full CRM Access Permitted)</option>
+                  <option value="inactive">Inactive / Suspended</option>
+                  <option value="pending_invite">Pending Invite Activation</option>
                 </select>
               </div>
             </div>
 
-            <div style={{ marginTop: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <label style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>
-                  Granular Module Access Permissions (Admin Controlled)
-                </label>
-                <span style={{ fontSize: '11px', color: '#64748b' }}>
-                  {formData.allowed_tabs.length} of {ALL_TABS.length} Modules Permitted
-                </span>
+            {/* Row 4: Team & Reporting Manager */}
+            <div className="form-grid-2">
+              <div className="form-group">
+                <label>Assigned BD Team</label>
+                <select
+                  className="form-control"
+                  value={formData.teamId}
+                  onChange={(e) => setFormData({ ...formData, teamId: e.target.value })}
+                >
+                  <option value="">-- No Specific Team --</option>
+                  {hierarchy.teams.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name} ({t.code})
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(2, 1fr)',
-                  gap: '10px',
-                  background: '#f8fafc',
-                  padding: '14px',
-                  borderRadius: '8px',
-                  border: '1px solid #e2e8f0',
-                  maxHeight: '260px',
-                  overflowY: 'auto',
-                }}
-              >
-                {ALL_TABS.map((tab) => {
-                  const isChecked = formData.allowed_tabs.includes(tab.id);
-                  return (
-                    <label
-                      key={tab.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: '8px',
-                        padding: '8px 10px',
-                        background: isChecked ? '#f0fdf4' : '#ffffff',
-                        border: `1px solid ${isChecked ? '#bbf7d0' : '#e2e8f0'}`,
-                        borderRadius: '6px',
-                        cursor: isAdmin ? 'pointer' : 'not-allowed',
-                        transition: 'var(--transition-fast)',
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        disabled={!isAdmin}
-                        style={{ marginTop: '3px' }}
-                        checked={isChecked}
-                        onChange={() => toggleTab(tab.id)}
-                      />
-                      <div style={{ flex: 1 }}>
-                        <strong style={{ fontSize: '12px', color: '#0f172a', display: 'block' }}>{tab.label}</strong>
-                        <span style={{ fontSize: '10.5px', color: '#64748b', lineHeight: 1.2, display: 'block' }}>
-                          {tab.desc}
-                        </span>
-                      </div>
-                    </label>
-                  );
-                })}
+              <div className="form-group">
+                <label>Reporting Manager</label>
+                <select
+                  className="form-control"
+                  value={formData.managerId}
+                  onChange={(e) => setFormData({ ...formData, managerId: e.target.value })}
+                >
+                  <option value="">-- No Direct Manager (Top Level) --</option>
+                  {hierarchy.managers.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.full_name} ({m.designation || m.role})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Security Actions Panel */}
+            <div
+              style={{
+                marginTop: '16px',
+                padding: '14px',
+                background: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '8px',
+              }}
+            >
+              <strong style={{ fontSize: '13px', color: '#0f172a', display: 'block', marginBottom: '10px' }}>
+                Privileged Security Operations
+              </strong>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={handleResetPassword}
+                  disabled={actionLoading !== null}
+                >
+                  <KeyRound size={14} style={{ color: '#0284c7' }} />
+                  <span>{actionLoading === 'reset' ? 'Sending Link...' : 'Trigger Password Reset Email'}</span>
+                </button>
+
+                {!isEditingSelf && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    style={{ color: '#dc2626', borderColor: '#fecaca', background: '#fff' }}
+                    onClick={handleRevokeAccess}
+                    disabled={actionLoading !== null}
+                  >
+                    <UserX size={14} style={{ color: '#dc2626' }} />
+                    <span>{actionLoading === 'revoke' ? 'Revoking...' : 'Revoke Access & Suspend Sessions'}</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>
 
           <div className="modal-footer-section">
-            <button type="button" className="btn btn-secondary" onClick={closeModal}>
+            <button type="button" className="btn btn-secondary" onClick={closeModal} disabled={loading}>
               Cancel
             </button>
-            {isAdmin && (
-              <button type="submit" className="btn btn-primary">
-                <Save size={14} />
-                <span>Save Permissions</span>
-              </button>
-            )}
+            <button type="submit" className="btn btn-primary" disabled={loading}>
+              {loading ? (
+                <span>Saving Changes...</span>
+              ) : (
+                <>
+                  <Save size={15} />
+                  <span>Save User Access Changes</span>
+                </>
+              )}
+            </button>
           </div>
         </form>
       </div>

@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Briefcase, Search, ChevronDown, PlusCircle, Building, TrendingUp, Users,
-  PhoneCall, FileText, GitPullRequest, UserPlus, Layers, ShieldPlus, Shield, RotateCcw
+  PhoneCall, FileText, GitPullRequest, UserPlus, Layers, ShieldPlus, Shield, RotateCcw, LogOut
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
+import { useAuth } from '../../context/AuthContext';
 
 export const Header: React.FC = () => {
   const {
@@ -18,6 +19,17 @@ export const Header: React.FC = () => {
     setCurrentTab,
     resetToFactoryData
   } = useCRM();
+
+  const {
+    profile,
+    authUser,
+    organization,
+    signOut,
+    isCloudConnected
+  } = useAuth();
+
+  const displayName = profile?.full_name || currentUser.name;
+  const displayRole = profile?.role || currentUser.role;
 
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
@@ -46,6 +58,13 @@ export const Header: React.FC = () => {
       .join('')
       .toUpperCase()
       .slice(0, 2);
+  };
+
+  const handleSignOut = async () => {
+    if (window.confirm('Are you sure you want to log out of CorpBD CRM?')) {
+      setUserMenuOpen(false);
+      await signOut();
+    }
   };
 
   return (
@@ -79,20 +98,22 @@ export const Header: React.FC = () => {
           <button
             className="user-switcher-btn"
             onClick={() => setUserMenuOpen(!userMenuOpen)}
-            title="Switch User / Account Settings"
+            title="User Profile & Account Settings"
           >
-            <div className="user-avatar-circle">{getInitials(currentUser.name)}</div>
+            <div className="user-avatar-circle">{getInitials(displayName)}</div>
             <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left', lineHeight: 1.2 }}>
-              <span style={{ fontWeight: 600, fontSize: '12px' }}>{currentUser.name}</span>
+              <span style={{ fontWeight: 600, fontSize: '12px' }}>{displayName}</span>
               <span
                 className="user-role-badge-pill"
                 style={{
-                  background: currentUser.role === 'System Administrator' ? 'linear-gradient(135deg, #10b981, #059669)' : '#0284c7',
+                  background: displayRole.includes('Admin') || displayRole.includes('super_admin') 
+                    ? 'linear-gradient(135deg, #10b981, #059669)' 
+                    : '#0284c7',
                   color: '#ffffff',
                   fontWeight: 700
                 }}
               >
-                {currentUser.role.toUpperCase()}
+                {displayRole.toUpperCase()}
               </span>
             </div>
             <ChevronDown size={14} style={{ opacity: 0.8 }} />
@@ -100,57 +121,101 @@ export const Header: React.FC = () => {
 
           {userMenuOpen && (
             <div className="user-switcher-dropdown">
-              <div className="user-dropdown-header">Switch Active User (RBAC Demo)</div>
-              <div style={{ maxHeight: '240px', overflowY: 'auto' }}>
-                {users.map(u => (
-                  <div
-                    key={u.id}
-                    className={`user-select-item ${u.id === currentUser.id ? 'active' : ''}`}
-                    onClick={() => {
-                      setCurrentUser(u);
-                      setUserMenuOpen(false);
-                    }}
-                  >
-                    <div className="user-avatar-circle" style={{ width: '26px', height: '26px', fontSize: '11px' }}>
-                      {getInitials(u.name)}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 600, fontSize: '12px' }}>{u.name}</div>
-                      <div style={{ fontSize: '11px', color: '#64748b' }}>{u.role}</div>
-                    </div>
-                  </div>
-                ))}
+              <div className="user-dropdown-header">
+                <div style={{ fontWeight: 700, color: '#0f172a' }}>{organization?.name || 'Rajmudra Group'}</div>
+                <div style={{ fontSize: '11px', fontWeight: 500, color: '#64748b' }}>
+                  {profile?.email || authUser?.email || currentUser.email}
+                </div>
               </div>
-              <div style={{ padding: '8px 12px', borderTop: '1px solid #e2e8f0' }}>
+
+              {!isCloudConnected && (
+                <>
+                  <div style={{ padding: '6px 12px', fontSize: '11px', fontWeight: 600, color: '#64748b', background: '#f8fafc' }}>
+                    Switch Active User (Offline Demo)
+                  </div>
+                  <div style={{ maxHeight: '180px', overflowY: 'auto' }}>
+                    {users.map(u => (
+                      <div
+                        key={u.id}
+                        className={`user-select-item ${u.id === currentUser.id ? 'active' : ''}`}
+                        onClick={() => {
+                          setCurrentUser(u);
+                          setUserMenuOpen(false);
+                        }}
+                      >
+                        <div className="user-avatar-circle" style={{ width: '26px', height: '26px', fontSize: '11px' }}>
+                          {getInitials(u.name)}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 600, fontSize: '12px' }}>{u.name}</div>
+                          <div style={{ fontSize: '11px', color: '#64748b' }}>{u.role}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              <div style={{ padding: '8px 12px', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <button
                   className="btn btn-secondary btn-xs"
-                  style={{ width: '100%', marginBottom: '6px' }}
+                  style={{ width: '100%' }}
                   onClick={() => {
                     setCurrentTab('tab-users');
                     setUserMenuOpen(false);
                   }}
                 >
-                  <Shield size={12} /> Manage Users &amp; Permissions
+                  <Shield size={12} /> Users &amp; Permissions
                 </button>
                 <button
-                  className="btn btn-secondary btn-xs"
-                  style={{ width: '100%' }}
-                  onClick={() => {
-                    resetToFactoryData();
-                    setUserMenuOpen(false);
-                  }}
+                  className="btn btn-danger btn-xs"
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                  onClick={handleSignOut}
                 >
-                  <RotateCcw size={12} /> Reset Sample Data
+                  <LogOut size={13} /> Log Out (Sign Out)
                 </button>
               </div>
             </div>
           )}
         </div>
 
+        {/* Dedicated Visible Log Out Button */}
+        <button
+          className="header-logout-btn"
+          onClick={handleSignOut}
+          title="Log Out of CorpBD CRM"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 12px',
+            background: 'rgba(239, 68, 68, 0.18)',
+            color: '#fca5a5',
+            border: '1px solid rgba(239, 68, 68, 0.35)',
+            borderRadius: '6px',
+            fontSize: '12px',
+            fontWeight: 600,
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.3)';
+            e.currentTarget.style.color = '#ffffff';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.18)';
+            e.currentTarget.style.color = '#fca5a5';
+          }}
+        >
+          <LogOut size={14} style={{ color: '#ef4444' }} />
+          <span>Log Out</span>
+        </button>
+
         {/* Currency Toggle */}
         <button className="currency-toggle-btn" onClick={toggleCurrency} title="Toggle Currency (₹ INR / $ USD)">
           <span>{currency === 'INR' ? '₹ INR (L/Cr)' : '$ USD (K/M)'}</span>
         </button>
+
 
         {/* Quick Add Menu */}
         <div className="dropdown-quick-add" ref={quickAddRef}>

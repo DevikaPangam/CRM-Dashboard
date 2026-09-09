@@ -139,7 +139,7 @@ async function buildDemoUsers() {
       user_id: 'devika.admin',
       employee_id: 'EMP-001',
       name: 'Devika Pangam',
-      email: 'devika.admin@corpbd.com',
+      email: 'devika.p@rajmudragroup.com',
       department: 'Management',
       designation: 'System Administrator',
       role_id: 'ROLE-01',

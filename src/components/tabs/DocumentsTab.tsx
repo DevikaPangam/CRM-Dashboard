@@ -5,6 +5,7 @@ import {
 import { useCRM } from '../../context/CRMContext';
 import { formatDate } from '../../utils/formatters';
 import { PIPELINE_STAGES, DOCUMENT_TYPES } from '../../utils/seedData';
+import { storageService } from '../../services/storageService';
 
 export const DocumentsTab: React.FC = () => {
   const { documents, deleteDocument, openModal } = useCRM();
@@ -35,7 +36,19 @@ export const DocumentsTab: React.FC = () => {
     return '#8b5cf6';
   };
 
-  const handleDownload = (doc: any) => {
+  const handleDownload = async (doc: any) => {
+    if (doc.filePath) {
+      try {
+        const res = await storageService.getSignedDownloadUrl(doc.filePath, 300);
+        if (res.success && res.signedUrl) {
+          window.open(res.signedUrl, '_blank');
+          return;
+        }
+      } catch (err) {
+        console.warn('Could not generate signed URL, falling back:', err);
+      }
+    }
+
     const dummyContent = `Document: ${doc.name}\nStage: ${doc.stage}\nType: ${doc.documentType}\nClient: ${doc.clientName || 'N/A'}\nNotes: ${doc.notes || ''}`;
     const blob = new Blob([dummyContent], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);

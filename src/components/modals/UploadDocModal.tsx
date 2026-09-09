@@ -1,26 +1,48 @@
-import React, { useState } from 'react';
-import { X, Upload, FileText, Check } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { X, Upload, FileText, Check, AlertCircle, HardDrive } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
+import { useAuth } from '../../context/AuthContext';
 import { PIPELINE_STAGES, DOCUMENT_TYPES } from '../../utils/seedData';
+import { storageService, validateDocumentFile, ALLOWED_EXTENSIONS } from '../../services/storageService';
 
 export const UploadDocModal: React.FC = () => {
   const { closeModal, activeModal, addDocument, opportunities, clients, currentUser } = useCRM();
+  const { profile, authUser } = useAuth();
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const preselectedOppId = activeModal.data?.opportunityId || opportunities[0]?.id || '';
   const preselectedOpp = opportunities.find((o) => o.id === preselectedOppId);
 
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
   const [formData, setFormData] = useState({
-    name: activeModal.data?.defaultFilename || 'Commercial_Proposal_Final_v1.pdf',
+    name: activeModal.data?.defaultFilename || '',
     opportunityId: preselectedOpp?.id || '',
     opportunityTitle: preselectedOpp?.title || '',
     clientId: preselectedOpp?.clientId || clients[0]?.id || '',
     clientName: preselectedOpp?.clientName || clients[0]?.name || '',
     stage: preselectedOpp?.stage || PIPELINE_STAGES[6],
     documentType: DOCUMENT_TYPES[0],
-    fileSize: '2.5 MB',
-    fileExtension: 'pdf',
     notes: '',
   });
+
+  const handleFileChange = (file: File) => {
+    setErrorMessage(null);
+    const validation = validateDocumentFile(file);
+    if (!validation.isValid) {
+      setErrorMessage(validation.error || 'Invalid file.');
+      return;
+    }
+
+    setSelectedFile(file);
+    if (!formData.name) {
+      setFormData((prev) => ({ ...prev, name: file.name }));
+    }
+  };
 
   const handleOppChange = (oppId: string) => {
     const opp = opportunities.find((o) => o.id === oppId);
@@ -36,37 +58,60 @@ export const UploadDocModal: React.FC = () => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim()) return;
+    setErrorMessage(null);
 
-    const ext = formData.name.split('.').pop() || 'pdf';
+    if (!selectedFile) {
+      setErrorMessage('Please select a file to upload to the secure documents vault.');
+      return;
+    }
 
-    addDocument({
-      name: formData.name,
-      originalFilename: formData.name,
-      opportunityId: formData.opportunityId || undefined,
-      opportunityTitle: formData.opportunityTitle || undefined,
-      clientId: formData.clientId || undefined,
-      clientName: formData.clientName || undefined,
-      stage: formData.stage,
-      documentType: formData.documentType,
-      fileSize: formData.fileSize || '1.8 MB',
-      fileExtension: ext.toLowerCase(),
-      uploadedBy: currentUser.name,
-      notes: formData.notes,
-    });
+    if (!formData.name.trim()) {
+      setErrorMessage('Display filename is required.');
+      return;
+    }
 
-    closeModal();
+    setUploading(true);
+
+    try {
+      const orgId = profile?.organization_id || '00000000-0000-0000-0000-000000000001';
+      const result = await storageService.uploadDocumentFile({
+        file: selectedFile,
+        displayName: formData.name.trim(),
+        documentType: formData.documentType,
+        stage: formData.stage,
+        clientId: formData.clientId || undefined,
+        clientName: formData.clientName || undefined,
+        opportunityId: formData.opportunityId || undefined,
+        opportunityTitle: formData.opportunityTitle || undefined,
+        notes: formData.notes,
+        organizationId: orgId,
+        userId: authUser?.id,
+        userName: profile?.full_name || currentUser.name,
+      });
+
+      if (!result.success || !result.document) {
+        setErrorMessage(result.error || 'Failed to upload document.');
+        setUploading(false);
+        return;
+      }
+
+      addDocument(result.document);
+      closeModal();
+    } catch (err: any) {
+      setErrorMessage(err.message || 'An unexpected error occurred during document upload.');
+      setUploading(false);
+    }
   };
 
   return (
     <div className="modal-overlay" onClick={closeModal}>
-      <div className="modal-content-box" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-content-box" style={{ maxWidth: '680px' }} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header-section">
           <div className="modal-header-title">
-            <Upload size={18} style={{ color: '#ec4899' }} />
-            <span>Upload &amp; Tag Document to Pipeline Stage</span>
+            <Upload size={18} style={{ color: '#0284c7' }} />
+            <span>Upload Document to Vault (Private Supabase Storage)</span>
           </div>
           <button className="modal-close-btn" onClick={closeModal}>
             <X size={18} />
@@ -74,14 +119,92 @@ export const UploadDocModal: React.FC = () => {
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-          <div className="modal-body-section">
+          <div className="modal-body-section" style={{ maxHeight: '72vh', overflowY: 'auto' }}>
+            {errorMessage && (
+              <div
+                style={{
+                  background: '#fef2f2',
+                  border: '1px solid #fecaca',
+                  borderRadius: '6px',
+                  padding: '10px 14px',
+                  marginBottom: '14px',
+                  color: '#991b1b',
+                  fontSize: '12.5px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                <AlertCircle size={16} style={{ color: '#dc2626', flexShrink: 0 }} />
+                <span>{errorMessage}</span>
+              </div>
+            )}
+
+            {/* File Drag & Drop Box */}
+            <div
+              onDragOver={(e) => {
+                e.preventDefault();
+                setIsDragging(true);
+              }}
+              onDragLeave={() => setIsDragging(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setIsDragging(false);
+                if (e.dataTransfer.files?.[0]) {
+                  handleFileChange(e.dataTransfer.files[0]);
+                }
+              }}
+              onClick={() => fileInputRef.current?.click()}
+              style={{
+                border: `2px dashed ${isDragging ? '#0284c7' : '#cbd5e1'}`,
+                borderRadius: '8px',
+                padding: '24px 16px',
+                textAlign: 'center',
+                background: isDragging ? '#f0f9ff' : '#f8fafc',
+                cursor: 'pointer',
+                marginBottom: '16px',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  if (e.target.files?.[0]) {
+                    handleFileChange(e.target.files[0]);
+                  }
+                }}
+              />
+              <HardDrive size={28} style={{ color: '#0284c7', margin: '0 auto 8px', display: 'block' }} />
+              {selectedFile ? (
+                <div>
+                  <strong style={{ fontSize: '13px', color: '#0f172a', display: 'block' }}>
+                    {selectedFile.name}
+                  </strong>
+                  <span style={{ fontSize: '11.5px', color: '#16a34a', fontWeight: 600 }}>
+                    {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB • Ready to Upload
+                  </span>
+                </div>
+              ) : (
+                <div>
+                  <strong style={{ fontSize: '13px', color: '#0f172a', display: 'block' }}>
+                    Click or Drag &amp; Drop Document to Upload
+                  </strong>
+                  <span style={{ fontSize: '11.5px', color: '#64748b' }}>
+                    Supported: PDF, DOCX, XLSX, PPTX, CSV, PNG, JPG (Max 25 MB)
+                  </span>
+                </div>
+              )}
+            </div>
+
             <div className="form-group">
-              <label>File Name (Editable) *</label>
+              <label>File Display Name *</label>
               <input
                 type="text"
                 required
                 className="form-control"
-                placeholder="e.g. ABC_EV_Rate_Card_v3.pdf"
+                placeholder="e.g. TCS_Commercial_Proposal_Final_v2.pdf"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
@@ -104,7 +227,7 @@ export const UploadDocModal: React.FC = () => {
               </div>
 
               <div className="form-group">
-                <label>Associated Pipeline Stage</label>
+                <label>Pipeline Stage Tag</label>
                 <select
                   className="form-control"
                   value={formData.stage}
@@ -119,64 +242,72 @@ export const UploadDocModal: React.FC = () => {
               </div>
             </div>
 
-            <div className="form-group">
-              <label>Link to Lead / Opportunity</label>
-              <select
-                className="form-control"
-                value={formData.opportunityId}
-                onChange={(e) => handleOppChange(e.target.value)}
-              >
-                <option value="">-- Standalone Client Document --</option>
-                {opportunities.map((opp) => (
-                  <option key={opp.id} value={opp.id}>
-                    {opp.title} ({opp.clientName})
-                  </option>
-                ))}
-              </select>
+            <div className="form-grid-2">
+              <div className="form-group">
+                <label>Associated Client</label>
+                <select
+                  className="form-control"
+                  value={formData.clientId}
+                  onChange={(e) => {
+                    const c = clients.find((cl) => cl.id === e.target.value);
+                    setFormData((prev) => ({
+                      ...prev,
+                      clientId: e.target.value,
+                      clientName: c?.name || '',
+                    }));
+                  }}
+                >
+                  <option value="">-- General Document (No Client) --</option>
+                  {clients.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Associated Opportunity Deal</label>
+                <select
+                  className="form-control"
+                  value={formData.opportunityId}
+                  onChange={(e) => handleOppChange(e.target.value)}
+                >
+                  <option value="">-- No Specific Opportunity --</option>
+                  {opportunities.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.title} ({o.clientName})
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
-            <div className="form-group">
-              <label>Document Notes &amp; Version History</label>
+            <div className="form-group" style={{ marginTop: '10px' }}>
+              <label>Internal Notes / Version Remarks</label>
               <textarea
                 className="form-control"
                 rows={2}
-                placeholder="Details on approvals, version changes, scope alterations..."
+                placeholder="e.g. Commercial proposal approved by VP Operations; signed copy awaiting handoff."
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               />
             </div>
-
-            <div
-              style={{
-                border: '2px dashed #cbd5e1',
-                borderRadius: '8px',
-                padding: '20px',
-                textAlign: 'center',
-                background: '#f8fafc',
-                cursor: 'pointer',
-              }}
-              onClick={() => {
-                const dummyName = prompt('Enter or simulate new uploaded file name:', formData.name);
-                if (dummyName) setFormData({ ...formData, name: dummyName });
-              }}
-            >
-              <FileText size={32} style={{ color: '#0284c7', margin: '0 auto 8px' }} />
-              <div style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>
-                Drag and drop files here, or click to browse
-              </div>
-              <div style={{ fontSize: '11px', color: '#64748b' }}>
-                Supports PDF, DOCX, XLSX, DWG, PPTX up to 50MB
-              </div>
-            </div>
           </div>
 
           <div className="modal-footer-section">
-            <button type="button" className="btn btn-secondary" onClick={closeModal}>
+            <button type="button" className="btn btn-secondary" onClick={closeModal} disabled={uploading}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary">
-              <Upload size={14} />
-              <span>Save &amp; Attach Document</span>
+            <button type="submit" className="btn btn-primary" disabled={uploading}>
+              {uploading ? (
+                <span>Uploading to Vault...</span>
+              ) : (
+                <>
+                  <Upload size={15} />
+                  <span>Secure Upload &amp; Tag</span>
+                </>
+              )}
             </button>
           </div>
         </form>

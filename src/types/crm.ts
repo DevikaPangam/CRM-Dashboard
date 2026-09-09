@@ -8,6 +8,8 @@ export interface User {
   email: string;
   role: UserRole;
   role_name?: string;
+  department?: string;
+  designation?: string;
   status: 'Active' | 'Inactive';
   allowed_tabs: string[];
 }

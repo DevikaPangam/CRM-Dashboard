@@ -1211,7 +1211,7 @@ export const INITIAL_USERS: User[] = [
   {
     id: 'USR-001',
     name: 'Devika Pangam',
-    email: 'devika.admin@corpbd.com',
+    email: 'devika.p@rajmudragroup.com',
     role: 'System Administrator',
     role_name: 'System Administrator',
     status: 'Active',

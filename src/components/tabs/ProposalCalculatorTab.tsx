@@ -1,16 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import {
   Calculator, ExternalLink, RotateCcw, Maximize2, Minimize2,
-  Moon, Sun, Compass, Sparkles, CheckCircle2, Eye
+  FileCheck2, Plus, Clock, ShieldCheck, CheckCircle2, XCircle, AlertCircle
 } from 'lucide-react';
+import { useCRM } from '../../context/CRMContext';
+import { useAuth } from '../../context/AuthContext';
+import { proposalService, ProposalRecord, INITIAL_PROPOSALS } from '../../services/proposalService';
 
 type EmbedTheme = 'light' | 'dark' | 'native' | 'standard';
 
 export const ProposalCalculatorTab: React.FC = () => {
+  const { openModal } = useCRM();
+  const { profile } = useAuth();
+
   const [iframeKey, setIframeKey] = useState<number>(Date.now());
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [themeMode, setThemeMode] = useState<EmbedTheme>('light'); // 'light' forces solid black font colors on buttons and inputs
+  const [themeMode, setThemeMode] = useState<EmbedTheme>('light');
+  const [proposals, setProposals] = useState<ProposalRecord[]>(INITIAL_PROPOSALS);
+  const [showVersions, setShowVersions] = useState<boolean>(false);
+
+  const orgId = profile?.organization_id || '00000000-0000-0000-0000-000000000001';
+
+  useEffect(() => {
+    proposalService.fetchProposals(orgId).then((data) => {
+      if (data && data.length > 0) setProposals(data);
+    });
+  }, [orgId]);
 
   const getEmbedUrl = (mode: EmbedTheme) => {
     switch (mode) {
@@ -29,7 +45,7 @@ export const ProposalCalculatorTab: React.FC = () => {
   const currentUrl = getEmbedUrl(themeMode);
   const directUrl = 'https://proposal-formula-rispl.streamlit.app/';
 
-  // Auto-dismiss loading overlay after 1.5 seconds so it never traps the UI
+  // Auto-dismiss loading overlay after 1.5s
   useEffect(() => {
     setIsLoading(true);
     const timer = setTimeout(() => {
@@ -51,6 +67,22 @@ export const ProposalCalculatorTab: React.FC = () => {
 
   const handleOpenExternal = () => {
     window.open(directUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'approved':
+        return { bg: '#dcfce7', text: '#16a34a', border: '#bbf7d0', label: 'Approved' };
+      case 'under_review':
+      case 'submitted':
+        return { bg: '#fef3c7', text: '#b45309', border: '#fde68a', label: 'Under Review' };
+      case 'rejected':
+        return { bg: '#fee2e2', text: '#dc2626', border: '#fecaca', label: 'Rejected' };
+      case 'superseded':
+        return { bg: '#f1f5f9', text: '#64748b', border: '#e2e8f0', label: 'Superseded' };
+      default:
+        return { bg: '#f0f9ff', text: '#0284c7', border: '#bae6fd', label: 'Draft' };
+    }
   };
 
   return (
@@ -107,7 +139,25 @@ export const ProposalCalculatorTab: React.FC = () => {
 
         {/* Toolbar Controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          {/* Font & Contrast Mode Toggle */}
+          <button
+            type="button"
+            className="btn btn-secondary btn-xs"
+            onClick={() => setShowVersions(!showVersions)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontWeight: 700,
+              background: showVersions ? '#eff6ff' : '#ffffff',
+              borderColor: showVersions ? '#3b82f6' : '#e2e8f0',
+              color: showVersions ? '#1d4ed8' : '#334155',
+            }}
+          >
+            <FileCheck2 size={13} />
+            <span>Governance Versions ({proposals.length})</span>
+          </button>
+
+          {/* Theme Mode Toggle */}
           <div
             style={{
               display: 'flex',
@@ -119,77 +169,26 @@ export const ProposalCalculatorTab: React.FC = () => {
               gap: '2px',
             }}
           >
-            <button
-              type="button"
-              onClick={() => handleThemeChange('light')}
-              title="Light Theme - Solid Black Font Color on Buttons & Options"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                padding: '4px 10px',
-                fontSize: '11.5px',
-                fontWeight: 700,
-                borderRadius: '6px',
-                border: 'none',
-                cursor: 'pointer',
-                background: themeMode === 'light' ? '#ffffff' : 'transparent',
-                color: themeMode === 'light' ? '#0f172a' : '#475569',
-                boxShadow: themeMode === 'light' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <Sun size={12} style={{ color: themeMode === 'light' ? '#f59e0b' : '#64748b' }} />
-              <span>☀️ Light (Black Fonts)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleThemeChange('dark')}
-              title="Dark Theme - White Font Color"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                padding: '4px 10px',
-                fontSize: '11.5px',
-                fontWeight: 700,
-                borderRadius: '6px',
-                border: 'none',
-                cursor: 'pointer',
-                background: themeMode === 'dark' ? '#0f172a' : 'transparent',
-                color: themeMode === 'dark' ? '#ffffff' : '#475569',
-                boxShadow: themeMode === 'dark' ? '0 1px 3px rgba(0,0,0,0.15)' : 'none',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <Moon size={12} style={{ color: themeMode === 'dark' ? '#38bdf8' : '#64748b' }} />
-              <span>🌙 Dark (White Fonts)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleThemeChange('native')}
-              title="Native Streamlit View with controls"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                padding: '4px 9px',
-                fontSize: '11.5px',
-                fontWeight: 700,
-                borderRadius: '6px',
-                border: 'none',
-                cursor: 'pointer',
-                background: themeMode === 'native' ? '#ffffff' : 'transparent',
-                color: themeMode === 'native' ? '#0f172a' : '#475569',
-                boxShadow: themeMode === 'native' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <Compass size={12} style={{ color: themeMode === 'native' ? '#0284c7' : '#64748b' }} />
-              <span>Native App</span>
-            </button>
+            {(['light', 'dark'] as EmbedTheme[]).map((theme) => (
+              <button
+                key={theme}
+                type="button"
+                onClick={() => handleThemeChange(theme)}
+                style={{
+                  padding: '3px 8px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: themeMode === theme ? '#ffffff' : 'transparent',
+                  color: themeMode === theme ? '#0f172a' : '#64748b',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  boxShadow: themeMode === theme ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                }}
+              >
+                {theme === 'light' ? 'Light' : 'Dark'}
+              </button>
+            ))}
           </div>
 
           <button
@@ -200,7 +199,7 @@ export const ProposalCalculatorTab: React.FC = () => {
             style={{ display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 600 }}
           >
             <RotateCcw size={12} />
-            <span>Reload Formula</span>
+            <span>Reload</span>
           </button>
 
           <button
@@ -211,7 +210,7 @@ export const ProposalCalculatorTab: React.FC = () => {
             style={{ display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 600 }}
           >
             {isFullscreen ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
-            <span>{isFullscreen ? 'Normal View' : 'Full Screen'}</span>
+            <span>{isFullscreen ? 'Normal' : 'Full Screen'}</span>
           </button>
 
           <button
@@ -233,6 +232,99 @@ export const ProposalCalculatorTab: React.FC = () => {
         </div>
       </div>
 
+      {/* Version Governance Drawer */}
+      {showVersions && (
+        <div
+          style={{
+            background: '#ffffff',
+            border: '1px solid #e2e8f0',
+            borderRadius: 'var(--radius-lg)',
+            padding: '14px 18px',
+            marginBottom: '12px',
+            boxShadow: 'var(--shadow-xs)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+            <strong style={{ fontSize: '13.5px', color: '#0f172a' }}>
+              Commercial Proposal Versions &amp; Governance Status (Separation of Duties Enforced)
+            </strong>
+            <span style={{ fontSize: '11px', color: '#64748b' }}>
+              Proposals are versioned in PostgreSQL • Authors cannot self-approve
+            </span>
+          </div>
+
+          <div className="table-responsive" style={{ maxHeight: '180px', overflowY: 'auto' }}>
+            <table className="data-table" style={{ fontSize: '12px' }}>
+              <thead>
+                <tr>
+                  <th>Proposal Code &amp; Version</th>
+                  <th>Client &amp; Opportunity</th>
+                  <th>Fleet Size &amp; Vehicle</th>
+                  <th>Commercial Value (INR)</th>
+                  <th>Governance Status</th>
+                  <th>Submitted / Approved By</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {proposals.map((p) => {
+                  const badge = getStatusBadge(p.status);
+                  return (
+                    <tr key={p.id}>
+                      <td>
+                        <strong>{p.proposalCode}</strong>
+                        <div style={{ fontSize: '10.5px', color: '#64748b' }}>{p.versionLabel}</div>
+                      </td>
+                      <td>
+                        <div>{p.clientName || 'General Proposal'}</div>
+                        <div style={{ fontSize: '10.5px', color: '#64748b' }}>{p.opportunityTitle}</div>
+                      </td>
+                      <td>
+                        {p.fleetSize} Buses • {p.vehicleType}
+                      </td>
+                      <td>
+                        <strong>₹{(p.totalCommercialValueINR / 10000000).toFixed(2)} Cr</strong>
+                        <div style={{ fontSize: '10.5px', color: '#16a34a' }}>{p.marginPct}% Margin</div>
+                      </td>
+                      <td>
+                        <span
+                          className="pill-badge"
+                          style={{ background: badge.bg, color: badge.text, borderColor: badge.border, fontWeight: 700 }}
+                        >
+                          {badge.label}
+                        </span>
+                      </td>
+                      <td>
+                        <div>By: {p.submittedByName || 'Author'}</div>
+                        {p.approvedByName && (
+                          <div style={{ fontSize: '10.5px', color: '#16a34a' }}>
+                            Approved by: {p.approvedByName} ({p.approvedDate})
+                          </div>
+                        )}
+                      </td>
+                      <td>
+                        {p.status === 'under_review' || p.status === 'draft' ? (
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-xs"
+                            onClick={() => openModal('approval', { type: 'proposal', item: p })}
+                            style={{ color: '#0284c7' }}
+                          >
+                            <span>Sign-off / Review</span>
+                          </button>
+                        ) : (
+                          <span style={{ fontSize: '11px', color: '#94a3b8' }}>Complete</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Embedded Iframe Container */}
       <div
         style={{
@@ -243,10 +335,9 @@ export const ProposalCalculatorTab: React.FC = () => {
           border: '1px solid var(--border-light)',
           overflow: 'hidden',
           boxShadow: 'var(--shadow-sm)',
-          minHeight: '650px',
+          minHeight: '600px',
         }}
       >
-        {/* Non-blocking Subtle Loading Indicator */}
         {isLoading && (
           <div
             style={{

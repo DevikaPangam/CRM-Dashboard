@@ -954,7 +954,7 @@ const SEED_DATA = {
     {
       id: 'USR-001',
       name: 'Devika Pangam',
-      email: 'devika.admin@corpbd.com',
+      email: 'devika.p@rajmudragroup.com',
       role: 'System Administrator',
       status: 'Active',
       allowedTabs: [

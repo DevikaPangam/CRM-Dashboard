@@ -1,5 +1,7 @@
 import React from 'react';
 import { useCRM } from './context/CRMContext';
+import { useAuth } from './context/AuthContext';
+import { LoginPage } from './components/auth/LoginPage';
 import { Header } from './components/layout/Header';
 import { Navigation } from './components/layout/Navigation';
 import { DashboardTab } from './components/tabs/DashboardTab';
@@ -15,10 +17,36 @@ import { ReviewTab } from './components/tabs/ReviewTab';
 import { UsersTab } from './components/tabs/UsersTab';
 import { ProposalCalculatorTab } from './components/tabs/ProposalCalculatorTab';
 import { GlobalModals } from './components/modals/GlobalModals';
+import { RefreshCw } from 'lucide-react';
 
 export const App: React.FC = () => {
   const { currentTab } = useCRM();
+  const { authState, isLoading, isCloudConnected } = useAuth();
 
+  // 1. Initial Session Loading Screen
+  if (isLoading) {
+    return (
+      <div className="login-screen-wrapper">
+        <div style={{ textAlign: 'center', color: '#0284c7' }}>
+          <RefreshCw size={36} className="animate-spin" style={{ margin: '0 auto 12px auto' }} />
+          <div style={{ fontSize: '14px', fontWeight: 600, color: '#334155' }}>
+            Initializing Secure CRM Session...
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. Unauthenticated / Access Guard Screen
+  if (
+    authState === 'UNAUTHENTICATED' ||
+    authState === 'PROFILE_NOT_FOUND' ||
+    authState === 'ACCOUNT_SUSPENDED'
+  ) {
+    return <LoginPage />;
+  }
+
+  // 3. Authenticated CRM Application
   const renderActiveTab = () => {
     switch (currentTab) {
       case 'tab-dashboard':
@@ -61,3 +89,4 @@ export const App: React.FC = () => {
     </div>
   );
 };
+
