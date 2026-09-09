@@ -1,11 +1,11 @@
 # CorpBD CRM — Secure Multi-User Browser Application
 
 A full-featured Corporate Business Development CRM with:
-- **Secure authentication** (bcrypt passwords, session management, account lockout)
-- **Role-Based Access Control** (7 default roles, 10 modules, 8 action types)
-- **Admin panel** for user, role, and permission management
-- **Audit logging** for logins and administrative actions
-- **Docker deployment** ready
+- **Secure authentication** (Supabase Auth Email + Password)
+- **Role-Based Access Control** (7 default roles, 12 modules, 8 action types)
+- **Admin panel** for user provisioning, role editing, link generation & deletion
+- **Audit logging & MMR Analytics**
+- **Live Vercel Deployment**: 👉 **[https://crm-dashboard-l79s.vercel.app/](https://crm-dashboard-l79s.vercel.app/)**
 
 ---
 
