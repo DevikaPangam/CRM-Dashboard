@@ -264,25 +264,26 @@ export const crmDataService = {
     if (!isSupabaseConfigured() || clientsList.length === 0) return clientsList;
     try {
       const dbPayloads = clientsList.map((c) => transformClientToDB(c, orgId, userId));
-      const { data: insertedClients, error: clientErr } = await (supabase.from('clients') as any)
-        .upsert(dbPayloads, { onConflict: 'organization_id,client_code' })
+      
+      let insertedClients: any[] = [];
+      const { data, error: clientErr } = await (supabase.from('clients') as any)
+        .insert(dbPayloads)
         .select();
 
-      if (clientErr) {
-        console.warn('Supabase batchInsertClients upsert error, trying individual insert:', clientErr);
-        for (const client of clientsList) {
-          try {
-            await this.insertClient(client, orgId, userId);
-          } catch (e) {
-            console.warn('Individual client insert error:', e);
-          }
-        }
+      if (!clientErr && data) {
+        insertedClients = data;
+      } else {
+        // Try upsert if insert had conflict
+        const { data: upsertData } = await (supabase.from('clients') as any)
+          .upsert(dbPayloads)
+          .select();
+        if (upsertData) insertedClients = upsertData;
       }
 
-      // Also upsert primary contacts into contacts table
+      // Also insert primary contacts into contacts table
       const contactPayloads: any[] = [];
       clientsList.forEach((c) => {
-        const clientDbId = (insertedClients || []).find((ic: any) => ic.client_code === c.code)?.id || c.id;
+        const clientDbId = (insertedClients || []).find((ic: any) => ic.client_code === c.code || ic.name === c.name)?.id || c.id;
         c.contacts.forEach((con) => {
           contactPayloads.push({
             organization_id: orgId,
@@ -297,7 +298,11 @@ export const crmDataService = {
       });
 
       if (contactPayloads.length > 0) {
-        await (supabase.from('contacts') as any).upsert(contactPayloads);
+        try {
+          await (supabase.from('contacts') as any).insert(contactPayloads);
+        } catch (cErr) {
+          console.warn('Contact insert notice:', cErr);
+        }
       }
 
       return clientsList;

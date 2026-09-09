@@ -184,7 +184,13 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         crmDataService.fetchProfiles(currentOrgId),
       ]);
 
-      setClients(dbClients);
+      if (dbClients && dbClients.length > 0) {
+        setClients((prev) => {
+          const dbIds = new Set(dbClients.map((c) => c.id || c.code));
+          const localOnly = prev.filter((c) => !dbIds.has(c.id || c.code));
+          return [...dbClients, ...localOnly];
+        });
+      }
       setOpportunities(dbOpps);
       setActivities(dbActs);
       setFollowups(dbFoll);
