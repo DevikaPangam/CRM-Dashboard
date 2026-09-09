@@ -225,7 +225,7 @@ export function transformDocumentFromDB(row: any): CRMDocument {
 export const crmDataService = {
   // CLIENTS
   async fetchClients(orgId: string): Promise<Client[]> {
-    if (!isSupabaseConfigured()) return INITIAL_CLIENTS;
+    if (!isSupabaseConfigured()) return [];
     try {
       const { data: clients, error: clientErr } = await (supabase.from('clients') as any)
         .select('*')
@@ -233,7 +233,7 @@ export const crmDataService = {
         .order('created_at', { ascending: false });
 
       if (clientErr) throw clientErr;
-      if (!clients || clients.length === 0) return INITIAL_CLIENTS;
+      if (!clients || clients.length === 0) return [];
 
       const { data: contacts } = await (supabase.from('contacts') as any)
         .select('*')
@@ -244,8 +244,8 @@ export const crmDataService = {
         return transformClientFromDB(c, clientContacts);
       });
     } catch (err) {
-      console.warn('Supabase fetchClients error, using fallback:', err);
-      return INITIAL_CLIENTS;
+      console.warn('Supabase fetchClients error, returning empty list:', err);
+      return [];
     }
   },
 
