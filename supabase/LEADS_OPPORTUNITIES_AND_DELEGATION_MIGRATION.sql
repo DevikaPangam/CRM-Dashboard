@@ -28,17 +28,17 @@ CREATE TABLE IF NOT EXISTS public.opportunities (
   segment text DEFAULT 'Employee Transportation' NOT NULL,
   service_category text DEFAULT 'Corporate Mobility',
   contract_type text DEFAULT 'Annual Contract',
-  deal_value_inr numeric(15, 2) DEFAULT 0.00 NOT NULL CHECK (deal_value_inr >= 0),
-  monthly_value_inr numeric(15, 2) DEFAULT 0.00 NOT NULL CHECK (monthly_value_inr >= 0),
+  deal_value_inr numeric(15, 2) DEFAULT 0.00 NOT NULL,
+  monthly_value_inr numeric(15, 2) DEFAULT 0.00 NOT NULL,
   stage text DEFAULT 'Lead / Inception' NOT NULL,
-  probability_pct numeric(5, 2) DEFAULT 10.00 NOT NULL CHECK (probability_pct >= 0 AND probability_pct <= 100),
+  probability_pct numeric(5, 2) DEFAULT 10.00 NOT NULL,
   status text DEFAULT 'Open' NOT NULL,
   owner_name text DEFAULT 'BD Owner' NOT NULL,
   lead_source text DEFAULT 'Direct Outreach',
   expected_close_date date,
   last_activity_date date,
   next_followup_date date,
-  fleet_size integer DEFAULT 0 CHECK (fleet_size >= 0),
+  fleet_size integer DEFAULT 0,
   vehicle_type text,
   locations text,
   competition text,
@@ -50,8 +50,6 @@ CREATE TABLE IF NOT EXISTS public.opportunities (
   approval_remarks text,
   approved_by text,
   approved_at timestamptz,
-  
-  -- Delegation Matrix Handoff Fields
   delegated_department text DEFAULT 'Operations',
   delegated_owner text DEFAULT 'Manish Rawat (VP - Ops)',
   delegation_status text DEFAULT 'Pending Action',
@@ -61,9 +59,23 @@ CREATE TABLE IF NOT EXISTS public.opportunities (
   notes text,
   created_by uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
   created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL,
-  updated_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL,
-  CONSTRAINT uq_org_opportunity_code UNIQUE (organization_id, opportunity_code)
+  updated_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+-- Ensure all Delegation Matrix columns exist if table was previously created
+ALTER TABLE public.opportunities ADD COLUMN IF NOT EXISTS delegated_department text DEFAULT 'Operations';
+ALTER TABLE public.opportunities ADD COLUMN IF NOT EXISTS delegated_owner text DEFAULT 'Manish Rawat (VP - Ops)';
+ALTER TABLE public.opportunities ADD COLUMN IF NOT EXISTS delegation_status text DEFAULT 'Pending Action';
+ALTER TABLE public.opportunities ADD COLUMN IF NOT EXISTS delegation_milestone text;
+ALTER TABLE public.opportunities ADD COLUMN IF NOT EXISTS sla_days_remaining integer DEFAULT 0;
+ALTER TABLE public.opportunities ADD COLUMN IF NOT EXISTS delegation_remarks text;
+ALTER TABLE public.opportunities ADD COLUMN IF NOT EXISTS segment text DEFAULT 'Employee Transportation';
+ALTER TABLE public.opportunities ADD COLUMN IF NOT EXISTS service_category text DEFAULT 'Corporate Mobility';
+
+-- Ensure Unique constraint on opportunity_code per organization
+DO $$ BEGIN
+  ALTER TABLE public.opportunities ADD CONSTRAINT uq_org_opportunity_code UNIQUE (organization_id, opportunity_code);
+EXCEPTION WHEN duplicate_table OR duplicate_object THEN NULL; END $$;
 
 -- 4. Table: internal_tasks (Cross-Functional Department Delegation & Action Matrix)
 CREATE TABLE IF NOT EXISTS public.internal_tasks (
@@ -89,6 +101,14 @@ CREATE TABLE IF NOT EXISTS public.internal_tasks (
   created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL,
   updated_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+-- Ensure all columns exist in internal_tasks if table already existed
+ALTER TABLE public.internal_tasks ADD COLUMN IF NOT EXISTS assigned_by text DEFAULT 'System Administrator';
+ALTER TABLE public.internal_tasks ADD COLUMN IF NOT EXISTS request_details text;
+ALTER TABLE public.internal_tasks ADD COLUMN IF NOT EXISTS client_id uuid REFERENCES public.clients(id) ON DELETE SET NULL;
+ALTER TABLE public.internal_tasks ADD COLUMN IF NOT EXISTS approval_remarks text;
+ALTER TABLE public.internal_tasks ADD COLUMN IF NOT EXISTS approved_by text;
+ALTER TABLE public.internal_tasks ADD COLUMN IF NOT EXISTS approved_at timestamptz;
 
 -- 5. Table: activities (Meeting Logs, Client Engagements & Handoff Logs)
 CREATE TABLE IF NOT EXISTS public.activities (
@@ -215,7 +235,7 @@ WITH CHECK (
 
 -- 9. Seed Canonical Initial Opportunities with Delegation Matrix
 INSERT INTO public.opportunities (
-  organization_id, opportunity_code, title, client_id, client_name, client_type, segment, service_category,
+  organization_id, opportunity_code, title, client_name, client_type, segment, service_category,
   deal_value_inr, monthly_value_inr, stage, probability_pct, status, owner_name, lead_source, fleet_size,
   delegated_department, delegated_owner, delegation_status, delegation_milestone, sla_days_remaining, delegation_remarks
 ) VALUES
@@ -223,7 +243,6 @@ INSERT INTO public.opportunities (
     '00000000-0000-0000-0000-000000000001',
     'OPP-001',
     'TCS Hinjawadi Phase-3 Bus Fleet Expansion',
-    (SELECT id FROM public.clients WHERE client_code = 'CLT-1001' LIMIT 1),
     'Tata Consultancy Services Ltd',
     'Existing Client',
     'Employee Transportation',
@@ -247,7 +266,6 @@ INSERT INTO public.opportunities (
     '00000000-0000-0000-0000-000000000001',
     'OPP-002',
     'Infosys BPM Dedicated Night Shift Fleet',
-    (SELECT id FROM public.clients WHERE client_code = 'CLT-1002' LIMIT 1),
     'Infosys BPM Ltd',
     'Existing Client',
     'Employee Transportation',
@@ -271,7 +289,6 @@ INSERT INTO public.opportunities (
     '00000000-0000-0000-0000-000000000001',
     'OPP-003',
     'Bajaj Auto Plant Inter-Facility Shuttle',
-    (SELECT id FROM public.clients WHERE client_code = 'CLT-1003' LIMIT 1),
     'Bajaj Auto Ltd (Corporate & R&D)',
     'Existing Client',
     'Fleet Management',
