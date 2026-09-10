@@ -573,6 +573,139 @@ export interface Database {
         };
         Update: Partial<Database['public']['Tables']['departments']['Insert']>;
       };
+
+      segments: {
+        Row: {
+          id: string;
+          organization_id: string;
+          segment_code: string;
+          name: string;
+          category: string;
+          target_margin_pct: number;
+          lead_owner: string;
+          description: string | null;
+          active_clients_count: number;
+          pipeline_value_inr: number;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['segments']['Row'], 'id' | 'created_at' | 'updated_at'> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['segments']['Insert']>;
+      };
+
+      internal_tasks: {
+        Row: {
+          id: string;
+          organization_id: string;
+          opportunity_id: string | null;
+          client_id: string | null;
+          task_code: string | null;
+          title: string;
+          department: string;
+          assigned_to: string;
+          assigned_by: string;
+          due_date: string;
+          priority: string;
+          status: string;
+          request_details: string | null;
+          response_notes: string | null;
+          action_date: string | null;
+          approval_remarks: string | null;
+          approved_by: string | null;
+          approved_at: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['internal_tasks']['Row'], 'id' | 'created_at' | 'updated_at'> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['internal_tasks']['Insert']>;
+      };
+
+      employee_kras: {
+        Row: {
+          id: string;
+          organization_id: string;
+          employee_id: string;
+          department: string;
+          name: string;
+          category: string;
+          description: string | null;
+          weightage_pct: number;
+          score_pct: number;
+          status: string;
+          financial_year: string;
+          review_period: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['employee_kras']['Row'], 'id' | 'created_at' | 'updated_at'> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['employee_kras']['Insert']>;
+      };
+
+      employee_kpis: {
+        Row: {
+          id: string;
+          organization_id: string;
+          employee_id: string;
+          kra_id: string;
+          title: string;
+          description: string | null;
+          metric_type: string;
+          unit: string;
+          target_value: number;
+          actual_value: number;
+          achievement_pct: number;
+          weightage_pct: number;
+          status: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['employee_kpis']['Row'], 'id' | 'created_at' | 'updated_at'> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['employee_kpis']['Insert']>;
+      };
+
+      employee_performance_reviews: {
+        Row: {
+          id: string;
+          organization_id: string;
+          employee_id: string;
+          reviewer_id: string | null;
+          financial_year: string;
+          quarter: string;
+          overall_score: number;
+          rating_band: string;
+          status: string;
+          strengths: string | null;
+          improvements: string | null;
+          final_remarks: string | null;
+          review_date: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['employee_performance_reviews']['Row'], 'id' | 'created_at' | 'updated_at'> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['employee_performance_reviews']['Insert']>;
+      };
     };
   };
 }
