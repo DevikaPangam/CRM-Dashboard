@@ -18,6 +18,7 @@ import {
 import { useCRM } from '../../context/CRMContext';
 import { useRBAC } from '../../context/RBACContext';
 import { formatCurrency, formatDate, getStageBadgeClass } from '../../utils/formatters';
+import { scopeRecordsByUserRole } from '../../utils/rbacPermissions';
 import { FunnelChart } from '../charts/FunnelChart';
 import { MonthlyTrendChart } from '../charts/MonthlyTrendChart';
 import { StageBarChart } from '../charts/StageBarChart';
@@ -41,24 +42,41 @@ export const DashboardTab: React.FC = () => {
     segments,
   } = useCRM();
 
-  const { hasPermission, canExport } = useRBAC();
+  const { hasPermission, canExport, currentRole } = useRBAC();
 
   const canCreateOpp = hasPermission('opportunities', 'create');
   const canExportData = canExport('opportunities');
 
+  // Role-scoped base records
+  const scopedOpps = useMemo(() => {
+    return scopeRecordsByUserRole(opportunities, currentUser, currentRole, 'owner');
+  }, [opportunities, currentUser, currentRole]);
+
+  const scopedClients = useMemo(() => {
+    return scopeRecordsByUserRole(clients, currentUser, currentRole, 'accountOwner');
+  }, [clients, currentUser, currentRole]);
+
+  const scopedActivities = useMemo(() => {
+    return scopeRecordsByUserRole(activities, currentUser, currentRole, 'conductedBy');
+  }, [activities, currentUser, currentRole]);
+
+  const scopedFollowups = useMemo(() => {
+    return scopeRecordsByUserRole(followups, currentUser, currentRole, 'assignedTo');
+  }, [followups, currentUser, currentRole]);
+
   // Filter opportunities based on active dashboard filters
   const filteredOpps = useMemo(() => {
-    return opportunities.filter((opp) => {
+    return scopedOpps.filter((opp) => {
       if (filters.bdOwner !== 'All' && opp.owner !== filters.bdOwner) return false;
       if (filters.segment !== 'All' && opp.segment !== filters.segment) return false;
       return true;
     });
-  }, [opportunities, filters.bdOwner, filters.segment]);
+  }, [scopedOpps, filters.bdOwner, filters.segment]);
 
-  // Compute live metrics from production CRM records
+  // Compute live metrics from role-scoped CRM records
   const metrics = useMemo(() => {
-    return computeMetricsFromRecords(clients, filteredOpps, activities, followups);
-  }, [clients, filteredOpps, activities, followups]);
+    return computeMetricsFromRecords(scopedClients, filteredOpps, scopedActivities, scopedFollowups);
+  }, [scopedClients, filteredOpps, scopedActivities, scopedFollowups]);
 
   return (
     <section>

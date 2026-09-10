@@ -1,16 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   GitBranch, Plus, FileSpreadsheet, Search, TrendingUp, Calendar, Trash2,
   GitPullRequest, Upload, FileText, CheckCircle2, Clock, AlertTriangle, ArrowRight, ShieldCheck,
   History, Info, Eye
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
+import { useRBAC } from '../../context/RBACContext';
 import { formatCurrency, formatDate, getStageBadgeClass } from '../../utils/formatters';
+import { scopeRecordsByUserRole } from '../../utils/rbacPermissions';
 import { PIPELINE_STAGES, DEPARTMENTS } from '../../utils/seedData';
 import { Opportunity } from '../../types/crm';
 
 export const OpportunitiesTab: React.FC = () => {
   const {
+    currentUser,
     opportunities,
     updateOpportunityStage,
     deleteOpportunity,
@@ -24,6 +27,8 @@ export const OpportunitiesTab: React.FC = () => {
     activities,
   } = useCRM();
 
+  const { currentRole } = useRBAC();
+
   const [viewMode, setViewMode] = useState<'pipeline' | 'delegation'>('pipeline');
   const [stageFilter, setStageFilter] = useState('All');
   const [segmentFilter, setSegmentFilter] = useState('All');
@@ -36,7 +41,11 @@ export const OpportunitiesTab: React.FC = () => {
 
   const effectiveSearch = (searchQuery || localSearch).toLowerCase();
 
-  const filteredOpps = opportunities.filter((opp) => {
+  const scopedOpps = useMemo(() => {
+    return scopeRecordsByUserRole(opportunities, currentUser, currentRole, 'owner');
+  }, [opportunities, currentUser, currentRole]);
+
+  const filteredOpps = scopedOpps.filter((opp) => {
     if (stageFilter !== 'All' && opp.stage !== stageFilter) return false;
     if (segmentFilter !== 'All' && opp.segment !== segmentFilter) return false;
     if (deptFilter !== 'All' && opp.delegatedDepartment !== deptFilter) return false;

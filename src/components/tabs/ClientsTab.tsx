@@ -1,14 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Building2, Plus, FileSpreadsheet, Search, Phone, Mail, MapPin,
   TrendingUp, Calendar, Trash2, Database, LayoutGrid, Table, Pencil,
   ShieldCheck, Truck, Paperclip, Download, CheckCircle2, Clock, DollarSign
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
+import { useRBAC } from '../../context/RBACContext';
+import { scopeRecordsByUserRole } from '../../utils/rbacPermissions';
 import { INDUSTRIES } from '../../utils/seedData';
 
 export const ClientsTab: React.FC = () => {
-  const { clients, deleteClient, openModal, exportClients, searchQuery } = useCRM();
+  const { currentUser, clients, deleteClient, openModal, exportClients, searchQuery } = useCRM();
+  const { currentRole } = useRBAC();
 
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   const [clientTypeFilter, setClientTypeFilter] = useState('All');
@@ -18,7 +21,11 @@ export const ClientsTab: React.FC = () => {
 
   const effectiveSearch = (searchQuery || localSearch).toLowerCase();
 
-  const filteredClients = clients.filter((c) => {
+  const scopedClients = useMemo(() => {
+    return scopeRecordsByUserRole(clients, currentUser, currentRole, 'accountOwner');
+  }, [clients, currentUser, currentRole]);
+
+  const filteredClients = scopedClients.filter((c) => {
     if (clientTypeFilter !== 'All') {
       if (clientTypeFilter === 'Existing Business') {
         if (!c.deployedFleets || c.deployedFleets.length === 0) return false;

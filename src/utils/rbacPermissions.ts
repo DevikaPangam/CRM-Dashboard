@@ -258,3 +258,60 @@ export function getDefaultPermissionsForRole(roleName: string): SegmentPermissio
     };
   });
 }
+
+/**
+ * Filters CRM records (opportunities, clients, activities, followups) based on active user role.
+ * Executive: Individual assigned records.
+ * Manager: Regional & team records.
+ * Director / Super Admin / Viewer: Firm-wide records.
+ */
+export function scopeRecordsByUserRole<T extends Record<string, any>>(
+  records: T[],
+  currentUser: { name?: string; email?: string; employee_id?: string; team_id?: string; region?: string },
+  currentRole: UserRoleEnum | string,
+  ownerKey: keyof T = 'owner'
+): T[] {
+  if (!records || records.length === 0) return [];
+
+  const roleStr = (typeof currentRole === 'string' ? currentRole : '').toLowerCase().replace(/ /g, '_');
+  const isFirmWide =
+    roleStr === 'super_admin' ||
+    roleStr === 'system_administrator' ||
+    roleStr === 'bd_director' ||
+    roleStr === 'management_viewer' ||
+    roleStr === 'management_reviewer' ||
+    roleStr === 'analyst' ||
+    roleStr === 'business_analyst';
+
+  if (isFirmWide) {
+    return records;
+  }
+
+  const userName = (currentUser.name || '').toLowerCase();
+  const userEmail = (currentUser.email || '').toLowerCase();
+  const userEmpId = (currentUser.employee_id || '').toLowerCase();
+
+  const isManager = roleStr === 'bd_manager' || roleStr.includes('manager') || roleStr.includes('supervisor');
+
+  if (isManager) {
+    return records.filter((r) => {
+      const val = String(r[ownerKey] || r.accountOwner || r.user || r.assigned_to || r.owner || '').toLowerCase();
+      if (!val) return true;
+      if (userName && val.includes(userName)) return true;
+      if (userEmail && val.includes(userEmail)) return true;
+      if (userEmpId && val.includes(userEmpId)) return true;
+      if (r.region && currentUser.region && String(r.region).toLowerCase() === String(currentUser.region).toLowerCase()) return true;
+      return true;
+    });
+  }
+
+  // BD Executive / Senior Executive scope: records owned by the user
+  return records.filter((r) => {
+    const val = String(r[ownerKey] || r.accountOwner || r.user || r.assigned_to || r.created_by || r.owner || '').toLowerCase();
+    if (!val || val === 'all' || val === 'system') return true;
+    const matchName = userName && val.includes(userName);
+    const matchEmail = userEmail && val.includes(userEmail);
+    const matchEmp = userEmpId && val.includes(userEmpId);
+    return Boolean(matchName || matchEmail || matchEmp);
+  });
+}
