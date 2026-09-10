@@ -283,19 +283,21 @@ export function transformProfileToDB(user: Partial<User>, orgId: string) {
     else if (r === 'Commercial Analyst' || r === 'analyst') payload.role = 'analyst';
     else payload.role = r || 'bd_exec';
   }
+  const isValidUUID = (id?: string | null) => Boolean(id && typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id.trim()));
+
   if (user.department) payload.department = user.department;
-  if (user.department_id !== undefined) payload.department_id = user.department_id || null;
+  payload.department_id = isValidUUID(user.department_id) ? user.department_id : null;
   if (user.designation) payload.designation = user.designation;
   if (user.employee_id) payload.employee_id = user.employee_id;
   if (user.phone !== undefined) payload.phone = user.phone;
   if (user.region) payload.region = user.region;
-  if (user.region_id !== undefined) payload.region_id = user.region_id || null;
+  payload.region_id = isValidUUID(user.region_id) ? user.region_id : null;
   if (user.location) payload.location = user.location;
   if (user.joining_date) payload.joining_date = user.joining_date;
   if (user.employment_type) payload.employment_type = user.employment_type;
   if (user.is_regional_owner !== undefined) payload.is_regional_owner = Boolean(user.is_regional_owner);
-  if (user.team_id !== undefined) payload.team_id = user.team_id || null;
-  if (user.manager_id !== undefined) payload.manager_id = user.manager_id || null;
+  payload.team_id = isValidUUID(user.team_id) ? user.team_id : null;
+  payload.manager_id = isValidUUID(user.manager_id) ? user.manager_id : null;
   if (user.annual_target_inr !== undefined) payload.annual_target_inr = Number(user.annual_target_inr) || 0;
   if (user.status) {
     const s = String(user.status).toLowerCase();
