@@ -21,6 +21,7 @@ export interface User {
   role: UserRole; // Display Role
   role_name?: string; // DB System Role Enum (e.g. 'super_admin', 'bd_manager')
   department?: string; // Department (e.g. 'Business Development')
+  department_id?: string; // Normalized Department UUID
   designation?: string; // Job Title / Designation
   region?: string; // Primary Region Name (e.g. 'West Region', 'North Region')
   region_id?: string; // Normalized Region UUID

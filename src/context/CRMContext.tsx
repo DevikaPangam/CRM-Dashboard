@@ -737,22 +737,10 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         (normalizedEmpId && u.employee_id?.trim().toUpperCase() === normalizedEmpId)
     );
 
-    if (existingIndex !== -1) {
-      console.warn('Duplicate user detected by email or employee ID. Updating existing user record instead.');
-      const existing = users[existingIndex];
-      const updatedUser: User = {
-        ...existing,
-        ...newUser,
-        id: existing.id,
-      };
-      setUsers((prev) => prev.map((u, i) => (i === existingIndex ? updatedUser : u)));
-      return;
-    }
-
     const isBD = (newUser.department || '').trim().toLowerCase() === 'business development' || (newUser.department || '').trim().toLowerCase() === 'bd';
-    const user: User = {
+    const userToPersist: Partial<User> = {
       ...newUser,
-      id: `USR-${String(users.length + 1).padStart(3, '0')}`,
+      email: normalizedEmail,
       employee_id: newUser.employee_id || `EMP-${String(users.length + 1).padStart(3, '0')}`,
       region: newUser.region || 'West',
       location: newUser.location || 'Corporate HQ - Mumbai',
@@ -763,11 +751,31 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       phone: newUser.phone || '+91 98000 00000',
       avatar_bg: newUser.avatar_bg || ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#06b6d4', '#ec4899'][users.length % 6],
     };
-    setUsers((prev) => [...prev, user]);
+
+    if (existingIndex !== -1) {
+      userToPersist.id = users[existingIndex].id;
+    }
+
+    // Persist directly to Supabase public.profiles
+    let savedUser: User = { ...userToPersist, id: userToPersist.id || `USR-${Date.now()}` } as User;
+    try {
+      savedUser = await crmDataService.upsertProfile(userToPersist, currentOrgId);
+    } catch (err) {
+      console.warn('Could not sync upsertProfile to Supabase:', err);
+    }
+
+    if (existingIndex !== -1) {
+      setUsers((prev) => prev.map((u, i) => (i === existingIndex ? savedUser : u)));
+    } else {
+      setUsers((prev) => {
+        const exists = prev.some((u) => u.id === savedUser.id || (savedUser.email && u.email?.toLowerCase() === savedUser.email.toLowerCase()));
+        return exists ? prev.map((u) => (u.id === savedUser.id || u.email?.toLowerCase() === savedUser.email?.toLowerCase() ? savedUser : u)) : [...prev, savedUser];
+      });
+    }
 
     // 2. Record canonical joining milestone in employee career trajectory
     try {
-      const joinEvent = createCanonicalJoiningEvent(user);
+      const joinEvent = createCanonicalJoiningEvent(savedUser);
       const created = await addCareerHistoryEvent(joinEvent, currentUser);
       setEmployeeHistory((prev) => [created, ...prev]);
     } catch (err) {
@@ -776,7 +784,7 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // 3. Initialize Department KRAs and KPIs automatically
     try {
-      generateDefaultKRAsForDepartment(user, 'FY2026-27', 'Annual FY26-27');
+      generateDefaultKRAsForDepartment(savedUser, 'FY2026-27', 'Annual FY26-27');
     } catch (err) {
       console.warn('Failed to generate default KRAs for new employee:', err);
     }
@@ -784,23 +792,23 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // 4. Record Audit Log for User Creation
     try {
       await logAuditEvent({
-        organizationId: user.organization_id || currentOrgId,
+        organizationId: savedUser.organization_id || currentOrgId,
         userId: currentUser?.id || 'sys-admin',
         userName: currentUser?.name || 'System Administrator',
         action: 'USER_INVITED',
         entityType: 'users',
-        entityId: user.id,
+        entityId: savedUser.id,
         newValues: {
-          employee_id: user.employee_id,
-          email: user.email,
-          role: user.role_name || user.role,
-          department: user.department,
-          designation: user.designation,
-          region: user.region,
-          team_id: user.team_id,
-          manager_id: user.manager_id,
-          joining_date: user.joining_date,
-          status: user.status,
+          employee_id: savedUser.employee_id,
+          email: savedUser.email,
+          role: savedUser.role_name || savedUser.role,
+          department: savedUser.department,
+          designation: savedUser.designation,
+          region: savedUser.region,
+          team_id: savedUser.team_id,
+          manager_id: savedUser.manager_id,
+          joining_date: savedUser.joining_date,
+          status: savedUser.status,
         },
       });
     } catch (err) {
@@ -813,6 +821,12 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...updated } : u)));
     if (currentUser.id === id) {
       setCurrentUser((prev) => ({ ...prev, ...updated }));
+    }
+
+    try {
+      await crmDataService.updateProfile(id, updated, currentOrgId);
+    } catch (err) {
+      console.warn('Could not sync updateProfile to Supabase:', err);
     }
 
     // Automatically detect structural property changes and generate history records
@@ -828,8 +842,13 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const deleteUser = (id: string) => {
+  const deleteUser = async (id: string) => {
     setUsers((prev) => prev.filter((u) => u.id !== id));
+    try {
+      await crmDataService.deleteProfile(id, currentOrgId);
+    } catch (err) {
+      console.warn('Could not sync deleteProfile to Supabase:', err);
+    }
   };
 
   const resetToFactoryData = () => {

@@ -194,8 +194,9 @@ export const AddUserModal: React.FC = () => {
       else if (formData.role === 'bd_director' || formData.role === 'bd_manager') legacyRole = 'BD Manager';
       else if (formData.role === 'management_viewer') legacyRole = 'Management Reviewer';
 
-      // Update local CRM state with full employee attributes
-      addUser({
+      // Update CRM state & sync with Supabase with full employee attributes
+      await addUser({
+        id: result.user?.id,
         name: formData.fullName.trim(),
         email: formData.workEmail.trim().toLowerCase(),
         employee_id: formData.employeeId.trim() || undefined,
@@ -218,7 +219,7 @@ export const AddUserModal: React.FC = () => {
         status: formData.status === 'active' ? 'Active' : 'Inactive',
         allowed_tabs: ['tab-dashboard', 'tab-clients', 'tab-employee-master', 'tab-team', 'tab-employee-profile', 'tab-opportunities', 'tab-activities', 'tab-followups'],
         permissions,
-      });
+      } as any);
 
       setSuccessMessage(result.message || 'User provisioned successfully!');
       setTimeout(() => {

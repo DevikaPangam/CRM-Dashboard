@@ -220,6 +220,93 @@ export function transformDocumentFromDB(row: any): CRMDocument {
   };
 }
 
+export function transformProfileFromDB(p: any): User {
+  let mappedRole: any = 'BD Executive';
+  if (p.role === 'super_admin') mappedRole = 'System Administrator';
+  else if (p.role === 'bd_director' || p.role === 'bd_manager') mappedRole = 'BD Manager';
+  else if (p.role === 'management_viewer') mappedRole = 'Management Reviewer';
+  else if (p.role === 'bd_sr_exec') mappedRole = 'Senior BD Executive';
+
+  return {
+    id: p.id,
+    employee_id: p.employee_id || `EMP-${p.id.slice(0, 4).toUpperCase()}`,
+    name: p.full_name,
+    email: p.email,
+    organization_id: p.organization_id,
+    role: mappedRole,
+    role_name: p.role,
+    department: p.department || 'Business Development',
+    department_id: p.department_id || undefined,
+    designation: p.designation || 'Executive',
+    region: p.region || 'West',
+    region_id: p.region_id || undefined,
+    location: p.location || 'Corporate HQ - Mumbai',
+    joining_date: p.joining_date || (p.created_at ? p.created_at.split('T')[0] : '2025-01-01'),
+    employment_type: p.employment_type || 'Full-time',
+    is_regional_owner: Boolean(p.is_regional_owner),
+    team_id: p.team_id || undefined,
+    manager_id: p.manager_id || undefined,
+    status: p.status === 'active' || p.status === 'Active' ? 'Active' : p.status === 'suspended' ? 'Disabled' : 'Inactive',
+    annual_target_inr: Number(p.annual_target_inr) || 0,
+    achieved_inr: 0,
+    active_opps_count: 0,
+    phone: p.phone || '',
+    avatar_url: p.avatar_url || '',
+    avatar_bg: p.avatar_bg || '#3b82f6',
+    allowed_tabs: p.role === 'super_admin'
+      ? ['tab-dashboard', 'tab-clients', 'tab-employee-master', 'tab-team', 'tab-employee-profile', 'tab-segments', 'tab-opportunities', 'tab-calculator', 'tab-activities', 'tab-followups', 'tab-internal', 'tab-documents', 'tab-review', 'tab-users']
+      : ['tab-dashboard', 'tab-clients', 'tab-employee-master', 'tab-team', 'tab-employee-profile', 'tab-opportunities', 'tab-activities', 'tab-followups', 'tab-documents'],
+    created_at: p.created_at,
+    updated_at: p.updated_at,
+  };
+}
+
+export function transformProfileToDB(user: Partial<User>, orgId: string) {
+  const payload: Record<string, any> = {
+    organization_id: orgId,
+  };
+  if (user.id) payload.id = user.id;
+  if (user.name) payload.full_name = user.name;
+  if (user.email) payload.email = user.email.trim().toLowerCase();
+  if (user.role_name || user.role) {
+    const r = user.role_name || user.role;
+    if (r === 'System Administrator' || r === 'super_admin') payload.role = 'super_admin';
+    else if (r === 'BD Manager' || r === 'bd_manager') payload.role = 'bd_manager';
+    else if (r === 'BD Director' || r === 'bd_director') payload.role = 'bd_director';
+    else if (r === 'Management Reviewer' || r === 'management_viewer') payload.role = 'management_viewer';
+    else if (r === 'Senior BD Executive' || r === 'bd_sr_exec') payload.role = 'bd_sr_exec';
+    else if (r === 'Operations Manager' || r === 'operations_manager') payload.role = 'operations_manager';
+    else if (r === 'Centralised Ops Supervisor' || r === 'cops_supervisor') payload.role = 'cops_supervisor';
+    else if (r === 'Chief Maintenance Engineer' || r === 'maintenance_engineer') payload.role = 'maintenance_engineer';
+    else if (r === 'Senior Billing & Collections Specialist' || r === 'finance_executive') payload.role = 'finance_executive';
+    else if (r === 'Corporate & Contracts Counsel' || r === 'legal_counsel') payload.role = 'legal_counsel';
+    else if (r === 'Commercial Analyst' || r === 'analyst') payload.role = 'analyst';
+    else payload.role = r || 'bd_exec';
+  }
+  if (user.department) payload.department = user.department;
+  if (user.department_id !== undefined) payload.department_id = user.department_id || null;
+  if (user.designation) payload.designation = user.designation;
+  if (user.employee_id) payload.employee_id = user.employee_id;
+  if (user.phone !== undefined) payload.phone = user.phone;
+  if (user.region) payload.region = user.region;
+  if (user.region_id !== undefined) payload.region_id = user.region_id || null;
+  if (user.location) payload.location = user.location;
+  if (user.joining_date) payload.joining_date = user.joining_date;
+  if (user.employment_type) payload.employment_type = user.employment_type;
+  if (user.is_regional_owner !== undefined) payload.is_regional_owner = Boolean(user.is_regional_owner);
+  if (user.team_id !== undefined) payload.team_id = user.team_id || null;
+  if (user.manager_id !== undefined) payload.manager_id = user.manager_id || null;
+  if (user.annual_target_inr !== undefined) payload.annual_target_inr = Number(user.annual_target_inr) || 0;
+  if (user.status) {
+    const s = String(user.status).toLowerCase();
+    payload.status = s === 'active' ? 'active' : s === 'disabled' || s === 'suspended' ? 'suspended' : 'inactive';
+  }
+  if (user.avatar_bg) payload.avatar_bg = user.avatar_bg;
+  if (user.avatar_url) payload.avatar_url = user.avatar_url;
+
+  return payload;
+}
+
 // ─── CRUD OPERATIONS ─────────────────────────────────────────────────────────
 
 export const crmDataService = {
@@ -503,46 +590,61 @@ export const crmDataService = {
       if (error) throw error;
       if (!data || data.length === 0) return INITIAL_USERS;
 
-      return (data as any[]).map((p) => {
-        let mappedRole: any = 'BD Executive';
-        if (p.role === 'super_admin') mappedRole = 'System Administrator';
-        else if (p.role === 'bd_director' || p.role === 'bd_manager') mappedRole = 'BD Manager';
-        else if (p.role === 'management_viewer') mappedRole = 'Management Reviewer';
-
-        return {
-          id: p.id,
-          employee_id: p.employee_id || `EMP-${p.id.slice(0, 4).toUpperCase()}`,
-          name: p.full_name,
-          email: p.email,
-          organization_id: p.organization_id,
-          role: mappedRole,
-          role_name: p.role,
-          department: p.department || 'Business Development',
-          designation: p.designation || 'Executive',
-          region: p.region || 'West',
-          location: p.location || 'Corporate HQ - Mumbai',
-          joining_date: p.joining_date || (p.created_at ? p.created_at.split('T')[0] : '2025-01-01'),
-          employment_type: p.employment_type || 'Full-time',
-          is_regional_owner: Boolean(p.is_regional_owner),
-          team_id: p.team_id || undefined,
-          manager_id: p.manager_id || undefined,
-          status: p.status === 'active' ? 'Active' : p.status === 'suspended' ? 'Disabled' : 'Inactive',
-          annual_target_inr: Number(p.annual_target_inr) || 0,
-          achieved_inr: 0,
-          active_opps_count: 0,
-          phone: p.phone || '',
-          avatar_url: p.avatar_url || '',
-          avatar_bg: p.avatar_bg || '#3b82f6',
-          allowed_tabs: p.role === 'super_admin'
-            ? ['tab-dashboard', 'tab-clients', 'tab-employee-master', 'tab-team', 'tab-employee-profile', 'tab-segments', 'tab-opportunities', 'tab-calculator', 'tab-activities', 'tab-followups', 'tab-internal', 'tab-documents', 'tab-review', 'tab-users']
-            : ['tab-dashboard', 'tab-clients', 'tab-employee-master', 'tab-team', 'tab-employee-profile', 'tab-opportunities', 'tab-activities', 'tab-followups', 'tab-documents'],
-          created_at: p.created_at,
-          updated_at: p.updated_at,
-        };
-      });
+      return (data as any[]).map(transformProfileFromDB);
     } catch (err) {
       console.warn('Supabase fetchProfiles error, using fallback:', err);
       return INITIAL_USERS;
+    }
+  },
+
+  async upsertProfile(user: Partial<User>, orgId: string): Promise<User> {
+    if (!isSupabaseConfigured()) {
+      const id = user.id || `USR-${Date.now()}`;
+      return { id, employee_id: user.employee_id || `EMP-${Date.now().toString().slice(-4)}`, ...user } as User;
+    }
+
+    const dbPayload = transformProfileToDB(user, orgId);
+    if (!dbPayload.id) {
+      dbPayload.id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `00000000-0000-0000-0000-${Date.now().toString().slice(-12).padStart(12, '0')}`;
+    }
+
+    // Try upsert on public.profiles
+    const { data, error } = await (supabase.from('profiles') as any)
+      .upsert(dbPayload, { onConflict: 'email' })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Supabase upsertProfile error:', error);
+      throw error;
+    }
+
+    return transformProfileFromDB(data);
+  },
+
+  async updateProfile(id: string, updates: Partial<User>, orgId: string): Promise<void> {
+    if (!isSupabaseConfigured()) return;
+    const dbPayload = transformProfileToDB(updates, orgId);
+    delete dbPayload.id; // Do not overwrite primary key on update
+    const { error } = await (supabase.from('profiles') as any)
+      .update(dbPayload)
+      .eq('id', id)
+      .eq('organization_id', orgId);
+    if (error) {
+      console.error('Supabase updateProfile error:', error);
+      throw error;
+    }
+  },
+
+  async deleteProfile(id: string, orgId: string): Promise<void> {
+    if (!isSupabaseConfigured()) return;
+    const { error } = await (supabase.from('profiles') as any)
+      .delete()
+      .eq('id', id)
+      .eq('organization_id', orgId);
+    if (error) {
+      console.error('Supabase deleteProfile error:', error);
+      throw error;
     }
   },
 };
