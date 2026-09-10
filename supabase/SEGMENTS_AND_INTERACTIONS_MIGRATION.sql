@@ -8,7 +8,18 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- 2. Create Business Segments Table
+-- 2. Ensure Primary Rajmudra Organization Exists
+INSERT INTO public.organizations (id, name, slug, domain, is_active)
+VALUES (
+  '00000000-0000-0000-0000-000000000001',
+  'Rajmudra Corporate Fleet Solutions Ltd',
+  'rajmudra-fleet',
+  'rajmudragroup.com',
+  true
+)
+ON CONFLICT (id) DO NOTHING;
+
+-- 3. Create Business Segments Table
 CREATE TABLE IF NOT EXISTS public.segments (
   id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
   organization_id uuid REFERENCES public.organizations(id) ON DELETE CASCADE NOT NULL,
@@ -26,7 +37,7 @@ CREATE TABLE IF NOT EXISTS public.segments (
   CONSTRAINT uq_org_segment_name UNIQUE (organization_id, name)
 );
 
--- 3. Enable RLS and Policies for Segments
+-- 4. Enable RLS and Policies for Segments
 ALTER TABLE public.segments ENABLE ROW LEVEL SECURITY;
 
 DO $$ BEGIN
@@ -34,7 +45,7 @@ DO $$ BEGIN
   CREATE POLICY "Segments All" ON public.segments FOR ALL USING (true) WITH CHECK (true);
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
--- 4. Seed Canonical Business Segments for Rajmudra Group
+-- 5. Seed Canonical Business Segments for Rajmudra Group (All linked to Organization 00000000-0000-0000-0000-000000000001)
 INSERT INTO public.segments (
   id, organization_id, segment_code, name, category, target_margin_pct, lead_owner, description, active_clients_count, pipeline_value_inr, is_active
 ) VALUES
@@ -53,7 +64,7 @@ INSERT INTO public.segments (
   ),
   (
     '20000000-0000-0000-0000-000000000002',
-    '00000000-0000-0000-0000-000000000002',
+    '00000000-0000-0000-0000-000000000001',
     'SEG-02',
     'Warehouse Logistics',
     'Supply Chain & 3PL',
@@ -65,8 +76,8 @@ INSERT INTO public.segments (
     true
   ),
   (
-    '20000000-0000-0000-0000-000000000003',
-    '00000000-0000-0000-0000-000000000003',
+    '20000000-0000-0000-0000-000000000001',
+    '00000000-0000-0000-0000-000000000001',
     'SEG-03',
     'Fleet Management',
     'Enterprise Fleet',
@@ -79,7 +90,7 @@ INSERT INTO public.segments (
   ),
   (
     '20000000-0000-0000-0000-000000000004',
-    '00000000-0000-0000-0000-000000000004',
+    '00000000-0000-0000-0000-000000000001',
     'SEG-04',
     'Contract Logistics',
     'End-to-End 3PL',
@@ -92,7 +103,7 @@ INSERT INTO public.segments (
   ),
   (
     '20000000-0000-0000-0000-000000000005',
-    '00000000-0000-0000-0000-000000000005',
+    '00000000-0000-0000-0000-000000000001',
     'SEG-05',
     'Corporate Travel',
     'Executive Mobility',
@@ -105,7 +116,7 @@ INSERT INTO public.segments (
   ),
   (
     '20000000-0000-0000-0000-000000000006',
-    '00000000-0000-0000-0000-000000000006',
+    '00000000-0000-0000-0000-000000000001',
     'SEG-06',
     'Supply Chain Solutions',
     'Consulting & Multimodal',
@@ -118,7 +129,7 @@ INSERT INTO public.segments (
   ),
   (
     '20000000-0000-0000-0000-000000000007',
-    '00000000-0000-0000-0000-000000000007',
+    '00000000-0000-0000-0000-000000000001',
     'SEG-07',
     'Last Mile Delivery',
     'Urban E-commerce',
@@ -131,7 +142,7 @@ INSERT INTO public.segments (
   ),
   (
     '20000000-0000-0000-0000-000000000008',
-    '00000000-0000-0000-0000-000000000008',
+    '00000000-0000-0000-0000-000000000001',
     'SEG-08',
     'Cold Chain Logistics',
     'Temperature-Controlled',
@@ -143,6 +154,7 @@ INSERT INTO public.segments (
     true
   )
 ON CONFLICT (id) DO UPDATE SET
+  organization_id = EXCLUDED.organization_id,
   name = EXCLUDED.name,
   category = EXCLUDED.category,
   target_margin_pct = EXCLUDED.target_margin_pct,
@@ -152,7 +164,7 @@ ON CONFLICT (id) DO UPDATE SET
   pipeline_value_inr = EXCLUDED.pipeline_value_inr,
   updated_at = timezone('utc'::text, now());
 
--- 5. Seed Canonical Initial Opportunities across Segments
+-- 6. Seed Canonical Initial Opportunities across Segments
 INSERT INTO public.opportunities (
   id, organization_id, opportunity_code, title, client_id, client_name, client_type, segment, service_category,
   deal_value_inr, monthly_value_inr, stage, probability_pct, status, owner_name, lead_source, fleet_size
@@ -216,7 +228,7 @@ INSERT INTO public.opportunities (
   )
 ON CONFLICT (id) DO NOTHING;
 
--- 6. Seed Initial Engagement Activities across Segments
+-- 7. Seed Initial Engagement Activities across Segments
 INSERT INTO public.activities (
   id, organization_id, client_id, opportunity_id, client_name, client_type, opportunity_title,
   activity_type, activity_date, activity_time, conducted_by, contact_person, location, key_discussion, outcome, action_items, status
@@ -241,7 +253,7 @@ INSERT INTO public.activities (
     'Completed'
   ),
   (
-    '40000000-0000-0000-0000-000000000002',
+    '40000000-0000-0000-0000-000000000001',
     '00000000-0000-0000-0000-000000000001',
     '10000000-0000-0000-0000-000000000002',
     '30000000-0000-0000-0000-000000000002',
@@ -261,5 +273,5 @@ INSERT INTO public.activities (
   )
 ON CONFLICT (id) DO NOTHING;
 
--- 7. Reload PostgREST Schema Cache
+-- 8. Reload PostgREST Schema Cache
 NOTIFY pgrst, 'reload schema';
