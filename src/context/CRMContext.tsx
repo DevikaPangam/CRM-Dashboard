@@ -281,13 +281,56 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return [...dbClients, ...localOnly];
         });
       }
-      setOpportunities(dbOpps);
-      setActivities(dbActs);
-      setFollowups(dbFoll);
-      setDocuments(dbDocs);
-      if (dbUsers.length > 0) setUsers(dbUsers);
-      if (dbSegments && dbSegments.length > 0) setSegments(dbSegments);
-      if (dbTasks && dbTasks.length > 0) setInternalTasks(dbTasks);
+
+      if (dbOpps && dbOpps.length > 0) {
+        setOpportunities((prev) => {
+          const dbIds = new Set(dbOpps.map((o) => o.id || o.code));
+          const localOnly = prev.filter((o) => !dbIds.has(o.id || o.code));
+          return [...dbOpps, ...localOnly];
+        });
+      }
+
+      if (dbActs && dbActs.length > 0) {
+        setActivities((prev) => {
+          const dbIds = new Set(dbActs.map((a) => a.id));
+          const localOnly = prev.filter((a) => !dbIds.has(a.id));
+          return [...dbActs, ...localOnly];
+        });
+      }
+
+      if (dbFoll && dbFoll.length > 0) {
+        setFollowups((prev) => {
+          const dbIds = new Set(dbFoll.map((f) => f.id));
+          const localOnly = prev.filter((f) => !dbIds.has(f.id));
+          return [...dbFoll, ...localOnly];
+        });
+      }
+
+      if (dbSegments && dbSegments.length > 0) {
+        setSegments((prev) => {
+          const dbIds = new Set(dbSegments.map((s) => s.id || s.name));
+          const localOnly = prev.filter((s) => !dbIds.has(s.id || s.name));
+          return [...dbSegments, ...localOnly];
+        });
+      }
+
+      if (dbTasks && dbTasks.length > 0) {
+        setInternalTasks((prev) => {
+          const dbIds = new Set(dbTasks.map((t) => t.id));
+          const localOnly = prev.filter((t) => !dbIds.has(t.id));
+          return [...dbTasks, ...localOnly];
+        });
+      }
+
+      if (dbDocs && dbDocs.length > 0) {
+        setDocuments((prev) => {
+          const dbIds = new Set(dbDocs.map((d) => d.id));
+          const localOnly = prev.filter((d) => !dbIds.has(d.id));
+          return [...dbDocs, ...localOnly];
+        });
+      }
+
+      if (dbUsers && dbUsers.length > 0) setUsers(dbUsers);
     } catch (err) {
       console.warn('Failed to refresh data from Supabase:', err);
     } finally {

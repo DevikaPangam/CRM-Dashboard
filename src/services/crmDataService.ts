@@ -204,18 +204,18 @@ export function transformOpportunityToDB(opp: Partial<Opportunity>, orgId: strin
 export function transformActivityFromDB(row: any): Activity {
   return {
     id: row.id,
-    type: (row.activity_type as any) || 'Physical Meeting',
+    type: (row.activity_type || row.type || 'Physical Meeting') as any,
     clientId: row.client_id || '',
     clientName: row.client_name || '',
     clientType: (row.client_type as any) || 'Existing Client',
     opportunityId: row.opportunity_id || '',
     opportunityTitle: row.opportunity_title || '',
-    date: row.activity_date ? row.activity_date.split('T')[0] : '',
+    date: row.activity_date ? row.activity_date.split('T')[0] : (row.created_at ? row.created_at.split('T')[0] : ''),
     time: row.activity_time || '',
     conductedBy: row.conducted_by_name || row.conducted_by || 'BD Executive',
     contactPerson: row.contact_person || '',
     location: row.location || '',
-    keyDiscussion: row.key_discussion || '',
+    keyDiscussion: row.key_discussion || row.subject || '',
     outcome: row.outcome || '',
     actionItems: row.action_items || '',
     nextFollowupDate: row.next_followup_date || '',
@@ -233,11 +233,11 @@ export function transformFollowupFromDB(row: any): Followup {
     opportunityTitle: row.opportunity_title || '',
     dueDate: row.due_date ? row.due_date.split('T')[0] : '',
     assignedTo: row.assigned_to_name || row.assigned_to || '',
-    type: row.followup_type || 'Call',
+    type: row.followup_type || row.type || 'Call',
     priority: (row.priority as any) || 'Medium',
     description: row.description || '',
     status: (row.status as any) || 'Pending',
-    completedDate: row.completed_at ? row.completed_at.split('T')[0] : undefined,
+    completedDate: row.completed_at ? row.completed_at.split('T')[0] : (row.completed_date ? row.completed_date.split('T')[0] : undefined),
     remarks: row.remarks || '',
   };
 }
@@ -428,11 +428,20 @@ export const crmDataService = {
     const nextCode = 'SEG-' + String(Date.now()).slice(-4);
     const dbPayload = transformSegmentToDB({ ...seg, id: nextCode }, orgId);
     
-    // Try upsert on (organization_id, name) so creating same-name segment safely updates instead of throwing constraint error
-    const { data, error } = await (supabase.from('segments') as any)
-      .upsert(dbPayload, { onConflict: 'organization_id,name' })
+    let { data, error } = await (supabase.from('segments') as any)
+      .insert(dbPayload)
       .select()
       .single();
+
+    if (error) {
+      console.warn('insertSegment direct insert failed, trying upsert:', error);
+      const res = await (supabase.from('segments') as any)
+        .upsert(dbPayload)
+        .select()
+        .single();
+      data = res.data;
+      error = res.error;
+    }
 
     if (error) {
       console.error('insertSegment error:', error);
@@ -593,10 +602,21 @@ export const crmDataService = {
     }
     const oppCode = 'OPP-' + String(Date.now()).slice(-4);
     const dbPayload = transformOpportunityToDB({ ...opp, code: oppCode }, orgId, userId);
-    const { data, error } = await (supabase.from('opportunities') as any)
-      .upsert(dbPayload, { onConflict: 'organization_id,opportunity_code' })
+    
+    let { data, error } = await (supabase.from('opportunities') as any)
+      .insert(dbPayload)
       .select()
       .single();
+
+    if (error) {
+      console.warn('insertOpportunity direct insert failed, trying upsert:', error);
+      const res = await (supabase.from('opportunities') as any)
+        .upsert(dbPayload)
+        .select()
+        .single();
+      data = res.data;
+      error = res.error;
+    }
 
     if (error) {
       console.error('insertOpportunity error:', error);
@@ -652,27 +672,34 @@ export const crmDataService = {
     if (!isSupabaseConfigured()) {
       return { id: 'act_' + Date.now(), ...act };
     }
+    const actType = act.type || 'Physical Meeting';
+    const payload: Record<string, any> = {
+      organization_id: orgId,
+      client_id: isValidUUID(act.clientId) ? act.clientId : null,
+      client_name: act.clientName || 'General Client',
+      client_type: act.clientType || 'Existing Client',
+      opportunity_id: isValidUUID(act.opportunityId) ? act.opportunityId : null,
+      opportunity_title: act.opportunityTitle || null,
+      activity_type: actType,
+      type: actType,
+      subject: `${actType} with ${act.clientName || 'Client'}`,
+      activity_date: act.date || new Date().toISOString().slice(0, 10),
+      activity_time: act.time || '11:00',
+      conducted_by: act.conductedBy || 'BD Executive',
+      contact_person: act.contactPerson || 'Client Contact',
+      location: act.location || 'Client Office',
+      key_discussion: act.keyDiscussion || '',
+      outcome: act.outcome || '',
+      action_items: act.actionItems || '',
+      next_followup_date: act.nextFollowupDate || null,
+      status: act.status || 'Completed',
+    };
+    if (isValidUUID(userId)) {
+      payload.created_by = userId;
+    }
+
     const { data, error } = await (supabase.from('activities') as any)
-      .insert({
-        organization_id: orgId,
-        client_id: isValidUUID(act.clientId) ? act.clientId : null,
-        client_name: act.clientName,
-        client_type: act.clientType,
-        opportunity_id: isValidUUID(act.opportunityId) ? act.opportunityId : null,
-        opportunity_title: act.opportunityTitle || null,
-        activity_type: act.type as any,
-        activity_date: act.date,
-        activity_time: act.time,
-        conducted_by: act.conductedBy || 'BD Executive',
-        created_by: isValidUUID(userId) ? userId : null,
-        contact_person: act.contactPerson,
-        location: act.location,
-        key_discussion: act.keyDiscussion,
-        outcome: act.outcome,
-        action_items: act.actionItems,
-        next_followup_date: act.nextFollowupDate || null,
-        status: act.status || 'Completed',
-      })
+      .insert(payload)
       .select()
       .single();
 
@@ -713,22 +740,28 @@ export const crmDataService = {
     if (!isSupabaseConfigured()) {
       return { id: 'fol_' + Date.now(), ...fol };
     }
+    const folType = fol.type || 'Call';
+    const payload: Record<string, any> = {
+      organization_id: orgId,
+      client_id: isValidUUID(fol.clientId) ? fol.clientId : null,
+      client_name: fol.clientName || 'General Account',
+      client_type: fol.clientType || 'Existing Client',
+      opportunity_id: isValidUUID(fol.opportunityId) ? fol.opportunityId : null,
+      opportunity_title: fol.opportunityTitle || null,
+      due_date: fol.dueDate || new Date().toISOString().slice(0, 10),
+      assigned_to: fol.assignedTo || 'BD Executive',
+      followup_type: folType,
+      type: folType,
+      priority: fol.priority || 'Medium',
+      description: fol.description || 'Follow-up with client',
+      status: fol.status || 'Pending',
+    };
+    if (isValidUUID(userId)) {
+      payload.created_by = userId;
+    }
+
     const { data, error } = await (supabase.from('followups') as any)
-      .insert({
-        organization_id: orgId,
-        client_id: isValidUUID(fol.clientId) ? fol.clientId : null,
-        client_name: fol.clientName,
-        client_type: fol.clientType,
-        opportunity_id: isValidUUID(fol.opportunityId) ? fol.opportunityId : null,
-        opportunity_title: fol.opportunityTitle || null,
-        due_date: fol.dueDate,
-        assigned_to: fol.assignedTo || 'BD Executive',
-        created_by: isValidUUID(userId) ? userId : null,
-        followup_type: fol.type,
-        priority: fol.priority as any,
-        description: fol.description,
-        status: fol.status || 'Pending',
-      })
+      .insert(payload)
       .select()
       .single();
 

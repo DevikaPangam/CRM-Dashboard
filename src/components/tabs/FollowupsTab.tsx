@@ -59,7 +59,7 @@ export const FollowupsTab: React.FC = () => {
           </p>
         </div>
 
-        <button className="btn btn-primary" onClick={() => openModal('addActivity')}>
+        <button className="btn btn-primary" onClick={() => openModal('addFollowup')}>
           <Calendar size={15} />
           <span>+ Schedule Follow-up</span>
         </button>

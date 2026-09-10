@@ -4,6 +4,7 @@ import { AddClientModal } from './AddClientModal';
 import { EditClientModal } from './EditClientModal';
 import { AddOpportunityModal } from './AddOpportunityModal';
 import { AddActivityModal } from './AddActivityModal';
+import { AddFollowupModal } from './AddFollowupModal';
 import { AddInternalModal } from './AddInternalModal';
 import { AddTeamModal } from './AddTeamModal';
 import { EditTeamModal } from './EditTeamModal';
@@ -41,6 +42,8 @@ export const GlobalModals: React.FC = () => {
       return <AddOpportunityModal />;
     case 'addActivity':
       return <AddActivityModal />;
+    case 'addFollowup':
+      return <AddFollowupModal />;
     case 'addInternal':
       return <AddInternalModal />;
     case 'addTeam':
