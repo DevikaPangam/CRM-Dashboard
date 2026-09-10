@@ -1,6 +1,9 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useCRM } from './context/CRMContext';
 import { useAuth } from './context/AuthContext';
+import { useRBAC } from './context/RBACContext';
+import { ProtectedModule } from './components/common/ProtectedModule';
+import { TAB_MODULE_ACCESS_MAP, getAuthorizedDefaultTab } from './constants/moduleAccess';
 import { LoginPage } from './components/auth/LoginPage';
 import { Header } from './components/layout/Header';
 import { Navigation } from './components/layout/Navigation';
@@ -22,8 +25,26 @@ import { GlobalModals } from './components/modals/GlobalModals';
 import { RefreshCw } from 'lucide-react';
 
 export const App: React.FC = () => {
-  const { currentTab } = useCRM();
-  const { authState, isLoading, isCloudConnected } = useAuth();
+  const { currentTab, setCurrentTab } = useCRM();
+  const { authState, isLoading } = useAuth();
+  const { can } = useRBAC();
+
+  // Automatic Tab Sanitization:
+  // If currentTab points to a restricted, unknown, or deprecated tab for the logged in user,
+  // automatically transition to the first authorized default tab.
+  useEffect(() => {
+    if (isLoading || authState !== 'AUTHENTICATED') return;
+
+    const accessReq = TAB_MODULE_ACCESS_MAP[currentTab];
+    const isCurrentAuthorized = accessReq ? can(accessReq.module, accessReq.action) : false;
+
+    if (!isCurrentAuthorized) {
+      const defaultTab = getAuthorizedDefaultTab(can);
+      if (currentTab !== defaultTab) {
+        setCurrentTab(defaultTab);
+      }
+    }
+  }, [currentTab, can, isLoading, authState, setCurrentTab]);
 
   // 1. Initial Session Loading Screen
   if (isLoading) {
@@ -48,39 +69,99 @@ export const App: React.FC = () => {
     return <LoginPage />;
   }
 
-  // 3. Authenticated CRM Application
+  // 3. Authenticated & Protected CRM Application Tab Router
   const renderActiveTab = () => {
     switch (currentTab) {
       case 'tab-dashboard':
-        return <DashboardTab />;
+        return (
+          <ProtectedModule moduleKey="dashboard" action="view">
+            <DashboardTab />
+          </ProtectedModule>
+        );
       case 'tab-clients':
-        return <ClientsTab />;
+        return (
+          <ProtectedModule moduleKey="clients" action="view">
+            <ClientsTab />
+          </ProtectedModule>
+        );
       case 'tab-employee-master':
-        return <EmployeeMasterTab />;
+        return (
+          <ProtectedModule moduleKey="team" action="view">
+            <EmployeeMasterTab />
+          </ProtectedModule>
+        );
       case 'tab-team':
-        return <TeamTab />;
-      case 'tab-segments':
-        return <SegmentsTab />;
-      case 'tab-opportunities':
-        return <OpportunitiesTab />;
-      case 'tab-calculator':
-        return <ProposalCalculatorTab />;
-      case 'tab-activities':
-        return <ActivitiesTab />;
-      case 'tab-followups':
-        return <FollowupsTab />;
-      case 'tab-internal':
-        return <InternalTab />;
-      case 'tab-documents':
-        return <DocumentsTab />;
-      case 'tab-review':
-        return <ReviewTab />;
-      case 'tab-users':
-        return <UsersTab />;
+        return (
+          <ProtectedModule moduleKey="team" action="view">
+            <TeamTab />
+          </ProtectedModule>
+        );
       case 'tab-employee-profile':
-        return <EmployeeProfileTab />;
+        return (
+          <ProtectedModule moduleKey="team" action="view">
+            <EmployeeProfileTab />
+          </ProtectedModule>
+        );
+      case 'tab-segments':
+        return (
+          <ProtectedModule moduleKey="segments" action="view">
+            <SegmentsTab />
+          </ProtectedModule>
+        );
+      case 'tab-opportunities':
+        return (
+          <ProtectedModule moduleKey="opportunities" action="view">
+            <OpportunitiesTab />
+          </ProtectedModule>
+        );
+      case 'tab-calculator':
+        return (
+          <ProtectedModule moduleKey="calculator" action="view">
+            <ProposalCalculatorTab />
+          </ProtectedModule>
+        );
+      case 'tab-activities':
+        return (
+          <ProtectedModule moduleKey="activities" action="view">
+            <ActivitiesTab />
+          </ProtectedModule>
+        );
+      case 'tab-followups':
+        return (
+          <ProtectedModule moduleKey="followups" action="view">
+            <FollowupsTab />
+          </ProtectedModule>
+        );
+      case 'tab-internal':
+        return (
+          <ProtectedModule moduleKey="internal" action="view">
+            <InternalTab />
+          </ProtectedModule>
+        );
+      case 'tab-documents':
+        return (
+          <ProtectedModule moduleKey="documents" action="view">
+            <DocumentsTab />
+          </ProtectedModule>
+        );
+      case 'tab-review':
+        return (
+          <ProtectedModule moduleKey="review" action="view">
+            <ReviewTab />
+          </ProtectedModule>
+        );
+      case 'tab-users':
+        return (
+          <ProtectedModule moduleKey="users" action="view">
+            <UsersTab />
+          </ProtectedModule>
+        );
       default:
-        return <DashboardTab />;
+        return (
+          <ProtectedModule moduleKey="dashboard" action="view">
+            <DashboardTab />
+          </ProtectedModule>
+        );
     }
   };
 
@@ -95,4 +176,3 @@ export const App: React.FC = () => {
     </div>
   );
 };
-

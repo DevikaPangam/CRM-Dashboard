@@ -7,7 +7,7 @@ import {
 import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
 import { useRBAC } from '../../context/RBACContext';
-import { CRMModuleKey, PermissionActionEnum } from '../../types/database.types';
+import { TAB_MODULE_ACCESS_MAP } from '../../constants/moduleAccess';
 
 interface NavTabItem {
   id: string;
@@ -16,7 +16,6 @@ interface NavTabItem {
   icon: React.ReactNode;
   badge?: number | string;
   badgeStyle?: React.CSSProperties;
-  adminOnly?: boolean;
 }
 
 interface NavSection {
@@ -166,39 +165,19 @@ export const Navigation: React.FC = () => {
           fullLabel: 'Users & Permissions',
           icon: <ShieldCheck size={18} style={{ color: '#dc2626' }} />,
           badge: users.length,
-          adminOnly: true,
         },
       ]
     }
   ];
 
-  const { canView, canAdmin, isSuperAdmin } = useRBAC();
-
-  const TAB_TO_MODULE: Record<string, { module: CRMModuleKey; action?: PermissionActionEnum }> = {
-    'tab-dashboard': { module: 'dashboard', action: 'view' },
-    'tab-clients': { module: 'clients', action: 'view' },
-    'tab-employee-master': { module: 'team', action: 'view' },
-    'tab-team': { module: 'team', action: 'view' },
-    'tab-employee-profile': { module: 'team', action: 'view' },
-    'tab-segments': { module: 'segments', action: 'view' },
-    'tab-opportunities': { module: 'opportunities', action: 'view' },
-    'tab-calculator': { module: 'calculator', action: 'view' },
-    'tab-activities': { module: 'activities', action: 'view' },
-    'tab-followups': { module: 'followups', action: 'view' },
-    'tab-internal': { module: 'internal', action: 'view' },
-    'tab-documents': { module: 'documents', action: 'view' },
-    'tab-review': { module: 'review', action: 'view' },
-    'tab-users': { module: 'users', action: 'admin' },
-  };
+  const { can } = useRBAC();
 
   const filterTab = (tab: NavTabItem) => {
-    if (isSuperAdmin) return true;
-    const mapping = TAB_TO_MODULE[tab.id];
-    if (mapping) {
-      if (mapping.action === 'admin') return canAdmin(mapping.module);
-      return canView(mapping.module);
+    const req = TAB_MODULE_ACCESS_MAP[tab.id];
+    if (req) {
+      return can(req.module, req.action);
     }
-    return (currentUser?.allowed_tabs || []).includes(tab.id);
+    return false;
   };
 
   return (
