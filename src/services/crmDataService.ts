@@ -425,9 +425,15 @@ export const crmDataService = {
       const id = 'SEG-' + String(Date.now()).slice(-2);
       return { id, ...seg } as BusinessSegment;
     }
-    const nextCode = 'SEG-' + String(Date.now()).slice(-2);
+    const nextCode = 'SEG-' + String(Date.now()).slice(-4);
     const dbPayload = transformSegmentToDB({ ...seg, id: nextCode }, orgId);
-    const { data, error } = await (supabase.from('segments') as any).insert(dbPayload).select().single();
+    
+    // Try upsert on (organization_id, name) so creating same-name segment safely updates instead of throwing constraint error
+    const { data, error } = await (supabase.from('segments') as any)
+      .upsert(dbPayload, { onConflict: 'organization_id,name' })
+      .select()
+      .single();
+
     if (error) {
       console.error('insertSegment error:', error);
       throw error;
@@ -587,7 +593,11 @@ export const crmDataService = {
     }
     const oppCode = 'OPP-' + String(Date.now()).slice(-4);
     const dbPayload = transformOpportunityToDB({ ...opp, code: oppCode }, orgId, userId);
-    const { data, error } = await (supabase.from('opportunities') as any).insert(dbPayload).select().single();
+    const { data, error } = await (supabase.from('opportunities') as any)
+      .upsert(dbPayload, { onConflict: 'organization_id,opportunity_code' })
+      .select()
+      .single();
+
     if (error) {
       console.error('insertOpportunity error:', error);
       throw error;
