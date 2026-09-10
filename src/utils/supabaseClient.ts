@@ -3,14 +3,15 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '../types/database.types';
 
+// SECURITY: Project URL is a non-secret identifier (visible in network requests).
+// The anon key MUST be sourced exclusively from environment variables — never hardcoded.
 const DEFAULT_SUPABASE_URL = 'https://lyaryldpiviaytcarbtn.supabase.co';
-const DEFAULT_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx5YXJ5bGRwaXZpYXl0Y2FyYnRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEzNTcwMDAsImV4cCI6MjA1NjkzMzAwMH0.corpbd_production_anon_key';
 
 const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-const supabasePublishableKey = 
-  (import.meta as any).env?.VITE_SUPABASE_PUBLISHABLE_KEY || 
-  (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 
-  DEFAULT_SUPABASE_KEY;
+const supabasePublishableKey =
+  (import.meta as any).env?.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  (import.meta as any).env?.VITE_SUPABASE_ANON_KEY ||
+  '';
 
 /**
  * Validates whether Supabase environment variables are properly configured.

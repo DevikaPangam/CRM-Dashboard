@@ -292,8 +292,8 @@ export function transformInternalTaskToDB(task: Partial<InternalTask>, orgId: st
 export function transformDocumentFromDB(row: any): CRMDocument {
   return {
     id: row.id,
-    name: row.file_name || 'Document',
-    originalFilename: row.original_filename || row.file_name,
+    name: row.name || row.file_name || 'Document',
+    originalFilename: row.original_filename || row.file_name || row.name,
     opportunityId: row.opportunity_id || '',
     opportunityTitle: row.opportunity_title || '',
     clientId: row.client_id || '',
@@ -306,6 +306,24 @@ export function transformDocumentFromDB(row: any): CRMDocument {
     uploadedDate: row.created_at ? row.created_at.split('T')[0] : '',
     notes: row.notes || '',
   };
+}
+
+export function transformDocumentToDB(doc: Partial<CRMDocument>, orgId: string, userId?: string) {
+  const payload: Record<string, any> = {
+    organization_id: orgId,
+  };
+  if (doc.id && isValidUUID(doc.id)) payload.id = doc.id;
+  if (doc.name) payload.name = doc.name;
+  if (doc.originalFilename || doc.name) payload.original_filename = doc.originalFilename || doc.name;
+  payload.client_id = isValidUUID(doc.clientId) ? doc.clientId : null;
+  payload.opportunity_id = isValidUUID(doc.opportunityId) ? doc.opportunityId : null;
+  if (doc.documentType) payload.document_type = doc.documentType;
+  if (doc.stage) payload.stage = doc.stage;
+  if (doc.fileExtension) payload.file_extension = doc.fileExtension;
+  if (doc.notes !== undefined) payload.notes = doc.notes;
+  if (userId && isValidUUID(userId)) payload.uploaded_by = userId;
+
+  return payload;
 }
 
 export function transformProfileFromDB(p: any): User {
@@ -333,7 +351,9 @@ export function transformProfileFromDB(p: any): User {
     employment_type: p.employment_type || 'Full-time',
     is_regional_owner: Boolean(p.is_regional_owner),
     team_id: p.team_id || undefined,
+    team_name: p.team_name || (p.teams?.name) || undefined,
     manager_id: p.manager_id || undefined,
+    manager_name: p.manager_name || undefined,
     status: p.status === 'active' || p.status === 'Active' ? 'Active' : p.status === 'suspended' ? 'Disabled' : 'Inactive',
     annual_target_inr: Number(p.annual_target_inr) || 0,
     achieved_inr: 0,
@@ -870,19 +890,66 @@ export const crmDataService = {
     }
   },
 
+  async insertDocument(doc: Omit<CRMDocument, 'id' | 'uploadedDate'>, orgId: string, userId?: string): Promise<CRMDocument> {
+    if (!isSupabaseConfigured()) {
+      return { id: 'doc_' + Date.now(), uploadedDate: new Date().toISOString().slice(0, 10), ...doc } as CRMDocument;
+    }
+    const dbPayload = transformDocumentToDB(doc, orgId, userId);
+    const { data, error } = await (supabase.from('documents') as any).insert(dbPayload).select().single();
+    if (error) {
+      console.error('insertDocument error:', error);
+      throw error;
+    }
+    return transformDocumentFromDB(data);
+  },
+
+  async updateDocument(id: string, updates: Partial<CRMDocument>, orgId: string): Promise<void> {
+    if (!isSupabaseConfigured()) return;
+    const dbPayload = transformDocumentToDB(updates, orgId);
+    delete dbPayload.id;
+
+    if (isValidUUID(id)) {
+      const { error } = await (supabase.from('documents') as any).update(dbPayload).eq('id', id).eq('organization_id', orgId);
+      if (error) throw error;
+    }
+  },
+
+  async deleteDocument(id: string, orgId: string): Promise<void> {
+    if (!isSupabaseConfigured()) return;
+    if (isValidUUID(id)) {
+      const { error } = await (supabase.from('documents') as any).delete().eq('id', id).eq('organization_id', orgId);
+      if (error) throw error;
+    }
+  },
+
   // USERS & PROFILES (Unified Single Source of Truth)
   async fetchProfiles(orgId: string): Promise<User[]> {
     if (!isSupabaseConfigured()) return INITIAL_USERS;
     try {
+      // Join teams table to resolve team_name
       const { data, error } = await (supabase.from('profiles') as any)
-        .select('*')
+        .select('*, teams:team_id(name)')
         .eq('organization_id', orgId)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
       if (!data || data.length === 0) return INITIAL_USERS;
 
-      return (data as any[]).map(transformProfileFromDB);
+      // Transform and resolve manager_name via self-lookup
+      const transformed = (data as any[]).map((p: any) => {
+        const user = transformProfileFromDB({
+          ...p,
+          team_name: p.teams?.name || undefined,
+        });
+        return user;
+      });
+
+      // Second pass: resolve manager_name from the same batch
+      const profileMap = new Map(transformed.map((u) => [u.id, u.name]));
+      return transformed.map((u) => ({
+        ...u,
+        manager_name: u.manager_id ? profileMap.get(u.manager_id) || u.manager_name : u.manager_name,
+      }));
     } catch (err) {
       console.warn('Supabase fetchProfiles error, using fallback:', err);
       return INITIAL_USERS;

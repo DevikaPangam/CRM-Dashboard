@@ -109,7 +109,8 @@ export function parseClientsFromCSV(csvText: string, defaultClientType: 'New Cli
     const status = statusIdx !== -1 && row[statusIdx] ? (row[statusIdx] as any) : 'Active';
     const accountOwner = ownerIdx !== -1 && row[ownerIdx] ? row[ownerIdx] : 'Aditya Patil';
     const contactName = contactIdx !== -1 && row[contactIdx] ? row[contactIdx] : 'Primary Contact';
-    const email = emailIdx !== -1 && row[emailIdx] ? row[emailIdx] : `${name.toLowerCase().replace(/[^a-z0-9]/g, '')}@corp.demo`;
+    // SECURITY: Do NOT auto-generate fake @corp.demo emails. If no email is in CSV, leave blank.
+    const email = emailIdx !== -1 && row[emailIdx] ? row[emailIdx] : '';
     const phone = phoneIdx !== -1 && row[phoneIdx] ? row[phoneIdx] : '+91 98000 00000';
 
     let clientType: 'New Client' | 'Existing Client' = defaultClientType;

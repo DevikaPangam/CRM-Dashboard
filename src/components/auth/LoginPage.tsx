@@ -8,6 +8,7 @@ import { useAuth } from '../../context/AuthContext';
 export const LoginPage: React.FC = () => {
   const {
     signIn,
+    signUp,
     resetPassword,
     authState,
     accessDeniedReason,
@@ -17,9 +18,11 @@ export const LoginPage: React.FC = () => {
     clearAccessDenied,
   } = useAuth();
 
+  const [authMode, setAuthMode] = useState<'signin' | 'register'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Forgot Password modal state
@@ -28,9 +31,10 @@ export const LoginPage: React.FC = () => {
   const [resetStatus, setResetStatus] = useState<{ success?: boolean; message?: string } | null>(null);
   const [isResetting, setIsResetting] = useState(false);
 
-  const handleLoginSubmit = async (e: React.FormEvent) => {
+  const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
+    setSuccessMsg(null);
 
     if (!email.trim() || !password) {
       setErrorMsg('Please enter both work email and password.');
@@ -38,11 +42,22 @@ export const LoginPage: React.FC = () => {
     }
 
     setIsSubmitting(true);
-    const result = await signIn(email, password);
-    setIsSubmitting(false);
 
-    if (!result.success) {
-      setErrorMsg(result.error || 'Authentication failed.');
+    if (authMode === 'register') {
+      const regResult = await signUp(email, password);
+      setIsSubmitting(false);
+      if (regResult.success) {
+        setSuccessMsg(regResult.message || 'Account registration successful!');
+      } else {
+        setErrorMsg(regResult.error || 'Registration failed.');
+      }
+    } else {
+      const loginResult = await signIn(email, password);
+      setIsSubmitting(false);
+
+      if (!loginResult.success) {
+        setErrorMsg(loginResult.error || 'Authentication failed.');
+      }
     }
   };
 
@@ -154,16 +169,81 @@ export const LoginPage: React.FC = () => {
 
 
 
-        {/* Error Alert */}
-        {errorMsg && (
-          <div className="login-error-alert">
-            <AlertTriangle size={15} style={{ flexShrink: 0 }} />
-            <span>{errorMsg}</span>
+        {/* Mode Tabs */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', background: '#f1f5f9', padding: '4px', borderRadius: '8px' }}>
+          <button
+            type="button"
+            style={{
+              flex: 1,
+              padding: '8px',
+              border: 'none',
+              borderRadius: '6px',
+              fontSize: '13px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              background: authMode === 'signin' ? '#ffffff' : 'transparent',
+              color: authMode === 'signin' ? '#0284c7' : '#64748b',
+              boxShadow: authMode === 'signin' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+              transition: 'all 0.15s ease',
+            }}
+            onClick={() => {
+              setAuthMode('signin');
+              setErrorMsg(null);
+              setSuccessMsg(null);
+            }}
+          >
+            Sign In
+          </button>
+          <button
+            type="button"
+            style={{
+              flex: 1,
+              padding: '8px',
+              border: 'none',
+              borderRadius: '6px',
+              fontSize: '13px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              background: authMode === 'register' ? '#ffffff' : 'transparent',
+              color: authMode === 'register' ? '#0284c7' : '#64748b',
+              boxShadow: authMode === 'register' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+              transition: 'all 0.15s ease',
+            }}
+            onClick={() => {
+              setAuthMode('register');
+              setErrorMsg(null);
+              setSuccessMsg(null);
+            }}
+          >
+            First-Time Setup / Register
+          </button>
+        </div>
+
+        {/* Success Alert */}
+        {successMsg && (
+          <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#15803d', padding: '12px', borderRadius: '8px', fontSize: '13px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <CheckCircle2 size={16} style={{ flexShrink: 0 }} />
+            <span>{successMsg}</span>
           </div>
         )}
 
-        {/* Sign In Form */}
-        <form onSubmit={handleLoginSubmit} className="login-form-body">
+        {/* Error Alert */}
+        {errorMsg && (
+          <div className="login-error-alert" style={{ marginBottom: '16px' }}>
+            <AlertTriangle size={15} style={{ flexShrink: 0 }} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <span>{errorMsg}</span>
+              {errorMsg.toLowerCase().includes('invalid login credentials') && (
+                <div style={{ fontSize: '12px', color: '#b91c1c', marginTop: '4px' }}>
+                  If you are logging in for the first time or setting your password, switch to the <strong>First-Time Setup / Register</strong> tab or click <strong>Forgot Password?</strong>.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Auth Form */}
+        <form onSubmit={handleAuthSubmit} className="login-form-body">
           <div className="login-field-group">
             <label>Work Email Address</label>
             <div className="login-input-wrapper">
@@ -181,28 +261,30 @@ export const LoginPage: React.FC = () => {
 
           <div className="login-field-group">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <label>Password</label>
-              <button
-                type="button"
-                className="login-forgot-link"
-                onClick={() => {
-                  setResetEmail(email);
-                  setResetStatus(null);
-                  setForgotModalOpen(true);
-                }}
-              >
-                Forgot Password?
-              </button>
+              <label>{authMode === 'register' ? 'Set Corporate Password' : 'Password'}</label>
+              {authMode === 'signin' && (
+                <button
+                  type="button"
+                  className="login-forgot-link"
+                  onClick={() => {
+                    setResetEmail(email);
+                    setResetStatus(null);
+                    setForgotModalOpen(true);
+                  }}
+                >
+                  Forgot Password?
+                </button>
+              )}
             </div>
             <div className="login-input-wrapper">
               <Lock size={16} className="login-input-icon" />
               <input
                 type="password"
-                placeholder="Enter your corporate password"
+                placeholder={authMode === 'register' ? 'Create corporate password (min 6 chars)' : 'Enter your corporate password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                autoComplete="current-password"
+                autoComplete={authMode === 'register' ? 'new-password' : 'current-password'}
               />
             </div>
           </div>
@@ -215,12 +297,12 @@ export const LoginPage: React.FC = () => {
             {isSubmitting ? (
               <>
                 <RefreshCw size={16} className="animate-spin" />
-                <span>Authenticating...</span>
+                <span>{authMode === 'register' ? 'Registering Account...' : 'Authenticating...'}</span>
               </>
             ) : (
               <>
-                <LogIn size={16} />
-                <span>Sign In to CRM Dashboard</span>
+                {authMode === 'register' ? <Sparkles size={16} /> : <LogIn size={16} />}
+                <span>{authMode === 'register' ? 'Register Corporate Account' : 'Sign In to CRM Dashboard'}</span>
               </>
             )}
           </button>

@@ -322,13 +322,13 @@ export async function provisionUser(payload: ProvisionUserPayload): Promise<{ su
         }
       }
 
-      // 2. Check if profile already exists in Supabase
+      // 2. Prioritize exact authUserId (auth.users.id UUID) for public.profiles primary key
       const { data: existingProfile } = await (supabase.from('profiles') as any)
         .select('id')
         .eq('email', payload.email.trim().toLowerCase())
         .maybeSingle();
 
-      const profileId = existingProfile?.id || authUserId || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `00000000-0000-0000-0000-${Date.now().toString().slice(-12).padStart(12, '0')}`);
+      const profileId = authUserId || existingProfile?.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `00000000-0000-0000-0000-${Date.now().toString().slice(-12).padStart(12, '0')}`);
 
       // 3. Upsert Profile into public.profiles
       const savedUser = await crmDataService.upsertProfile({

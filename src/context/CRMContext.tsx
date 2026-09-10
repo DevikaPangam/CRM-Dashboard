@@ -14,7 +14,7 @@ import { isSupabaseConfigured } from '../utils/supabaseClient';
 import { logExportEvent, logAuditEvent } from '../services/auditService';
 import {
   fetchEmployeeHistory, addCareerHistoryEvent, detectAndRecordAutoHistory,
-  createCanonicalJoiningEvent, loadStoredHistory
+  createCanonicalJoiningEvent, loadStoredHistory, fetchAllOrgHistory
 } from '../services/careerHistoryService';
 import { generateDefaultKRAsForDepartment } from '../services/kraKpiService';
 
@@ -56,36 +56,36 @@ interface CRMContextType {
 
   // CRM Entities
   clients: Client[];
-  addClient: (client: Omit<Client, 'id' | 'code' | 'createdDate'>) => void;
+  addClient: (client: Omit<Client, 'id' | 'code' | 'createdDate'>) => Promise<Client | void>;
   importClients: (newClients: Client[], replaceExisting?: boolean) => Promise<void>;
-  updateClient: (id: string, client: Partial<Client>) => void;
-  deleteClient: (id: string) => void;
+  updateClient: (id: string, client: Partial<Client>) => Promise<void>;
+  deleteClient: (id: string) => Promise<void>;
 
   opportunities: Opportunity[];
-  addOpportunity: (opp: Omit<Opportunity, 'id' | 'code' | 'createdDate' | 'lastActivityDate'>) => void;
-  updateOpportunity: (id: string, opp: Partial<Opportunity>) => void;
+  addOpportunity: (opp: Omit<Opportunity, 'id' | 'code' | 'createdDate' | 'lastActivityDate'>) => Promise<Opportunity | void>;
+  updateOpportunity: (id: string, opp: Partial<Opportunity>) => Promise<void>;
   updateOpportunityStage: (id: string, stage: string, probability?: number) => void;
   updateOpportunityDelegation: (id: string, delegation: Partial<Pick<Opportunity, 'delegatedDepartment' | 'delegatedOwner' | 'delegationStatus' | 'delegationMilestone' | 'slaDaysRemaining' | 'delegationRemarks'>>) => void;
-  deleteOpportunity: (id: string) => void;
+  deleteOpportunity: (id: string) => Promise<void>;
 
   activities: Activity[];
-  addActivity: (act: Omit<Activity, 'id'>) => void;
-  deleteActivity: (id: string) => void;
+  addActivity: (act: Omit<Activity, 'id'>) => Promise<Activity | void>;
+  deleteActivity: (id: string) => Promise<void>;
 
   followups: Followup[];
-  addFollowup: (fol: Omit<Followup, 'id'>) => void;
-  completeFollowup: (id: string, remarks?: string) => void;
-  deleteFollowup: (id: string) => void;
+  addFollowup: (fol: Omit<Followup, 'id'>) => Promise<Followup | void>;
+  completeFollowup: (id: string, remarks?: string) => Promise<void>;
+  deleteFollowup: (id: string) => Promise<void>;
 
   internalTasks: InternalTask[];
-  addInternalTask: (task: Omit<InternalTask, 'id'>) => void;
-  updateTaskStatus: (id: string, status: InternalTask['status'], responseNotes?: string) => void;
-  deleteInternalTask: (id: string) => void;
+  addInternalTask: (task: Omit<InternalTask, 'id'>) => Promise<InternalTask | void>;
+  updateTaskStatus: (id: string, status: InternalTask['status'], responseNotes?: string) => Promise<void>;
+  deleteInternalTask: (id: string) => Promise<void>;
 
   documents: CRMDocument[];
-  addDocument: (doc: Omit<CRMDocument, 'id' | 'uploadedDate'>) => void;
-  updateDocument: (id: string, doc: Partial<CRMDocument>) => void;
-  deleteDocument: (id: string) => void;
+  addDocument: (doc: Omit<CRMDocument, 'id' | 'uploadedDate'>) => Promise<CRMDocument | void>;
+  updateDocument: (id: string, doc: Partial<CRMDocument>) => Promise<void>;
+  deleteDocument: (id: string) => Promise<void>;
 
   teamMembers: TeamMember[];
   addTeamMember: (member: Omit<TeamMember, 'id'>) => void;
@@ -93,9 +93,9 @@ interface CRMContextType {
   deleteTeamMember: (id: string) => void;
 
   segments: BusinessSegment[];
-  addSegment: (seg: Omit<BusinessSegment, 'id'>) => void;
-  updateSegment: (id: string, seg: Partial<BusinessSegment>) => void;
-  deleteSegment: (id: string) => void;
+  addSegment: (seg: Omit<BusinessSegment, 'id'>) => Promise<BusinessSegment | void>;
+  updateSegment: (id: string, seg: Partial<BusinessSegment>) => Promise<void>;
+  deleteSegment: (id: string) => Promise<void>;
 
   // Modals
   activeModal: ModalState;
@@ -150,19 +150,19 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     searchQuery: '',
   });
 
-  const [users, setUsers] = useState<User[]>(() => loadStored<User[]>('users', INITIAL_USERS));
-  const [currentUser, setCurrentUser] = useState<User>(() => {
-    const savedUser = loadStored<User | null>('currentUser', null);
-    return savedUser || INITIAL_USERS[0];
-  });
+  // SECURITY: Business data must NOT be initialized from localStorage.
+  // All data is authoritative from Supabase. localStorage is used ONLY for UI preferences (currency).
+  const [users, setUsers] = useState<User[]>(INITIAL_USERS);
+  const [currentUser, setCurrentUser] = useState<User>(INITIAL_USERS[0]);
 
-  const [clients, setClients] = useState<Client[]>(() => loadStored<Client[]>('clients', INITIAL_CLIENTS));
-  const [opportunities, setOpportunities] = useState<Opportunity[]>(() => loadStored<Opportunity[]>('opportunities', INITIAL_OPPORTUNITIES));
-  const [activities, setActivities] = useState<Activity[]>(() => loadStored<Activity[]>('activities', INITIAL_ACTIVITIES));
-  const [followups, setFollowups] = useState<Followup[]>(() => loadStored<Followup[]>('followups', INITIAL_FOLLOWUPS));
-  const [internalTasks, setInternalTasks] = useState<InternalTask[]>(() => loadStored<InternalTask[]>('internalTasks', INITIAL_INTERNAL_TASKS));
-  const [documents, setDocuments] = useState<CRMDocument[]>(() => loadStored<CRMDocument[]>('documents', INITIAL_DOCUMENTS));
-  const [employeeHistory, setEmployeeHistory] = useState<EmployeeHistoryEvent[]>(() => loadStoredHistory());
+  const [clients, setClients] = useState<Client[]>(INITIAL_CLIENTS);
+  const [opportunities, setOpportunities] = useState<Opportunity[]>(INITIAL_OPPORTUNITIES);
+  const [activities, setActivities] = useState<Activity[]>(INITIAL_ACTIVITIES);
+  const [followups, setFollowups] = useState<Followup[]>(INITIAL_FOLLOWUPS);
+  const [internalTasks, setInternalTasks] = useState<InternalTask[]>(INITIAL_INTERNAL_TASKS);
+  const [documents, setDocuments] = useState<CRMDocument[]>(INITIAL_DOCUMENTS);
+  const [employeeHistory, setEmployeeHistory] = useState<EmployeeHistoryEvent[]>([]);
+
 
   const getEmployeeHistory = useCallback((employeeId: string) => {
     const history = employeeHistory.filter((h) => h.employee_id === employeeId);
@@ -263,7 +263,7 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setIsLoadingData(true);
     try {
-      const [dbClients, dbOpps, dbActs, dbFoll, dbDocs, dbUsers, dbSegments, dbTasks] = await Promise.all([
+      const [dbClients, dbOpps, dbActs, dbFoll, dbDocs, dbUsers, dbSegments, dbTasks, dbHistory] = await Promise.all([
         crmDataService.fetchClients(currentOrgId),
         crmDataService.fetchOpportunities(currentOrgId),
         crmDataService.fetchActivities(currentOrgId),
@@ -272,65 +272,31 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         crmDataService.fetchProfiles(currentOrgId),
         crmDataService.fetchSegments(currentOrgId),
         crmDataService.fetchInternalTasks(currentOrgId),
+        fetchAllOrgHistory(currentOrgId),
       ]);
 
-      if (dbClients && dbClients.length > 0) {
-        setClients((prev) => {
-          const dbIds = new Set(dbClients.map((c) => c.id || c.code));
-          const localOnly = prev.filter((c) => !dbIds.has(c.id || c.code));
-          return [...dbClients, ...localOnly];
-        });
+      if (dbClients && dbClients.length > 0) setClients(dbClients);
+      if (dbOpps && dbOpps.length > 0) setOpportunities(dbOpps);
+      if (dbActs && dbActs.length > 0) setActivities(dbActs);
+      if (dbFoll && dbFoll.length > 0) setFollowups(dbFoll);
+      if (dbSegments && dbSegments.length > 0) setSegments(dbSegments);
+      if (dbTasks && dbTasks.length > 0) setInternalTasks(dbTasks);
+      if (dbDocs && dbDocs.length > 0) setDocuments(dbDocs);
+
+      // Resolve manager_name and team_name for profiles using the loaded profile list
+      if (dbUsers && dbUsers.length > 0) {
+        const profileMap = new Map(dbUsers.map((u) => [u.id, u.name]));
+        const enrichedUsers = dbUsers.map((u) => ({
+          ...u,
+          manager_name: u.manager_id ? profileMap.get(u.manager_id) || u.manager_name : u.manager_name,
+        }));
+        setUsers(enrichedUsers);
       }
 
-      if (dbOpps && dbOpps.length > 0) {
-        setOpportunities((prev) => {
-          const dbIds = new Set(dbOpps.map((o) => o.id || o.code));
-          const localOnly = prev.filter((o) => !dbIds.has(o.id || o.code));
-          return [...dbOpps, ...localOnly];
-        });
+      // Employee career history (authoritative from Supabase)
+      if (dbHistory && dbHistory.length > 0) {
+        setEmployeeHistory(dbHistory);
       }
-
-      if (dbActs && dbActs.length > 0) {
-        setActivities((prev) => {
-          const dbIds = new Set(dbActs.map((a) => a.id));
-          const localOnly = prev.filter((a) => !dbIds.has(a.id));
-          return [...dbActs, ...localOnly];
-        });
-      }
-
-      if (dbFoll && dbFoll.length > 0) {
-        setFollowups((prev) => {
-          const dbIds = new Set(dbFoll.map((f) => f.id));
-          const localOnly = prev.filter((f) => !dbIds.has(f.id));
-          return [...dbFoll, ...localOnly];
-        });
-      }
-
-      if (dbSegments && dbSegments.length > 0) {
-        setSegments((prev) => {
-          const dbIds = new Set(dbSegments.map((s) => s.id || s.name));
-          const localOnly = prev.filter((s) => !dbIds.has(s.id || s.name));
-          return [...dbSegments, ...localOnly];
-        });
-      }
-
-      if (dbTasks && dbTasks.length > 0) {
-        setInternalTasks((prev) => {
-          const dbIds = new Set(dbTasks.map((t) => t.id));
-          const localOnly = prev.filter((t) => !dbIds.has(t.id));
-          return [...dbTasks, ...localOnly];
-        });
-      }
-
-      if (dbDocs && dbDocs.length > 0) {
-        setDocuments((prev) => {
-          const dbIds = new Set(dbDocs.map((d) => d.id));
-          const localOnly = prev.filter((d) => !dbIds.has(d.id));
-          return [...dbDocs, ...localOnly];
-        });
-      }
-
-      if (dbUsers && dbUsers.length > 0) setUsers(dbUsers);
     } catch (err) {
       console.warn('Failed to refresh data from Supabase:', err);
     } finally {
@@ -349,6 +315,18 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!profile?.organization_id || !authUser?.id) return;
 
     const unsubscribe = subscribeToCRMRealtime(profile.organization_id, authUser.id, {
+      // ── Clients ────────────────────────────────────────────────────────
+      onClientChange: ({ eventType, client, id }) => {
+        if (eventType === 'INSERT' && client) {
+          setClients((prev) => (prev.some((c) => c.id === client.id) ? prev : [client, ...prev]));
+        } else if (eventType === 'UPDATE' && client) {
+          setClients((prev) => prev.map((c) => (c.id === client.id ? client : c)));
+        } else if (eventType === 'DELETE') {
+          setClients((prev) => prev.filter((c) => c.id !== id));
+        }
+      },
+
+      // ── Opportunities ─────────────────────────────────────────────────
       onOpportunityChange: ({ eventType, opportunity, id }) => {
         if (eventType === 'INSERT' && opportunity) {
           setOpportunities((prev) => (prev.some((o) => o.id === opportunity.id) ? prev : [opportunity, ...prev]));
@@ -358,6 +336,8 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setOpportunities((prev) => prev.filter((o) => o.id !== id));
         }
       },
+
+      // ── Activities ────────────────────────────────────────────────────
       onActivityChange: ({ eventType, activity, id }) => {
         if (eventType === 'INSERT' && activity) {
           setActivities((prev) => (prev.some((a) => a.id === activity.id) ? prev : [activity, ...prev]));
@@ -367,6 +347,8 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setActivities((prev) => prev.filter((a) => a.id !== id));
         }
       },
+
+      // ── Follow-ups ────────────────────────────────────────────────────
       onFollowupChange: ({ eventType, followup, id }) => {
         if (eventType === 'INSERT' && followup) {
           setFollowups((prev) => (prev.some((f) => f.id === followup.id) ? prev : [followup, ...prev]));
@@ -376,6 +358,30 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setFollowups((prev) => prev.filter((f) => f.id !== id));
         }
       },
+
+      // ── Internal Tasks ────────────────────────────────────────────────
+      onInternalTaskChange: ({ eventType, task, id }) => {
+        if (eventType === 'INSERT' && task) {
+          setInternalTasks((prev) => (prev.some((t) => t.id === task.id) ? prev : [task, ...prev]));
+        } else if (eventType === 'UPDATE' && task) {
+          setInternalTasks((prev) => prev.map((t) => (t.id === task.id ? task : t)));
+        } else if (eventType === 'DELETE') {
+          setInternalTasks((prev) => prev.filter((t) => t.id !== id));
+        }
+      },
+
+      // ── Segments ──────────────────────────────────────────────────────
+      onSegmentChange: ({ eventType, segment, id }) => {
+        if (eventType === 'INSERT' && segment) {
+          setSegments((prev) => (prev.some((s) => s.id === segment.id) ? prev : [segment, ...prev]));
+        } else if (eventType === 'UPDATE' && segment) {
+          setSegments((prev) => prev.map((s) => (s.id === segment.id ? segment : s)));
+        } else if (eventType === 'DELETE') {
+          setSegments((prev) => prev.filter((s) => s.id !== id));
+        }
+      },
+
+      // ── Documents ─────────────────────────────────────────────────────
       onDocumentChange: ({ eventType, document, id }) => {
         if (eventType === 'INSERT' && document) {
           setDocuments((prev) => (prev.some((d) => d.id === document.id) ? prev : [document, ...prev]));
@@ -385,10 +391,27 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setDocuments((prev) => prev.filter((d) => d.id !== id));
         }
       },
-      onProfileChange: ({ status }) => {
-        if (status === 'inactive' || status === 'suspended') {
+
+      // ── Profiles (user roster + current-user status) ──────────────────
+      onProfileChange: ({ eventType, profile: changedProfile, id, status, role }) => {
+        // Keep users array (org roster) in sync with DB
+        if (eventType === 'INSERT' && changedProfile) {
+          setUsers((prev) => (prev.some((u) => u.id === changedProfile.id) ? prev : [...prev, changedProfile]));
+        } else if (eventType === 'UPDATE' && changedProfile) {
+          setUsers((prev) => prev.map((u) => (u.id === changedProfile.id ? changedProfile : u)));
+        } else if (eventType === 'DELETE') {
+          setUsers((prev) => prev.filter((u) => u.id !== id));
+        }
+
+        // If this user's own profile was suspended/deactivated, reflect immediately
+        if (id === authUser?.id && (status === 'inactive' || status === 'suspended')) {
           setCurrentUser((prev) => ({ ...prev, status: 'Inactive' }));
         }
+      },
+
+      // ── Subscription lifecycle ────────────────────────────────────────
+      onStatusChange: (channelStatus) => {
+        console.log(`[CRM Realtime] channel status → ${channelStatus}`);
       },
     });
 
@@ -397,46 +420,15 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, [profile?.organization_id, authUser?.id]);
 
-  // Local Storage synchronization
+  // UI Preference: currency toggle persisted for convenience (non-sensitive)
   useEffect(() => {
     localStorage.setItem(`${STORAGE_KEY}_currency`, JSON.stringify(currency));
   }, [currency]);
 
-  useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_currentUser`, JSON.stringify(currentUser));
-  }, [currentUser]);
+  // SECURITY: currentUser (identity + role) must NOT be persisted to localStorage.
+  // It is always resolved from Supabase Auth + public.profiles on session load.
+  // Removed: localStorage.setItem(`${STORAGE_KEY}_currentUser`, ...)
 
-  useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_users`, JSON.stringify(users));
-  }, [users]);
-
-  useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_clients`, JSON.stringify(clients));
-  }, [clients]);
-
-  useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_opportunities`, JSON.stringify(opportunities));
-  }, [opportunities]);
-
-  useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_activities`, JSON.stringify(activities));
-  }, [activities]);
-
-  useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_followups`, JSON.stringify(followups));
-  }, [followups]);
-
-  useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_internalTasks`, JSON.stringify(internalTasks));
-  }, [internalTasks]);
-
-  useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_documents`, JSON.stringify(documents));
-  }, [documents]);
-
-  useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_segments`, JSON.stringify(segments));
-  }, [segments]);
 
   const toggleCurrency = () => {
     setCurrency((prev) => (prev === 'INR' ? 'USD' : 'INR'));
@@ -450,28 +442,12 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setActiveModal({ type: null });
   };
 
-  // ─── CRUD Methods with Supabase Sync & Optimistic Updates ────────────────────
+  // ─── Authoritative Supabase CRUD Operations ────────────────────────────────
 
   const addClient = async (newClient: Omit<Client, 'id' | 'code' | 'createdDate'>) => {
-    const nextNum = clients.length + 1001;
-    const tempId = `CLT-${nextNum}`;
-    const optimisticClient: Client = {
-      ...newClient,
-      id: tempId,
-      code: `CLT-${nextNum}`,
-      createdDate: new Date().toISOString().slice(0, 10),
-    };
-
-    setClients((prev) => [optimisticClient, ...prev]);
-
-    try {
-      const created = await crmDataService.insertClient(newClient, currentOrgId, authUser?.id);
-      if (created && created.id !== tempId) {
-        setClients((prev) => prev.map((c) => (c.id === tempId ? created : c)));
-      }
-    } catch (err) {
-      console.warn('Could not sync insertClient to Supabase:', err);
-    }
+    const created = await crmDataService.insertClient(newClient, currentOrgId, authUser?.id);
+    setClients((prev) => [created, ...prev.filter((c) => c.id !== created.id)]);
+    return created;
   };
 
   const importClients = async (importedList: Client[], replaceExisting: boolean = false) => {
@@ -490,18 +466,10 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setClients(finalClients);
 
-    try {
-      localStorage.setItem(`${STORAGE_KEY}_clients`, JSON.stringify(finalClients));
-    } catch (err) {
-      console.warn('Could not save imported clients to localStorage:', err);
-    }
-
     if (isSupabaseConfigured() && currentOrgId) {
+      setIsLoadingData(true);
       try {
-        setIsLoadingData(true);
         await crmDataService.batchInsertClients(importedList, currentOrgId, authUser?.id);
-      } catch (err) {
-        console.warn('Could not sync importClients to Supabase:', err);
       } finally {
         setIsLoadingData(false);
       }
@@ -509,55 +477,26 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateClient = async (id: string, updated: Partial<Client>) => {
+    await crmDataService.updateClient(id, updated, currentOrgId);
     setClients((prev) => prev.map((c) => (c.id === id ? { ...c, ...updated } : c)));
-    try {
-      await crmDataService.updateClient(id, updated, currentOrgId);
-    } catch (err) {
-      console.warn('Could not sync updateClient to Supabase:', err);
-    }
   };
 
   const deleteClient = async (id: string) => {
+    await crmDataService.deleteClient(id, currentOrgId);
     setClients((prev) => prev.filter((c) => c.id !== id));
-    try {
-      await crmDataService.deleteClient(id, currentOrgId);
-    } catch (err) {
-      console.warn('Could not sync deleteClient to Supabase:', err);
-    }
   };
 
   const addOpportunity = async (newOpp: Omit<Opportunity, 'id' | 'code' | 'createdDate' | 'lastActivityDate'>) => {
-    const nextNum = String(opportunities.length + 1).padStart(3, '0');
-    const tempId = `OPP-2026-${nextNum}`;
-    const optimisticOpp: Opportunity = {
-      ...newOpp,
-      id: tempId,
-      code: `OPP-${nextNum}`,
-      createdDate: new Date().toISOString().slice(0, 10),
-      lastActivityDate: new Date().toISOString().slice(0, 10),
-    };
-
-    setOpportunities((prev) => [optimisticOpp, ...prev]);
-
-    try {
-      const created = await crmDataService.insertOpportunity(newOpp, currentOrgId, authUser?.id);
-      if (created && created.id !== tempId) {
-        setOpportunities((prev) => prev.map((o) => (o.id === tempId ? created : o)));
-      }
-    } catch (err) {
-      console.warn('Could not sync insertOpportunity to Supabase:', err);
-    }
+    const created = await crmDataService.insertOpportunity(newOpp, currentOrgId, authUser?.id);
+    setOpportunities((prev) => [created, ...prev.filter((o) => o.id !== created.id)]);
+    return created;
   };
 
   const updateOpportunity = async (id: string, updated: Partial<Opportunity>) => {
+    await crmDataService.updateOpportunity(id, updated, currentOrgId);
     setOpportunities((prev) =>
       prev.map((o) => (o.id === id ? { ...o, ...updated, lastActivityDate: new Date().toISOString().slice(0, 10) } : o))
     );
-    try {
-      await crmDataService.updateOpportunity(id, updated, currentOrgId);
-    } catch (err) {
-      console.warn('Could not sync updateOpportunity to Supabase:', err);
-    }
   };
 
   const updateOpportunityStage = (id: string, stage: string, probability?: number) => {
@@ -577,38 +516,30 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       stage,
       probability: prob,
       status,
-    });
+    }).catch(console.warn);
   };
 
   const updateOpportunityDelegation = (
     id: string,
     delegation: Partial<Pick<Opportunity, 'delegatedDepartment' | 'delegatedOwner' | 'delegationStatus' | 'delegationMilestone' | 'slaDaysRemaining' | 'delegationRemarks'>>
   ) => {
-    updateOpportunity(id, delegation);
+    updateOpportunity(id, delegation).catch(console.warn);
   };
 
   const deleteOpportunity = async (id: string) => {
+    await crmDataService.deleteOpportunity(id, currentOrgId);
     setOpportunities((prev) => prev.filter((o) => o.id !== id));
-    try {
-      await crmDataService.deleteOpportunity(id, currentOrgId);
-    } catch (err) {
-      console.warn('Could not sync deleteOpportunity to Supabase:', err);
-    }
   };
 
   const addActivity = async (newAct: Omit<Activity, 'id'>) => {
-    const tempId = `ACT-${Date.now().toString().slice(-4)}`;
-    const optimisticAct: Activity = {
-      ...newAct,
-      id: tempId,
-    };
-    setActivities((prev) => [optimisticAct, ...prev]);
+    const created = await crmDataService.insertActivity(newAct, currentOrgId, authUser?.id);
+    setActivities((prev) => [created, ...prev.filter((a) => a.id !== created.id)]);
 
     if (newAct.opportunityId) {
       updateOpportunity(newAct.opportunityId, {
         lastActivityDate: newAct.date,
         nextFollowupDate: newAct.nextFollowupDate || undefined,
-      });
+      }).catch(console.warn);
     }
 
     if (newAct.nextFollowupDate) {
@@ -624,120 +555,68 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         priority: 'Medium',
         description: newAct.actionItems || `Follow up with ${newAct.contactPerson}`,
         status: 'Pending',
-      });
+      }).catch(console.warn);
     }
 
-    try {
-      const created = await crmDataService.insertActivity(newAct, currentOrgId, authUser?.id);
-      if (created && created.id !== tempId) {
-        setActivities((prev) => prev.map((a) => (a.id === tempId ? created : a)));
-      }
-    } catch (err) {
-      console.warn('Could not sync insertActivity to Supabase:', err);
-    }
+    return created;
   };
 
   const deleteActivity = async (id: string) => {
+    await crmDataService.deleteActivity(id, currentOrgId);
     setActivities((prev) => prev.filter((a) => a.id !== id));
-    try {
-      await crmDataService.deleteActivity(id, currentOrgId);
-    } catch (err) {
-      console.warn('Could not sync deleteActivity to Supabase:', err);
-    }
   };
 
   const addFollowup = async (newFol: Omit<Followup, 'id'>) => {
-    const tempId = `FOL-${Date.now().toString().slice(-4)}`;
-    const optimisticFol: Followup = {
-      ...newFol,
-      id: tempId,
-    };
-    setFollowups((prev) => [optimisticFol, ...prev]);
-
-    try {
-      const created = await crmDataService.insertFollowup(newFol, currentOrgId, authUser?.id);
-      if (created && created.id !== tempId) {
-        setFollowups((prev) => prev.map((f) => (f.id === tempId ? created : f)));
-      }
-    } catch (err) {
-      console.warn('Could not sync insertFollowup to Supabase:', err);
-    }
+    const created = await crmDataService.insertFollowup(newFol, currentOrgId, authUser?.id);
+    setFollowups((prev) => [created, ...prev.filter((f) => f.id !== created.id)]);
+    return created;
   };
 
   const completeFollowup = async (id: string, remarks?: string) => {
     const completedDate = new Date().toISOString().slice(0, 10);
+    await crmDataService.updateFollowup(id, { status: 'Completed', completedDate, remarks }, currentOrgId);
     setFollowups((prev) =>
       prev.map((f) => (f.id === id ? { ...f, status: 'Completed', completedDate, remarks: remarks || f.remarks } : f))
     );
-    try {
-      await crmDataService.updateFollowup(id, { status: 'Completed', completedDate, remarks }, currentOrgId);
-    } catch (err) {
-      console.warn('Could not sync completeFollowup to Supabase:', err);
-    }
   };
 
   const deleteFollowup = async (id: string) => {
+    await crmDataService.deleteFollowup(id, currentOrgId);
     setFollowups((prev) => prev.filter((f) => f.id !== id));
-    try {
-      await crmDataService.deleteFollowup(id, currentOrgId);
-    } catch (err) {
-      console.warn('Could not sync deleteFollowup to Supabase:', err);
-    }
   };
 
   const addInternalTask = async (newTask: Omit<InternalTask, 'id'>) => {
-    const tempId = `INT-${Date.now().toString().slice(-4)}`;
-    const task: InternalTask = {
-      ...newTask,
-      id: tempId,
-    };
-    setInternalTasks((prev) => [task, ...prev]);
-
-    try {
-      const created = await crmDataService.insertInternalTask(newTask, currentOrgId, authUser?.id);
-      if (created && created.id !== tempId) {
-        setInternalTasks((prev) => prev.map((t) => (t.id === tempId ? created : t)));
-      }
-    } catch (err) {
-      console.warn('Could not sync insertInternalTask to Supabase:', err);
-    }
+    const created = await crmDataService.insertInternalTask(newTask, currentOrgId, authUser?.id);
+    setInternalTasks((prev) => [created, ...prev.filter((t) => t.id !== created.id)]);
+    return created;
   };
 
   const updateTaskStatus = async (id: string, status: InternalTask['status'], responseNotes?: string) => {
     const actionDate = new Date().toISOString().slice(0, 10);
+    await crmDataService.updateInternalTask(id, { status, responseNotes, actionDate }, currentOrgId);
     setInternalTasks((prev) =>
       prev.map((t) => (t.id === id ? { ...t, status, responseNotes: responseNotes || t.responseNotes, actionDate } : t))
     );
-    try {
-      await crmDataService.updateInternalTask(id, { status, responseNotes, actionDate }, currentOrgId);
-    } catch (err) {
-      console.warn('Could not sync updateTaskStatus to Supabase:', err);
-    }
   };
 
   const deleteInternalTask = async (id: string) => {
+    await crmDataService.deleteInternalTask(id, currentOrgId);
     setInternalTasks((prev) => prev.filter((t) => t.id !== id));
-    try {
-      await crmDataService.deleteInternalTask(id, currentOrgId);
-    } catch (err) {
-      console.warn('Could not sync deleteInternalTask to Supabase:', err);
-    }
   };
 
-  const addDocument = (newDoc: Omit<CRMDocument, 'id' | 'uploadedDate'>) => {
-    const doc: CRMDocument = {
-      ...newDoc,
-      id: `DOC-${Date.now().toString().slice(-4)}`,
-      uploadedDate: new Date().toISOString().slice(0, 10),
-    };
-    setDocuments((prev) => [doc, ...prev]);
+  const addDocument = async (newDoc: Omit<CRMDocument, 'id' | 'uploadedDate'>) => {
+    const created = await crmDataService.insertDocument(newDoc, currentOrgId, authUser?.id);
+    setDocuments((prev) => [created, ...prev.filter((d) => d.id !== created.id)]);
+    return created;
   };
 
-  const updateDocument = (id: string, updated: Partial<CRMDocument>) => {
+  const updateDocument = async (id: string, updated: Partial<CRMDocument>) => {
+    await crmDataService.updateDocument(id, updated, currentOrgId);
     setDocuments((prev) => prev.map((d) => (d.id === id ? { ...d, ...updated } : d)));
   };
 
-  const deleteDocument = (id: string) => {
+  const deleteDocument = async (id: string) => {
+    await crmDataService.deleteDocument(id, currentOrgId);
     setDocuments((prev) => prev.filter((d) => d.id !== id));
   };
 
@@ -793,39 +672,19 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addSegment = async (newSeg: Omit<BusinessSegment, 'id'>) => {
-    const tempId = `SEG-${String(segments.length + 1).padStart(2, '0')}`;
-    const optimisticSeg: BusinessSegment = {
-      ...newSeg,
-      id: tempId,
-    };
-    setSegments((prev) => [...prev, optimisticSeg]);
-
-    try {
-      const created = await crmDataService.insertSegment(newSeg, currentOrgId);
-      if (created && created.id !== tempId) {
-        setSegments((prev) => prev.map((s) => (s.id === tempId ? created : s)));
-      }
-    } catch (err) {
-      console.warn('Could not sync insertSegment to Supabase:', err);
-    }
+    const created = await crmDataService.insertSegment(newSeg, currentOrgId);
+    setSegments((prev) => [...prev, created]);
+    return created;
   };
 
   const updateSegment = async (id: string, updated: Partial<BusinessSegment>) => {
+    await crmDataService.updateSegment(id, updated, currentOrgId);
     setSegments((prev) => prev.map((s) => (s.id === id ? { ...s, ...updated } : s)));
-    try {
-      await crmDataService.updateSegment(id, updated, currentOrgId);
-    } catch (err) {
-      console.warn('Could not sync updateSegment to Supabase:', err);
-    }
   };
 
   const deleteSegment = async (id: string) => {
+    await crmDataService.deleteSegment(id, currentOrgId);
     setSegments((prev) => prev.filter((s) => s.id !== id));
-    try {
-      await crmDataService.deleteSegment(id, currentOrgId);
-    } catch (err) {
-      console.warn('Could not sync deleteSegment to Supabase:', err);
-    }
   };
 
   const addUser = async (newUser: Omit<User, 'id'>) => {
@@ -920,15 +779,10 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateUser = async (id: string, updated: Partial<User>) => {
     const oldUser = users.find((u) => u.id === id);
+    await crmDataService.updateProfile(id, updated, currentOrgId);
     setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...updated } : u)));
     if (currentUser.id === id) {
       setCurrentUser((prev) => ({ ...prev, ...updated }));
-    }
-
-    try {
-      await crmDataService.updateProfile(id, updated, currentOrgId);
-    } catch (err) {
-      console.warn('Could not sync updateProfile to Supabase:', err);
     }
 
     // Automatically detect structural property changes and generate history records
@@ -945,12 +799,8 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteUser = async (id: string) => {
+    await crmDataService.deleteProfile(id, currentOrgId);
     setUsers((prev) => prev.filter((u) => u.id !== id));
-    try {
-      await crmDataService.deleteProfile(id, currentOrgId);
-    } catch (err) {
-      console.warn('Could not sync deleteProfile to Supabase:', err);
-    }
   };
 
   const resetToFactoryData = () => {

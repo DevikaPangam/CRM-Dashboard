@@ -4,7 +4,7 @@ import { logAuditEvent } from './auditService';
 
 const STORAGE_KEY = 'corpbd_crm_employee_history';
 
-// Helper to load stored events
+// ── Local cache helpers (non-authoritative, offline fallback only) ────────────
 export const loadStoredHistory = (): EmployeeHistoryEvent[] => {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -14,14 +14,14 @@ export const loadStoredHistory = (): EmployeeHistoryEvent[] => {
   }
 };
 
-// Helper to save stored events
-export const saveStoredHistory = (events: EmployeeHistoryEvent[]): void => {
+const cacheHistoryLocally = (events: EmployeeHistoryEvent[]): void => {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
-  } catch (err) {
-    console.error('Failed to save employee history to localStorage', err);
-  }
+  } catch { /* non-critical */ }
 };
+
+/** @deprecated Use cacheHistoryLocally instead — preserved for backward compat */
+export const saveStoredHistory = cacheHistoryLocally;
 
 /**
  * Generate canonical joining milestone event for an employee
@@ -50,9 +50,69 @@ export const createCanonicalJoiningEvent = (user: User): EmployeeHistoryEvent =>
 /**
  * Fetch chronological career history for an employee
  */
-export async function fetchEmployeeHistory(employeeId: string, user?: User): Promise<EmployeeHistoryEvent[]> {
-  const localHistory = loadStoredHistory().filter((h) => h.employee_id === employeeId);
+/**
+ * Transform a raw DB row into a typed EmployeeHistoryEvent
+ */
+function transformHistoryFromDB(d: any): EmployeeHistoryEvent {
+  return {
+    id: d.id,
+    employee_id: d.employee_id,
+    organization_id: d.organization_id,
+    event_type: d.event_type as EmployeeEventType,
+    effective_date: d.effective_date,
+    title: d.title,
+    description: d.description,
+    previous_value: d.previous_value,
+    new_value: d.new_value,
+    designation_before: d.designation_before,
+    designation_after: d.designation_after,
+    department_before: d.department_before,
+    department_after: d.department_after,
+    team_before: d.team_before,
+    team_after: d.team_after,
+    region_before: d.region_before,
+    region_after: d.region_after,
+    manager_before: d.manager_before,
+    manager_after: d.manager_after,
+    location_before: d.location_before,
+    location_after: d.location_after,
+    created_by: d.created_by,
+    created_by_name: d.created_by_name,
+    created_at: d.created_at,
+    updated_at: d.updated_at,
+  };
+}
 
+/**
+ * Fetch all employee_history records for the entire organization.
+ * Used during refreshCRMData to bulk-load history from Supabase (authoritative).
+ */
+export async function fetchAllOrgHistory(orgId: string): Promise<EmployeeHistoryEvent[]> {
+  if (!isSupabaseConfigured()) return loadStoredHistory();
+  try {
+    const { data, error } = await (supabase
+      .from('employee_history') as any)
+      .select('*')
+      .eq('organization_id', orgId)
+      .order('effective_date', { ascending: false });
+
+    if (!error && data && data.length > 0) {
+      const events = (data as any[]).map(transformHistoryFromDB);
+      cacheHistoryLocally(events); // cache for offline
+      return events;
+    }
+    if (error) console.warn('fetchAllOrgHistory error:', error);
+  } catch (err) {
+    console.warn('fetchAllOrgHistory fallback to local cache:', err);
+  }
+  return loadStoredHistory();
+}
+
+/**
+ * Fetch chronological career history for a single employee.
+ * Supabase-first, localStorage as fallback.
+ */
+export async function fetchEmployeeHistory(employeeId: string, user?: User): Promise<EmployeeHistoryEvent[]> {
   if (isSupabaseConfigured()) {
     try {
       const { data, error } = await (supabase
@@ -62,56 +122,46 @@ export async function fetchEmployeeHistory(employeeId: string, user?: User): Pro
         .order('effective_date', { ascending: false });
 
       if (!error && data && data.length > 0) {
-        // Merge with local history avoiding duplicates
-        const cloudIds = new Set(data.map((d: any) => d.id));
-        const merged = [
-          ...data.map((d: any) => ({
-            id: d.id,
-            employee_id: d.employee_id,
-            organization_id: d.organization_id,
-            event_type: d.event_type as EmployeeEventType,
-            effective_date: d.effective_date,
-            title: d.title,
-            description: d.description,
-            previous_value: d.previous_value,
-            new_value: d.new_value,
-            designation_before: d.designation_before,
-            designation_after: d.designation_after,
-            department_before: d.department_before,
-            department_after: d.department_after,
-            team_before: d.team_before,
-            team_after: d.team_after,
-            region_before: d.region_before,
-            region_after: d.region_after,
-            manager_before: d.manager_before,
-            manager_after: d.manager_after,
-            location_before: d.location_before,
-            location_after: d.location_after,
-            created_by: d.created_by,
-            created_by_name: d.created_by_name,
-            created_at: d.created_at,
-            updated_at: d.updated_at,
-          })),
-          ...localHistory.filter((l) => !cloudIds.has(l.id)),
-        ];
-
-        saveStoredHistory([...loadStoredHistory().filter((h) => h.employee_id !== employeeId), ...merged]);
-        return merged.sort((a, b) => new Date(b.effective_date).getTime() - new Date(a.effective_date).getTime());
+        const events = (data as any[]).map(transformHistoryFromDB);
+        return events;
       }
     } catch (err) {
       console.warn('Supabase fetchEmployeeHistory fallback to local:', err);
     }
   }
 
-  // If local history is empty and user is provided, generate canonical joining event
+  // Fallback: local cache
+  const localHistory = loadStoredHistory().filter((h) => h.employee_id === employeeId);
+
+  // If no history at all and user is provided, generate canonical joining event
   if (localHistory.length === 0 && user) {
-    const joiningEvent = createCanonicalJoiningEvent(user);
-    const updated = [joiningEvent];
-    saveStoredHistory([...loadStoredHistory(), joiningEvent]);
-    return updated;
+    return [createCanonicalJoiningEvent(user)];
   }
 
   return localHistory.sort((a, b) => new Date(b.effective_date).getTime() - new Date(a.effective_date).getTime());
+}
+
+/**
+ * Fire-and-forget audit log for career events
+ */
+async function logCareerAudit(record: EmployeeHistoryEvent, actorUser?: User) {
+  try {
+    await logAuditEvent({
+      organizationId: record.organization_id,
+      userId: actorUser?.id,
+      userName: actorUser?.name || record.created_by_name,
+      action: 'CAREER_EVENT_CREATED',
+      entityType: 'employee_history',
+      entityId: record.id,
+      newValues: {
+        employee_id: record.employee_id,
+        event_type: record.event_type,
+        title: record.title,
+        effective_date: record.effective_date,
+      },
+      metadata: { source: 'careerHistoryService', title: record.title },
+    });
+  } catch { /* non-critical */ }
 }
 
 /**
@@ -132,71 +182,67 @@ export async function addCareerHistoryEvent(
     created_by_name: event.created_by_name || actorUser?.name || 'System Administrator',
   };
 
-  // 1. Save to local storage
-  const allHistory = loadStoredHistory();
-  allHistory.unshift(newRecord);
-  saveStoredHistory(allHistory);
+  const dbPayload = {
+    id: newRecord.id,
+    employee_id: newRecord.employee_id,
+    organization_id: newRecord.organization_id,
+    event_type: newRecord.event_type,
+    effective_date: newRecord.effective_date,
+    title: newRecord.title,
+    description: newRecord.description,
+    previous_value: newRecord.previous_value || {},
+    new_value: newRecord.new_value || {},
+    designation_before: newRecord.designation_before,
+    designation_after: newRecord.designation_after,
+    department_before: newRecord.department_before,
+    department_after: newRecord.department_after,
+    team_before: newRecord.team_before,
+    team_after: newRecord.team_after,
+    region_before: newRecord.region_before,
+    region_after: newRecord.region_after,
+    manager_before: newRecord.manager_before,
+    manager_after: newRecord.manager_after,
+    location_before: newRecord.location_before,
+    location_after: newRecord.location_after,
+    created_by: actorUser?.id,
+    created_by_name: newRecord.created_by_name,
+    created_at: now,
+    updated_at: now,
+  };
 
-  // 2. Sync to Supabase if configured
+  // 1. Supabase is the authoritative store — insert there first
   if (isSupabaseConfigured()) {
     try {
-      await (supabase.from('employee_history') as any).insert({
-        id: newRecord.id,
-        employee_id: newRecord.employee_id,
-        organization_id: newRecord.organization_id,
-        event_type: newRecord.event_type,
-        effective_date: newRecord.effective_date,
-        title: newRecord.title,
-        description: newRecord.description,
-        previous_value: newRecord.previous_value || {},
-        new_value: newRecord.new_value || {},
-        designation_before: newRecord.designation_before,
-        designation_after: newRecord.designation_after,
-        department_before: newRecord.department_before,
-        department_after: newRecord.department_after,
-        team_before: newRecord.team_before,
-        team_after: newRecord.team_after,
-        region_before: newRecord.region_before,
-        region_after: newRecord.region_after,
-        manager_before: newRecord.manager_before,
-        manager_after: newRecord.manager_after,
-        location_before: newRecord.location_before,
-        location_after: newRecord.location_after,
-        created_by: actorUser?.id,
-        created_by_name: newRecord.created_by_name,
-        created_at: now,
-        updated_at: now,
-      });
+      const { data, error } = await (supabase.from('employee_history') as any)
+        .insert(dbPayload)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Supabase addCareerHistoryEvent insert failed:', error);
+        // Fall through to local cache
+      } else if (data) {
+        const saved = transformHistoryFromDB(data);
+        // Update local cache
+        const allHistory = loadStoredHistory();
+        allHistory.unshift(saved);
+        cacheHistoryLocally(allHistory);
+        // Audit (non-blocking)
+        logCareerAudit(saved, actorUser);
+        return saved;
+      }
     } catch (err) {
-      console.warn('Supabase addCareerHistoryEvent failed, persisted locally:', err);
+      console.warn('Supabase addCareerHistoryEvent exception, saving to local cache:', err);
     }
   }
 
-  // 3. Audit Log
-  await logAuditEvent({
-    organizationId: newRecord.organization_id,
-    userId: actorUser?.id,
-    userName: actorUser?.name || newRecord.created_by_name,
-    action: 'CAREER_EVENT_CREATED',
-    entityType: 'employee_history',
-    entityId: newRecord.id,
-    newValues: {
-      employee_id: newRecord.employee_id,
-      event_type: newRecord.event_type,
-      title: newRecord.title,
-      effective_date: newRecord.effective_date,
-      designation_before: newRecord.designation_before,
-      designation_after: newRecord.designation_after,
-      region_before: newRecord.region_before,
-      region_after: newRecord.region_after,
-      department_before: newRecord.department_before,
-      department_after: newRecord.department_after,
-    },
-    metadata: {
-      source: 'careerHistoryService',
-      title: newRecord.title,
-    },
-  });
+  // 2. Fallback: save locally only (offline / Supabase unavailable)
+  const allHistory = loadStoredHistory();
+  allHistory.unshift(newRecord);
+  cacheHistoryLocally(allHistory);
+
+  // Audit (non-blocking)
+  logCareerAudit(newRecord, actorUser);
 
   return newRecord;
 }
