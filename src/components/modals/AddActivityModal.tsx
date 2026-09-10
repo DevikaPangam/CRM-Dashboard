@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { X, Calendar, GitPullRequest, CheckCircle2, Clock } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
+import { useRBAC } from '../../context/RBACContext';
 import { Activity, Opportunity } from '../../types/crm';
 import { DEPARTMENTS } from '../../utils/seedData';
 
 export const AddActivityModal: React.FC = () => {
   const { closeModal, activeModal, addActivity, updateOpportunityDelegation, clients, opportunities, teamMembers } = useCRM();
+  const { canCreate } = useRBAC();
 
   const initialType = (activeModal.data?.type || 'Physical Meeting') as Activity['type'];
   const defaultClientId = activeModal.data?.clientId || clients[0]?.id || '';
@@ -86,6 +88,10 @@ export const AddActivityModal: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canCreate('activities')) {
+      alert('Security Policy Violation: You do not have permission to log activities.');
+      return;
+    }
     if (!formData.keyDiscussion.trim()) return;
 
     // 1. Log Activity

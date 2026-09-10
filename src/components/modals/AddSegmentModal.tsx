@@ -5,8 +5,8 @@ import { useRBAC } from '../../context/RBACContext';
 
 export const AddSegmentModal: React.FC = () => {
   const { closeModal, addSegment, teamMembers, currentUser } = useCRM();
-  const { isSuperAdmin, canCreate } = useRBAC();
-  const isAdmin = isSuperAdmin || canCreate('segments');
+  const { canCreate } = useRBAC();
+  const isAuthorized = canCreate('segments');
 
   const [formData, setFormData] = useState({
     name: '',
@@ -16,7 +16,7 @@ export const AddSegmentModal: React.FC = () => {
     description: '',
   });
 
-  if (!isAdmin) {
+  if (!isAuthorized) {
     return (
       <div className="modal-overlay" onClick={closeModal}>
         <div className="modal-content-box" style={{ maxWidth: '420px', textAlign: 'center', padding: '24px' }}>

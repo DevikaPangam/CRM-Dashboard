@@ -75,11 +75,13 @@ export const ReviewTab: React.FC = () => {
 
   // 1. RBAC Context
   const currentEmail = (profile?.email || authUser?.email || currentUser?.email || '').toLowerCase();
-  const { isSuperAdmin, isOrgAdmin, isManagerOrAbove, canEdit } = useRBAC();
+  const { isSuperAdmin, isOrgAdmin, isManagerOrAbove, canCreate, canEdit, canApprove, canExport } = useRBAC();
   const isSuperAdminUser = isSuperAdmin;
   const isManagementUser = isOrgAdmin || isSuperAdmin;
   const isManagerUser = isManagerOrAbove;
-  const canConductAppraisal = canEdit('review') || isManagerOrAbove;
+  const canConductAppraisal = canEdit('review') || canCreate('review');
+  const canApproveReview = canApprove('review');
+  const canExportReview = canExport('review');
 
   // Load reviews from Service
   const loadReviews = React.useCallback(() => {

@@ -6,8 +6,8 @@ import { PIPELINE_STAGES, LEAD_SOURCES } from '../../utils/seedData';
 
 export const AddOpportunityModal: React.FC = () => {
   const { closeModal, addOpportunity, clients, segments, teamMembers, currentUser } = useCRM();
-  const { isSuperAdmin, isOrgAdmin } = useRBAC();
-  const isAdmin = isSuperAdmin || isOrgAdmin;
+  const { canCreate } = useRBAC();
+  const isAuthorized = canCreate('opportunities');
 
   const [formData, setFormData] = useState({
     title: '',
@@ -44,6 +44,10 @@ export const AddOpportunityModal: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isAuthorized) {
+      alert('You do not have permission to create opportunities.');
+      return;
+    }
     if (!formData.title.trim()) return;
 
     const selectedClient = clients.find((c) => c.id === formData.clientId);
@@ -200,11 +204,11 @@ export const AddOpportunityModal: React.FC = () => {
 
             <div className="form-grid-2">
               <div className="form-group">
-                <label>BD Owner {!isAdmin && '(System Admin Only)'}</label>
+                <label>BD Owner {!isAuthorized && '(Restricted)'}</label>
                 <select
                   className="form-control"
                   value={formData.owner}
-                  disabled={!isAdmin}
+                  disabled={!isAuthorized}
                   onChange={(e) => setFormData({ ...formData, owner: e.target.value })}
                 >
                   {teamMembers.map((tm) => (

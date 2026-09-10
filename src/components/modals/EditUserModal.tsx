@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Shield, Save, Mail, AlertTriangle, KeyRound, UserX, CheckCircle, Building2 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
+import { useRBAC } from '../../context/RBACContext';
 import { updateAdminUser, triggerPasswordReset, revokeUserAccess, getHierarchyOptions, HierarchyOptions } from '../../services/adminService';
 import { UserRoleEnum, UserStatusEnum } from '../../types/database.types';
 import { SegmentPermissionsMatrix } from '../common/SegmentPermissionsMatrix';
@@ -26,9 +27,11 @@ const ROLE_OPTIONS: Array<{ value: UserRoleEnum; label: string; description: str
 export const EditUserModal: React.FC = () => {
   const { closeModal, activeModal, updateUser } = useCRM();
   const { profile } = useAuth();
+  const { canAdmin, canEdit } = useRBAC();
   const userToEdit: any = activeModal.data;
 
-  const isSuperAdmin = profile?.role === 'super_admin';
+  const isUserAdmin = canAdmin('users') || canEdit('users');
+  const isSuperAdmin = isUserAdmin;
   const isEditingSelf = userToEdit && profile?.id === userToEdit.id;
 
   const [hierarchy, setHierarchy] = useState<HierarchyOptions>({

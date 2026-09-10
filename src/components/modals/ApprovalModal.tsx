@@ -2,11 +2,14 @@ import React, { useState } from 'react';
 import { X, CheckCircle2, XCircle, ShieldAlert, Save, AlertTriangle } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
+import { useRBAC } from '../../context/RBACContext';
+import { CRMModuleKey } from '../../types/database.types';
 import { proposalService } from '../../services/proposalService';
 
 export const ApprovalModal: React.FC = () => {
   const { closeModal, activeModal, updateTaskStatus, updateOpportunity, updateOpportunityDelegation, currentUser } = useCRM();
   const { profile, authUser } = useAuth();
+  const { canApprove } = useRBAC();
   const data = activeModal.data; // { type: 'task' | 'opportunity' | 'delegation' | 'proposal', item: any }
 
   const [decision, setDecision] = useState<'Approved' | 'Rejected'>('Approved');
@@ -18,6 +21,8 @@ export const ApprovalModal: React.FC = () => {
   if (!data || !data.item) return null;
 
   const { type, item } = data;
+  const targetModule: CRMModuleKey = type === 'proposal' ? 'calculator' : type === 'opportunity' ? 'opportunities' : type === 'delegation' ? 'opportunities' : 'internal';
+  const hasApprovePerm = canApprove(targetModule);
 
   // Separation of Duties Check: User cannot approve their own item
   const isOwner =
@@ -29,6 +34,11 @@ export const ApprovalModal: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
+
+    if (!hasApprovePerm) {
+      setErrorMessage('Security Policy Violation: You do not have permission to execute approval actions in this module.');
+      return;
+    }
 
     if (decision === 'Approved' && isOwner) {
       setErrorMessage('Security Policy Violation: Separation of Duties prevents approving records that you created or own.');

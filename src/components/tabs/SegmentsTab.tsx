@@ -6,13 +6,11 @@ import { formatCurrency } from '../../utils/formatters';
 
 export const SegmentsTab: React.FC = () => {
   const { segments, opportunities, clients, currency, openModal, deleteSegment, currentUser } = useCRM();
-  const { isOrgAdmin, canEdit } = useRBAC();
-
-  const isAdmin = isOrgAdmin || canEdit('segments');
+  const { canCreate, canEdit, canDelete } = useRBAC();
 
   const handleDelete = (segmentId: string, segmentName: string) => {
-    if (!isAdmin) {
-      alert('Security Alert: Only System Administrators have permission to delete business segments.');
+    if (!canDelete('segments')) {
+      alert('Security Policy Violation: You do not have permission to delete business segments.');
       return;
     }
     if (window.confirm(`Are you sure you want to delete business segment "${segmentName}"? All associated metrics will be updated.`)) {
@@ -21,8 +19,8 @@ export const SegmentsTab: React.FC = () => {
   };
 
   const handleEdit = (segment: any) => {
-    if (!isAdmin) {
-      alert('Security Alert: Only System Administrators have permission to modify business segments.');
+    if (!canEdit('segments')) {
+      alert('Security Policy Violation: You do not have permission to modify business segments.');
       return;
     }
     openModal('editSegment', segment);
@@ -50,7 +48,7 @@ export const SegmentsTab: React.FC = () => {
           </p>
         </div>
 
-        {isAdmin ? (
+        {canCreate('segments') ? (
           <button className="btn btn-primary" onClick={() => openModal('addSegment')}>
             <Plus size={15} />
             <span>+ Add Business Segment</span>
@@ -261,22 +259,26 @@ export const SegmentsTab: React.FC = () => {
                     </td>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <button
-                          className="btn btn-secondary btn-xs"
-                          onClick={() => handleEdit(seg)}
-                          title="Edit Segment"
-                        >
-                          <Edit2 size={12} style={{ color: '#0284c7' }} />
-                          <span>Edit</span>
-                        </button>
-                        <button
-                          className="btn btn-secondary btn-xs"
-                          style={{ color: '#dc2626' }}
-                          onClick={() => handleDelete(seg.id, seg.name)}
-                          title="Delete Segment"
-                        >
-                          <Trash2 size={12} />
-                        </button>
+                        {canEdit('segments') && (
+                          <button
+                            className="btn btn-secondary btn-xs"
+                            onClick={() => handleEdit(seg)}
+                            title="Edit Segment"
+                          >
+                            <Edit2 size={12} style={{ color: '#0284c7' }} />
+                            <span>Edit</span>
+                          </button>
+                        )}
+                        {canDelete('segments') && (
+                          <button
+                            className="btn btn-secondary btn-xs"
+                            style={{ color: '#dc2626' }}
+                            onClick={() => handleDelete(seg.id, seg.name)}
+                            title="Delete Segment"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

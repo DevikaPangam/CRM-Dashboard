@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { X, GitPullRequest } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
+import { useRBAC } from '../../context/RBACContext';
 import { DEPARTMENTS } from '../../utils/seedData';
 import { InternalTask } from '../../types/crm';
 
 export const AddInternalModal: React.FC = () => {
   const { closeModal, addInternalTask, clients, opportunities, teamMembers } = useCRM();
+  const { canCreate } = useRBAC();
 
   const [formData, setFormData] = useState({
     title: '',
@@ -24,6 +26,10 @@ export const AddInternalModal: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canCreate('internal')) {
+      alert('Security Policy Violation: You do not have permission to create internal tasks.');
+      return;
+    }
     if (!formData.title.trim()) return;
 
     addInternalTask({

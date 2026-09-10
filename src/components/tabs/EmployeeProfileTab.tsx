@@ -82,7 +82,7 @@ export const EmployeeProfileTab: React.FC = () => {
 
   // 1. Current Session User & RBAC Context
   const currentEmail = (profile?.email || authUser?.email || currentUser?.email || '').toLowerCase();
-  const { isSuperAdmin, isOrgAdmin, isManagerOrAbove } = useRBAC();
+  const { isSuperAdmin, isOrgAdmin, isManagerOrAbove, canEdit } = useRBAC();
   const isSuperAdminUser = isSuperAdmin;
   const isManagementUser = isOrgAdmin || isSuperAdmin;
   const isManagerUser = isManagerOrAbove;
@@ -107,8 +107,8 @@ export const EmployeeProfileTab: React.FC = () => {
     activeEmployee.manager_id === profile?.id ||
     activeEmployee.manager_name?.toLowerCase() === (profile?.full_name || currentUser.name).toLowerCase();
 
-  const canEditProfile = isSuperAdminUser || isManagementUser || (isManagerUser && isDirectReport);
-  const canViewConfidential = isOwnProfile || isSuperAdminUser || isManagementUser || (isManagerUser && isDirectReport);
+  const canEditProfile = canEdit('team') || (isManagerUser && isDirectReport);
+  const canViewConfidential = isOwnProfile || canEdit('team') || isManagementUser || (isManagerUser && isDirectReport);
 
   // 3. Computed Aggregations for Target Employee
   const employeeClients = useMemo(() => {

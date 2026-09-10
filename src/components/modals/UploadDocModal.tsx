@@ -2,12 +2,14 @@ import React, { useState, useRef } from 'react';
 import { X, Upload, FileText, Check, AlertCircle, HardDrive } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
+import { useRBAC } from '../../context/RBACContext';
 import { PIPELINE_STAGES, DOCUMENT_TYPES } from '../../utils/seedData';
 import { storageService, validateDocumentFile, ALLOWED_EXTENSIONS } from '../../services/storageService';
 
 export const UploadDocModal: React.FC = () => {
   const { closeModal, activeModal, addDocument, opportunities, clients, currentUser } = useCRM();
   const { profile, authUser } = useAuth();
+  const { canCreate } = useRBAC();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -61,6 +63,11 @@ export const UploadDocModal: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
+
+    if (!canCreate('documents')) {
+      setErrorMessage('Security Policy Violation: You do not have permission to upload documents.');
+      return;
+    }
 
     if (!selectedFile) {
       setErrorMessage('Please select a file to upload to the secure documents vault.');

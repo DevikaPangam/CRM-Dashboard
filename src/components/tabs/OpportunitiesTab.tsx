@@ -27,7 +27,33 @@ export const OpportunitiesTab: React.FC = () => {
     activities,
   } = useCRM();
 
-  const { currentRole } = useRBAC();
+  const { currentRole, canCreate, canEdit, canDelete, canExport, canAssign, canApprove } = useRBAC();
+
+  const handleOpenAddOpp = () => {
+    if (!canCreate('opportunities')) {
+      alert('Security Policy Violation: You do not have permission to create opportunities.');
+      return;
+    }
+    openModal('addOpportunity');
+  };
+
+  const handleExportOpps = () => {
+    if (!canExport('opportunities')) {
+      alert('Security Policy Violation: You do not have permission to export opportunity data.');
+      return;
+    }
+    exportOpportunities();
+  };
+
+  const handleDeleteOpp = (id: string, title: string) => {
+    if (!canDelete('opportunities')) {
+      alert('Security Policy Violation: You do not have permission to delete opportunities.');
+      return;
+    }
+    if (window.confirm(`Delete opportunity "${title}"?`)) {
+      deleteOpportunity(id);
+    }
+  };
 
   const [viewMode, setViewMode] = useState<'pipeline' | 'delegation'>('pipeline');
   const [stageFilter, setStageFilter] = useState('All');
@@ -141,14 +167,18 @@ export const OpportunitiesTab: React.FC = () => {
             </button>
           </div>
 
-          <button className="btn btn-primary" onClick={() => openModal('addOpportunity')}>
-            <Plus size={15} />
-            <span>+ Add Opportunity</span>
-          </button>
-          <button className="btn btn-secondary" onClick={exportOpportunities}>
-            <FileSpreadsheet size={15} />
-            <span>Export CSV</span>
-          </button>
+          {canCreate('opportunities') && (
+            <button className="btn btn-primary" onClick={handleOpenAddOpp}>
+              <Plus size={15} />
+              <span>+ Add Opportunity</span>
+            </button>
+          )}
+          {canExport('opportunities') && (
+            <button className="btn btn-secondary" onClick={handleExportOpps}>
+              <FileSpreadsheet size={15} />
+              <span>Export CSV</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -361,44 +391,48 @@ export const OpportunitiesTab: React.FC = () => {
                           >
                             <History size={12} style={{ color: '#0284c7' }} />
                           </button>
-                          <button
-                            className="btn btn-secondary btn-xs"
-                            title="Approve / Reject Deal Terms & Remarks"
-                            onClick={() => openModal('approvalModal', { type: 'opportunity', item: opp })}
-                            style={{
-                              color: opp.approvalStatus === 'Approved' ? '#16a34a' : opp.approvalStatus === 'Rejected' ? '#dc2626' : '#d97706',
-                              borderColor: opp.approvalStatus === 'Approved' ? '#bbf7d0' : opp.approvalStatus === 'Rejected' ? '#fecaca' : '#e2e8f0',
-                            }}
-                          >
-                            <ShieldCheck size={12} />
-                          </button>
-                          <button
-                            className="btn btn-secondary btn-xs"
-                            title="Upload / View Stage Documents"
-                            onClick={() => openModal('uploadDoc', { opportunityId: opp.id })}
-                          >
-                            <Upload size={12} style={{ color: '#ec4899' }} />
-                            {oppDocs.length > 0 && <span style={{ fontSize: '10px' }}>({oppDocs.length})</span>}
-                          </button>
-                          <button
-                            className="btn btn-secondary btn-xs"
-                            title="Log Interaction Activity & Delegation"
-                            onClick={() => openModal('addActivity', { clientId: opp.clientId, opportunityId: opp.id, clientType: opp.clientType })}
-                          >
-                            <Calendar size={12} style={{ color: '#0284c7' }} />
-                          </button>
-                          <button
-                            className="btn btn-secondary btn-xs"
-                            style={{ color: '#dc2626' }}
-                            title="Delete Opportunity"
-                            onClick={() => {
-                              if (window.confirm(`Delete opportunity "${opp.title}"?`)) {
-                                deleteOpportunity(opp.id);
-                              }
-                            }}
-                          >
-                            <Trash2 size={12} />
-                          </button>
+                          {canApprove('opportunities') && (
+                            <button
+                              className="btn btn-secondary btn-xs"
+                              title="Approve / Reject Deal Terms & Remarks"
+                              onClick={() => openModal('approvalModal', { type: 'opportunity', item: opp })}
+                              style={{
+                                color: opp.approvalStatus === 'Approved' ? '#16a34a' : opp.approvalStatus === 'Rejected' ? '#dc2626' : '#d97706',
+                                borderColor: opp.approvalStatus === 'Approved' ? '#bbf7d0' : opp.approvalStatus === 'Rejected' ? '#fecaca' : '#e2e8f0',
+                              }}
+                            >
+                              <ShieldCheck size={12} />
+                            </button>
+                          )}
+                          {canCreate('documents') && (
+                            <button
+                              className="btn btn-secondary btn-xs"
+                              title="Upload / View Stage Documents"
+                              onClick={() => openModal('uploadDoc', { opportunityId: opp.id })}
+                            >
+                              <Upload size={12} style={{ color: '#ec4899' }} />
+                              {oppDocs.length > 0 && <span style={{ fontSize: '10px' }}>({oppDocs.length})</span>}
+                            </button>
+                          )}
+                          {canCreate('activities') && (
+                            <button
+                              className="btn btn-secondary btn-xs"
+                              title="Log Interaction Activity & Delegation"
+                              onClick={() => openModal('addActivity', { clientId: opp.clientId, opportunityId: opp.id, clientType: opp.clientType })}
+                            >
+                              <Calendar size={12} style={{ color: '#0284c7' }} />
+                            </button>
+                          )}
+                          {canDelete('opportunities') && (
+                            <button
+                              className="btn btn-secondary btn-xs"
+                              style={{ color: '#dc2626' }}
+                              title="Delete Opportunity"
+                              onClick={() => handleDeleteOpp(opp.id, opp.title)}
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

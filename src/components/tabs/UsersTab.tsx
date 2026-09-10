@@ -31,10 +31,10 @@ import { formatDate } from '../../utils/formatters';
 export const UsersTab: React.FC = () => {
   const { users, updateUser, deleteUser, openModal, currentUser, viewEmployeeProfile } = useCRM();
   const { profile, organization } = useAuth();
-  const { canAdmin, isOrgAdmin } = useRBAC();
+  const { canAdmin, canCreate, canEdit, canDelete } = useRBAC();
 
   // Admin authority check via RBAC context
-  const isAdmin = canAdmin('users') || isOrgAdmin;
+  const isAdmin = canAdmin('users');
 
   const [activeSubView, setActiveSubView] = useState<'users' | 'audit'>('users');
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);

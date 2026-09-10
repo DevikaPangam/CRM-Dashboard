@@ -11,7 +11,41 @@ import { INDUSTRIES } from '../../utils/seedData';
 
 export const ClientsTab: React.FC = () => {
   const { currentUser, clients, deleteClient, openModal, exportClients, searchQuery } = useCRM();
-  const { currentRole } = useRBAC();
+  const { currentRole, canCreate, canEdit, canDelete, canExport } = useRBAC();
+
+  const handleExportClients = () => {
+    if (!canExport('clients')) {
+      alert('Security Policy Violation: You do not have permission to export client data.');
+      return;
+    }
+    exportClients();
+  };
+
+  const handleOpenAddClient = () => {
+    if (!canCreate('clients')) {
+      alert('Security Policy Violation: You do not have permission to create clients.');
+      return;
+    }
+    openModal('addClient');
+  };
+
+  const handleOpenImport = () => {
+    if (!canCreate('clients')) {
+      alert('Security Policy Violation: You do not have permission to bulk import clients.');
+      return;
+    }
+    openModal('importClients');
+  };
+
+  const handleDeleteClient = (id: string, name: string) => {
+    if (!canDelete('clients')) {
+      alert('Security Policy Violation: You do not have permission to delete clients.');
+      return;
+    }
+    if (window.confirm(`Delete client "${name}"?`)) {
+      deleteClient(id);
+    }
+  };
 
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   const [clientTypeFilter, setClientTypeFilter] = useState('All');
@@ -84,45 +118,51 @@ export const ClientsTab: React.FC = () => {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            className="btn btn-primary"
-            style={{
-              background: 'linear-gradient(135deg, #10b981, #059669)',
-              border: 'none',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontWeight: 700,
-              boxShadow: '0 2px 4px rgba(16, 185, 129, 0.25)',
-            }}
-            onClick={() => openModal('importClients')}
-            title="Open Bulk Import Dialog to paste, preview and map columns"
-          >
-            <Database size={15} />
-            <span>📥 Bulk Import Clients (CSV)</span>
-          </button>
+          {canCreate('clients') && (
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{
+                background: 'linear-gradient(135deg, #10b981, #059669)',
+                border: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontWeight: 700,
+                boxShadow: '0 2px 4px rgba(16, 185, 129, 0.25)',
+              }}
+              onClick={handleOpenImport}
+              title="Open Bulk Import Dialog to paste, preview and map columns"
+            >
+              <Database size={15} />
+              <span>📥 Bulk Import Clients (CSV)</span>
+            </button>
+          )}
 
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={exportClients}
-            title="Export full client database to CSV file"
-            style={{ display: 'flex', alignItems: 'center', gap: '5px' }}
-          >
-            <FileSpreadsheet size={15} />
-            <span>Export CSV</span>
-          </button>
+          {canExport('clients') && (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={handleExportClients}
+              title="Export full client database to CSV file"
+              style={{ display: 'flex', alignItems: 'center', gap: '5px' }}
+            >
+              <FileSpreadsheet size={15} />
+              <span>Export CSV</span>
+            </button>
+          )}
 
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={() => openModal('addClient')}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-          >
-            <Plus size={16} />
-            <span>+ Add Client</span>
-          </button>
+          {canCreate('clients') && (
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={handleOpenAddClient}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Plus size={16} />
+              <span>+ Add Client</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -635,41 +675,45 @@ export const ClientsTab: React.FC = () => {
                         {/* Actions */}
                         <td>
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
-                            <button
-                              className="btn btn-secondary btn-xs"
-                              style={{ color: '#0284c7', background: '#f0f9ff', borderColor: '#bae6fd' }}
-                              title="Edit Client Master, Fleets & Agreement"
-                              onClick={() => openModal('editClient', { clientId: client.id })}
-                            >
-                              <Pencil size={11} />
-                              <span>Edit</span>
-                            </button>
-                            <button
-                              className="btn btn-secondary btn-xs"
-                              title="Create Opportunity"
-                              onClick={() => openModal('addOpportunity', { clientId: client.id })}
-                            >
-                              <TrendingUp size={11} style={{ color: '#16a34a' }} />
-                            </button>
-                            <button
-                              className="btn btn-secondary btn-xs"
-                              title="Log Meeting"
-                              onClick={() => openModal('addActivity', { clientId: client.id, clientType: client.clientType })}
-                            >
-                              <Calendar size={11} style={{ color: '#0284c7' }} />
-                            </button>
-                            <button
-                              className="btn btn-secondary btn-xs"
-                              style={{ color: '#dc2626' }}
-                              title="Delete Client"
-                              onClick={() => {
-                                if (window.confirm(`Delete client "${client.name}"?`)) {
-                                  deleteClient(client.id);
-                                }
-                              }}
-                            >
-                              <Trash2 size={11} />
-                            </button>
+                            {canEdit('clients') && (
+                              <button
+                                className="btn btn-secondary btn-xs"
+                                style={{ color: '#0284c7', background: '#f0f9ff', borderColor: '#bae6fd' }}
+                                title="Edit Client Master, Fleets & Agreement"
+                                onClick={() => openModal('editClient', { clientId: client.id })}
+                              >
+                                <Pencil size={11} />
+                                <span>Edit</span>
+                              </button>
+                            )}
+                            {canCreate('opportunities') && (
+                              <button
+                                className="btn btn-secondary btn-xs"
+                                title="Create Opportunity"
+                                onClick={() => openModal('addOpportunity', { clientId: client.id })}
+                              >
+                                <TrendingUp size={11} style={{ color: '#16a34a' }} />
+                              </button>
+                            )}
+                            {canCreate('activities') && (
+                              <button
+                                className="btn btn-secondary btn-xs"
+                                title="Log Meeting"
+                                onClick={() => openModal('addActivity', { clientId: client.id, clientType: client.clientType })}
+                              >
+                                <Calendar size={11} style={{ color: '#0284c7' }} />
+                              </button>
+                            )}
+                            {canDelete('clients') && (
+                              <button
+                                className="btn btn-secondary btn-xs"
+                                style={{ color: '#dc2626' }}
+                                title="Delete Client"
+                                onClick={() => handleDeleteClient(client.id, client.name)}
+                              >
+                                <Trash2 size={11} />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -922,42 +966,46 @@ export const ClientsTab: React.FC = () => {
 
                 {/* Action Buttons */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderTop: '1px solid #f1f5f9', paddingTop: '12px' }}>
-                  <button
-                    className="btn btn-secondary btn-xs"
-                    style={{ flex: 1, color: '#0284c7', background: '#f0f9ff', borderColor: '#bae6fd' }}
-                    onClick={() => openModal('editClient', { clientId: client.id })}
-                  >
-                    <Pencil size={12} />
-                    <span>Edit</span>
-                  </button>
-                  <button
-                    className="btn btn-secondary btn-xs"
-                    style={{ flex: 1 }}
-                    onClick={() => openModal('addOpportunity', { clientId: client.id })}
-                  >
-                    <TrendingUp size={12} style={{ color: '#16a34a' }} />
-                    <span>+ Opp</span>
-                  </button>
-                  <button
-                    className="btn btn-secondary btn-xs"
-                    style={{ flex: 1 }}
-                    onClick={() => openModal('addActivity', { clientId: client.id, clientType: client.clientType })}
-                  >
-                    <Calendar size={12} style={{ color: '#0284c7' }} />
-                    <span>+ Log</span>
-                  </button>
-                  <button
-                    className="btn btn-secondary btn-xs"
-                    style={{ color: '#dc2626' }}
-                    title="Delete Client"
-                    onClick={() => {
-                      if (window.confirm(`Delete client "${client.name}"?`)) {
-                        deleteClient(client.id);
-                      }
-                    }}
-                  >
-                    <Trash2 size={12} />
-                  </button>
+                  {canEdit('clients') && (
+                    <button
+                      className="btn btn-secondary btn-xs"
+                      style={{ flex: 1, color: '#0284c7', background: '#f0f9ff', borderColor: '#bae6fd' }}
+                      onClick={() => openModal('editClient', { clientId: client.id })}
+                    >
+                      <Pencil size={12} />
+                      <span>Edit</span>
+                    </button>
+                  )}
+                  {canCreate('opportunities') && (
+                    <button
+                      className="btn btn-secondary btn-xs"
+                      style={{ flex: 1 }}
+                      onClick={() => openModal('addOpportunity', { clientId: client.id })}
+                    >
+                      <TrendingUp size={12} style={{ color: '#16a34a' }} />
+                      <span>+ Opp</span>
+                    </button>
+                  )}
+                  {canCreate('activities') && (
+                    <button
+                      className="btn btn-secondary btn-xs"
+                      style={{ flex: 1 }}
+                      onClick={() => openModal('addActivity', { clientId: client.id, clientType: client.clientType })}
+                    >
+                      <Calendar size={12} style={{ color: '#0284c7' }} />
+                      <span>+ Log</span>
+                    </button>
+                  )}
+                  {canDelete('clients') && (
+                    <button
+                      className="btn btn-secondary btn-xs"
+                      style={{ color: '#dc2626' }}
+                      title="Delete Client"
+                      onClick={() => handleDeleteClient(client.id, client.name)}
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  )}
                 </div>
               </div>
             );

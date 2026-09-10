@@ -6,8 +6,8 @@ import { BusinessSegment } from '../../types/crm';
 
 export const EditSegmentModal: React.FC = () => {
   const { closeModal, activeModal, updateSegment, teamMembers, currentUser } = useCRM();
-  const { isSuperAdmin, canEdit } = useRBAC();
-  const isAdmin = isSuperAdmin || canEdit('segments');
+  const { canEdit } = useRBAC();
+  const isAuthorized = canEdit('segments');
   const segmentToEdit: BusinessSegment | undefined = activeModal.data;
 
   const [formData, setFormData] = useState({
@@ -30,7 +30,7 @@ export const EditSegmentModal: React.FC = () => {
     }
   }, [segmentToEdit]);
 
-  if (!isAdmin) {
+  if (!isAuthorized) {
     return (
       <div className="modal-overlay" onClick={closeModal}>
         <div className="modal-content-box" style={{ maxWidth: '420px', textAlign: 'center', padding: '24px' }}>

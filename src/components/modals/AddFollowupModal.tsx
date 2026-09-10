@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { X, Clock, Calendar, User, Tag } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
+import { useRBAC } from '../../context/RBACContext';
 import { Followup } from '../../types/crm';
 
 export const AddFollowupModal: React.FC = () => {
   const { closeModal, activeModal, addFollowup, clients, opportunities, teamMembers } = useCRM();
+  const { canCreate } = useRBAC();
 
   const defaultClientId = activeModal.data?.clientId || clients[0]?.id || '';
   const defaultClient = clients.find((c) => c.id === defaultClientId) || clients[0];
@@ -39,6 +41,10 @@ export const AddFollowupModal: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canCreate('followups')) {
+      alert('Security Policy Violation: You do not have permission to schedule follow-ups.');
+      return;
+    }
     if (!formData.description.trim()) return;
 
     addFollowup({

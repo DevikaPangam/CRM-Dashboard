@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { X, FileEdit, Save } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
+import { useRBAC } from '../../context/RBACContext';
 import { CRMDocument } from '../../types/crm';
 import { PIPELINE_STAGES, DOCUMENT_TYPES } from '../../utils/seedData';
 
 export const EditDocModal: React.FC = () => {
   const { closeModal, activeModal, updateDocument, opportunities } = useCRM();
+  const { canEdit } = useRBAC();
   const docToEdit: CRMDocument | undefined = activeModal.data;
 
   const [formData, setFormData] = useState({
@@ -32,6 +34,10 @@ export const EditDocModal: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canEdit('documents')) {
+      alert('Security Policy Violation: You do not have permission to edit document metadata.');
+      return;
+    }
     if (!formData.name.trim()) return;
 
     const opp = opportunities.find((o) => o.id === formData.opportunityId);

@@ -21,8 +21,8 @@ const DESIGNATION_PRESETS = [
 
 export const AddClientModal: React.FC = () => {
   const { closeModal, addClient, clients, segments, teamMembers, currentUser } = useCRM();
-  const { isSuperAdmin, canCreate } = useRBAC();
-  const isAdmin = isSuperAdmin || canCreate('clients');
+  const { canCreate } = useRBAC();
+  const isAuthorized = canCreate('clients');
 
   // Next auto-generated client code
   const autoClientCode = `CLT-${clients.length + 1001}`;
@@ -428,13 +428,13 @@ export const AddClientModal: React.FC = () => {
             {/* 6. Account Owner */}
             <div className="form-group" style={{ marginBottom: '16px' }}>
               <label style={{ fontWeight: 700, fontSize: '12.5px', color: '#1e293b' }}>
-                Account Owner (BD Manager) {!isAdmin && '(System Admin Only)'} <span style={{ color: '#dc2626' }}>*</span>
+                Account Owner (BD Manager) {!isAuthorized && '(Restricted)'} <span style={{ color: '#dc2626' }}>*</span>
               </label>
               <select
                 required
                 className="form-control"
                 value={formData.accountOwner}
-                disabled={!isAdmin}
+                disabled={!isAuthorized}
                 onChange={(e) => setFormData({ ...formData, accountOwner: e.target.value })}
               >
                 {teamMembers.map((tm) => (
