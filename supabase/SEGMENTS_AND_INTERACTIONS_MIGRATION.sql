@@ -9,13 +9,11 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- 2. Ensure Primary Rajmudra Organization Exists
-INSERT INTO public.organizations (id, name, slug, domain, is_active)
+INSERT INTO public.organizations (id, name, slug)
 VALUES (
   '00000000-0000-0000-0000-000000000001',
   'Rajmudra Corporate Fleet Solutions Ltd',
-  'rajmudra-fleet',
-  'rajmudragroup.com',
-  true
+  'rajmudra-fleet'
 )
 ON CONFLICT (id) DO NOTHING;
 
@@ -76,7 +74,7 @@ INSERT INTO public.segments (
     true
   ),
   (
-    '20000000-0000-0000-0000-000000000001',
+    '20000000-0000-0000-0000-000000000003',
     '00000000-0000-0000-0000-000000000001',
     'SEG-03',
     'Fleet Management',
