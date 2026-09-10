@@ -242,6 +242,53 @@ export function transformFollowupFromDB(row: any): Followup {
   };
 }
 
+export function transformInternalTaskFromDB(row: any): InternalTask {
+  return {
+    id: row.id,
+    department: row.department || 'Operations',
+    title: row.title,
+    clientId: row.client_id || '',
+    clientName: row.client_name || '',
+    opportunityId: row.opportunity_id || '',
+    opportunityTitle: row.opportunity_title || '',
+    assignedTo: row.assigned_to || '',
+    assignedBy: row.assigned_by || 'System Administrator',
+    dueDate: row.due_date ? row.due_date.split('T')[0] : '',
+    priority: (row.priority as any) || 'Medium',
+    status: (row.status as any) || 'Pending',
+    requestDetails: row.request_details || row.title || '',
+    responseNotes: row.response_notes || '',
+    actionDate: row.action_date ? row.action_date.split('T')[0] : undefined,
+    approvalRemarks: row.approval_remarks || '',
+    approvedBy: row.approved_by || '',
+    approvedDate: row.approved_at ? row.approved_at.split('T')[0] : undefined,
+  };
+}
+
+export function transformInternalTaskToDB(task: Partial<InternalTask>, orgId: string, userId?: string) {
+  const payload: Record<string, any> = {
+    organization_id: orgId,
+  };
+  if (task.id && isValidUUID(task.id)) payload.id = task.id;
+  if (task.department) payload.department = task.department;
+  if (task.title) payload.title = task.title;
+  payload.opportunity_id = isValidUUID(task.opportunityId) ? task.opportunityId : null;
+  payload.client_id = isValidUUID(task.clientId) ? task.clientId : null;
+  if (task.assignedTo) payload.assigned_to = task.assignedTo;
+  if (task.assignedBy) payload.assigned_by = task.assignedBy;
+  if (task.dueDate) payload.due_date = task.dueDate;
+  if (task.priority) payload.priority = task.priority;
+  if (task.status) payload.status = task.status;
+  if (task.requestDetails) payload.request_details = task.requestDetails;
+  if (task.responseNotes !== undefined) payload.response_notes = task.responseNotes;
+  if (task.actionDate) payload.action_date = task.actionDate;
+  if (task.approvalRemarks !== undefined) payload.approval_remarks = task.approvalRemarks;
+  if (task.approvedBy !== undefined) payload.approved_by = task.approvedBy;
+  if (userId && isValidUUID(userId)) payload.created_by = userId;
+
+  return payload;
+}
+
 export function transformDocumentFromDB(row: any): CRMDocument {
   return {
     id: row.id,
@@ -551,14 +598,26 @@ export const crmDataService = {
   async updateOpportunity(id: string, updates: Partial<Opportunity>, orgId: string): Promise<void> {
     if (!isSupabaseConfigured()) return;
     const dbPayload = transformOpportunityToDB(updates, orgId);
-    const { error } = await (supabase.from('opportunities') as any).update(dbPayload).eq('id', id).eq('organization_id', orgId);
-    if (error) throw error;
+    delete dbPayload.id; // Never update primary key
+
+    if (isValidUUID(id)) {
+      const { error } = await (supabase.from('opportunities') as any).update(dbPayload).eq('id', id).eq('organization_id', orgId);
+      if (error) throw error;
+    } else {
+      const { error } = await (supabase.from('opportunities') as any).update(dbPayload).eq('opportunity_code', id).eq('organization_id', orgId);
+      if (error) throw error;
+    }
   },
 
   async deleteOpportunity(id: string, orgId: string): Promise<void> {
     if (!isSupabaseConfigured()) return;
-    const { error } = await (supabase.from('opportunities') as any).delete().eq('id', id).eq('organization_id', orgId);
-    if (error) throw error;
+    if (isValidUUID(id)) {
+      const { error } = await (supabase.from('opportunities') as any).delete().eq('id', id).eq('organization_id', orgId);
+      if (error) throw error;
+    } else {
+      const { error } = await (supabase.from('opportunities') as any).delete().eq('opportunity_code', id).eq('organization_id', orgId);
+      if (error) throw error;
+    }
   },
 
   // ACTIVITIES
@@ -671,6 +730,62 @@ export const crmDataService = {
 
     const { error } = await (supabase.from('followups') as any).update(dbPayload).eq('id', id).eq('organization_id', orgId);
     if (error) throw error;
+  },
+
+  // INTERNAL TASKS (Delegation Matrix & Operations Tasks)
+  async fetchInternalTasks(orgId: string): Promise<InternalTask[]> {
+    if (!isSupabaseConfigured()) return [];
+    try {
+      const { data, error } = await (supabase.from('internal_tasks') as any)
+        .select('*')
+        .eq('organization_id', orgId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      if (!data || data.length === 0) return [];
+      return (data as any[]).map(transformInternalTaskFromDB);
+    } catch (err) {
+      console.warn('Supabase fetchInternalTasks error, returning empty list:', err);
+      return [];
+    }
+  },
+
+  async insertInternalTask(task: Omit<InternalTask, 'id'>, orgId: string, userId?: string): Promise<InternalTask> {
+    if (!isSupabaseConfigured()) {
+      return { id: 'int_' + Date.now(), ...task } as InternalTask;
+    }
+    const dbPayload = transformInternalTaskToDB(task as any, orgId, userId);
+    const { data, error } = await (supabase.from('internal_tasks') as any).insert(dbPayload).select().single();
+    if (error) {
+      console.error('insertInternalTask error:', error);
+      throw error;
+    }
+    return transformInternalTaskFromDB(data);
+  },
+
+  async updateInternalTask(id: string, updates: Partial<InternalTask>, orgId: string): Promise<void> {
+    if (!isSupabaseConfigured()) return;
+    const dbPayload = transformInternalTaskToDB(updates, orgId);
+    delete dbPayload.id;
+
+    if (isValidUUID(id)) {
+      const { error } = await (supabase.from('internal_tasks') as any).update(dbPayload).eq('id', id).eq('organization_id', orgId);
+      if (error) throw error;
+    } else {
+      const { error } = await (supabase.from('internal_tasks') as any).update(dbPayload).eq('task_code', id).eq('organization_id', orgId);
+      if (error) throw error;
+    }
+  },
+
+  async deleteInternalTask(id: string, orgId: string): Promise<void> {
+    if (!isSupabaseConfigured()) return;
+    if (isValidUUID(id)) {
+      const { error } = await (supabase.from('internal_tasks') as any).delete().eq('id', id).eq('organization_id', orgId);
+      if (error) throw error;
+    } else {
+      const { error } = await (supabase.from('internal_tasks') as any).delete().eq('task_code', id).eq('organization_id', orgId);
+      if (error) throw error;
+    }
   },
 
   // DOCUMENTS

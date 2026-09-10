@@ -263,7 +263,7 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setIsLoadingData(true);
     try {
-      const [dbClients, dbOpps, dbActs, dbFoll, dbDocs, dbUsers, dbSegments] = await Promise.all([
+      const [dbClients, dbOpps, dbActs, dbFoll, dbDocs, dbUsers, dbSegments, dbTasks] = await Promise.all([
         crmDataService.fetchClients(currentOrgId),
         crmDataService.fetchOpportunities(currentOrgId),
         crmDataService.fetchActivities(currentOrgId),
@@ -271,6 +271,7 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         crmDataService.fetchDocuments(currentOrgId),
         crmDataService.fetchProfiles(currentOrgId),
         crmDataService.fetchSegments(currentOrgId),
+        crmDataService.fetchInternalTasks(currentOrgId),
       ]);
 
       if (dbClients && dbClients.length > 0) {
@@ -286,6 +287,7 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setDocuments(dbDocs);
       if (dbUsers.length > 0) setUsers(dbUsers);
       if (dbSegments && dbSegments.length > 0) setSegments(dbSegments);
+      if (dbTasks && dbTasks.length > 0) setInternalTasks(dbTasks);
     } catch (err) {
       console.warn('Failed to refresh data from Supabase:', err);
     } finally {
@@ -630,22 +632,43 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setFollowups((prev) => prev.filter((f) => f.id !== id));
   };
 
-  const addInternalTask = (newTask: Omit<InternalTask, 'id'>) => {
+  const addInternalTask = async (newTask: Omit<InternalTask, 'id'>) => {
+    const tempId = `INT-${Date.now().toString().slice(-4)}`;
     const task: InternalTask = {
       ...newTask,
-      id: `INT-${Date.now().toString().slice(-4)}`,
+      id: tempId,
     };
     setInternalTasks((prev) => [task, ...prev]);
+
+    try {
+      const created = await crmDataService.insertInternalTask(newTask, currentOrgId, authUser?.id);
+      if (created && created.id !== tempId) {
+        setInternalTasks((prev) => prev.map((t) => (t.id === tempId ? created : t)));
+      }
+    } catch (err) {
+      console.warn('Could not sync insertInternalTask to Supabase:', err);
+    }
   };
 
-  const updateTaskStatus = (id: string, status: InternalTask['status'], responseNotes?: string) => {
+  const updateTaskStatus = async (id: string, status: InternalTask['status'], responseNotes?: string) => {
+    const actionDate = new Date().toISOString().slice(0, 10);
     setInternalTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, status, responseNotes: responseNotes || t.responseNotes, actionDate: new Date().toISOString().slice(0, 10) } : t))
+      prev.map((t) => (t.id === id ? { ...t, status, responseNotes: responseNotes || t.responseNotes, actionDate } : t))
     );
+    try {
+      await crmDataService.updateInternalTask(id, { status, responseNotes, actionDate }, currentOrgId);
+    } catch (err) {
+      console.warn('Could not sync updateTaskStatus to Supabase:', err);
+    }
   };
 
-  const deleteInternalTask = (id: string) => {
+  const deleteInternalTask = async (id: string) => {
     setInternalTasks((prev) => prev.filter((t) => t.id !== id));
+    try {
+      await crmDataService.deleteInternalTask(id, currentOrgId);
+    } catch (err) {
+      console.warn('Could not sync deleteInternalTask to Supabase:', err);
+    }
   };
 
   const addDocument = (newDoc: Omit<CRMDocument, 'id' | 'uploadedDate'>) => {
