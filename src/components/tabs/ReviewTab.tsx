@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
+import { useRBAC } from '../../context/RBACContext';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import { EmployeePerformanceReview, User as CRMUser } from '../../types/crm';
 import { fetchPerformanceReviews } from '../../services/performanceReviewService';
@@ -74,25 +75,11 @@ export const ReviewTab: React.FC = () => {
 
   // 1. RBAC Context
   const currentEmail = (profile?.email || authUser?.email || currentUser?.email || '').toLowerCase();
-  const isSuperAdminUser =
-    currentEmail.startsWith('devika') ||
-    profile?.role === 'super_admin' ||
-    currentUser?.role === 'System Administrator' ||
-    currentUser?.role_name === 'super_admin';
-
-  const isManagementUser =
-    isSuperAdminUser ||
-    profile?.role === 'bd_director' ||
-    currentUser?.role_name === 'bd_director' ||
-    profile?.role === 'management_viewer';
-
-  const isManagerUser =
-    isManagementUser ||
-    profile?.role === 'bd_manager' ||
-    currentUser?.role === 'BD Manager' ||
-    currentUser?.role_name === 'bd_manager';
-
-  const canConductAppraisal = isSuperAdminUser || isManagementUser || isManagerUser;
+  const { isSuperAdmin, isOrgAdmin, isManagerOrAbove, canEdit } = useRBAC();
+  const isSuperAdminUser = isSuperAdmin;
+  const isManagementUser = isOrgAdmin || isSuperAdmin;
+  const isManagerUser = isManagerOrAbove;
+  const canConductAppraisal = canEdit('review') || isManagerOrAbove;
 
   // Load reviews from Service
   const loadReviews = React.useCallback(() => {

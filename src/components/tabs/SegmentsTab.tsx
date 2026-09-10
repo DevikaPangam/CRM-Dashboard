@@ -1,12 +1,14 @@
 import React from 'react';
 import { Layers, Plus, Edit2, Trash2, ShieldCheck } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
+import { useRBAC } from '../../context/RBACContext';
 import { formatCurrency } from '../../utils/formatters';
 
 export const SegmentsTab: React.FC = () => {
   const { segments, opportunities, clients, currency, openModal, deleteSegment, currentUser } = useCRM();
+  const { isOrgAdmin, canEdit } = useRBAC();
 
-  const isAdmin = currentUser.role === 'System Administrator';
+  const isAdmin = isOrgAdmin || canEdit('segments');
 
   const handleDelete = (segmentId: string, segmentName: string) => {
     if (!isAdmin) {

@@ -80,59 +80,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       let userProfile = rawProfile as ProfileRow | null;
 
-      // 1b. If not found by ID, auto-provision/link authenticated user into public.profiles
-      if (!userProfile) {
-        const { data: userData } = await supabase.auth.getUser();
-        const userEmail = userData?.user?.email?.trim().toLowerCase();
-
-        if (userEmail) {
-          const isSuperAdmin = userEmail === 'devika.p@rajmudragroup.com';
-          const defaultRole = isSuperAdmin ? 'super_admin' : 'bd_exec';
-          const defaultName = isSuperAdmin ? 'Devika Pangam' : (userEmail.split('@')[0]);
-
-          const profilePayload: ProfileRow = {
-            id: userId,
-            organization_id: '00000000-0000-0000-0000-000000000001',
-            full_name: defaultName,
-            email: userEmail,
-            role: defaultRole,
-            department: isSuperAdmin ? 'Executive Management & Administration' : 'Business Development',
-            designation: isSuperAdmin ? 'Managing Director / System Administrator' : 'BD Executive',
-            employee_id: isSuperAdmin ? 'EMP-001' : `EMP-${Date.now().toString().slice(-4)}`,
-            phone: '+91 99999 00000',
-            avatar_url: null,
-            avatar_bg: '#f59e0b',
-            team_id: null,
-            manager_id: null,
-            status: 'active',
-            region: 'All Corporate Business Segments & Regions',
-            region_id: null,
-            location: 'Corporate HQ - Mumbai',
-            joining_date: '2020-04-01',
-            employment_type: 'Full-time',
-            is_regional_owner: true,
-            allowed_segments: [],
-            annual_target_inr: isSuperAdmin ? 265000000 : 50000000,
-            last_login_at: new Date().toISOString(),
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          };
-
-          // Upsert directly into Supabase PostgreSQL public.profiles
-          const { data: upsertedProfile, error: upsertErr } = await (supabase
-            .from('profiles') as any)
-            .upsert(profilePayload)
-            .select('*')
-            .maybeSingle();
-
-          if (upsertErr) {
-            console.warn('Notice syncing profile to public.profiles:', upsertErr.message);
-          }
-
-          userProfile = (upsertedProfile as ProfileRow) || profilePayload;
-        }
-      }
-
       if (profileError) {
         console.error('Error fetching CRM profile from database:', profileError);
       }
@@ -332,8 +279,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             password: pass,
             options: {
               data: {
-                full_name: emailLower === 'devika.p@rajmudragroup.com' ? 'Devika Pangam' : emailLower.split('@')[0],
-                role: emailLower === 'devika.p@rajmudragroup.com' ? 'super_admin' : 'bd_exec',
+                full_name: emailLower.split('@')[0],
               },
             },
           });

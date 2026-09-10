@@ -7,12 +7,14 @@ import {
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
+import { useRBAC } from '../../context/RBACContext';
 import { formatCurrency, formatDate, calculateTenure, getPerformanceStatus } from '../../utils/formatters';
 import { User } from '../../types/crm';
 
 export const TeamTab: React.FC = () => {
   const { users, opportunities, clients, activities, followups, currency, openModal, updateUser, currentUser } = useCRM();
   const { profile } = useAuth();
+  const { isManagerOrAbove } = useRBAC();
 
   // Active Sub-Tab View Mode: 'team' | 'regional_owners'
   const [activeViewMode, setActiveViewMode] = useState<'team' | 'regional_owners'>('team');
@@ -26,14 +28,7 @@ export const TeamTab: React.FC = () => {
   const [managerFilter, setManagerFilter] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  const isSuperAdminOrManager =
-    profile?.role === 'super_admin' ||
-    profile?.role === 'bd_director' ||
-    profile?.role === 'bd_manager' ||
-    currentUser?.role === 'System Administrator' ||
-    currentUser?.role_name === 'super_admin' ||
-    currentUser?.role_name === 'bd_director' ||
-    currentUser?.role_name === 'bd_manager';
+  const isSuperAdminOrManager = isManagerOrAbove;
 
   // 1. Base Business Development Employees (Single Source of Truth from Unified Users/Profiles)
   const bdEmployees = useMemo(() => {

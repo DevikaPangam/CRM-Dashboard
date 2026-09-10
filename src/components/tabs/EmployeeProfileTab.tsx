@@ -38,6 +38,7 @@ import {
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
+import { useRBAC } from '../../context/RBACContext';
 import { formatCurrency, calculateTenure, getPerformanceStatus } from '../../utils/formatters';
 import { EmployeeHistoryEvent, EmployeeEventType, KRAItem, PerformanceReviewItem, EmployeeKRA, EmployeeKPI, EmployeePerformanceReview } from '../../types/crm';
 import { fetchEmployeeKRAs } from '../../services/kraKpiService';
@@ -81,23 +82,10 @@ export const EmployeeProfileTab: React.FC = () => {
 
   // 1. Current Session User & RBAC Context
   const currentEmail = (profile?.email || authUser?.email || currentUser?.email || '').toLowerCase();
-  const isSuperAdminUser =
-    currentEmail.startsWith('devika') ||
-    profile?.role === 'super_admin' ||
-    currentUser?.role === 'System Administrator' ||
-    currentUser?.role_name === 'super_admin';
-
-  const isManagementUser =
-    isSuperAdminUser ||
-    profile?.role === 'bd_director' ||
-    currentUser?.role_name === 'bd_director' ||
-    profile?.role === 'management_viewer';
-
-  const isManagerUser =
-    isManagementUser ||
-    profile?.role === 'bd_manager' ||
-    currentUser?.role === 'BD Manager' ||
-    currentUser?.role_name === 'bd_manager';
+  const { isSuperAdmin, isOrgAdmin, isManagerOrAbove } = useRBAC();
+  const isSuperAdminUser = isSuperAdmin;
+  const isManagementUser = isOrgAdmin || isSuperAdmin;
+  const isManagerUser = isManagerOrAbove;
 
   // 2. Resolve Active Target Employee Profile
   const activeEmployee = useMemo(() => {

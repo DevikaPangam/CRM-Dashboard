@@ -8,7 +8,7 @@ import {
 } from '../utils/seedData';
 import { exportOpportunitiesToCSV, exportClientsToCSV, exportFullJSONBackup } from '../utils/exportUtils';
 import { useAuth } from './AuthContext';
-import { crmDataService } from '../services/crmDataService';
+import { crmDataService, deriveAllowedTabsForRole } from '../services/crmDataService';
 import { subscribeToCRMRealtime } from '../services/realtimeService';
 import { isSupabaseConfigured } from '../utils/supabaseClient';
 import { logExportEvent, logAuditEvent } from '../services/auditService';
@@ -113,6 +113,21 @@ interface CRMContextType {
   exportBackup: () => void;
 }
 
+export const EMPTY_UNAUTHENTICATED_USER: User = {
+  id: '',
+  employee_id: '',
+  name: 'Unauthenticated User',
+  email: '',
+  role: 'Unassigned',
+  role_name: 'guest',
+  department: '',
+  designation: '',
+  region: '',
+  location: '',
+  status: 'Inactive',
+  allowed_tabs: [],
+};
+
 const CRMContext = createContext<CRMContextType | undefined>(undefined);
 
 const STORAGE_KEY = 'CORPBD_CRM_REACT_V5';
@@ -151,9 +166,9 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   // SECURITY: Business data must NOT be initialized from localStorage.
-  // All data is authoritative from Supabase. localStorage is used ONLY for UI preferences (currency).
+  // All data is authoritative from Supabase. Default user is strictly unauthenticated until profile resolves.
   const [users, setUsers] = useState<User[]>(INITIAL_USERS);
-  const [currentUser, setCurrentUser] = useState<User>(INITIAL_USERS[0]);
+  const [currentUser, setCurrentUser] = useState<User>(EMPTY_UNAUTHENTICATED_USER);
 
   const [clients, setClients] = useState<Client[]>(INITIAL_CLIENTS);
   const [opportunities, setOpportunities] = useState<Opportunity[]>(INITIAL_OPPORTUNITIES);
@@ -247,8 +262,10 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         phone: profile.phone || '',
         avatar_bg: profile.avatar_bg || '#f59e0b',
         status: profile.status === 'active' ? 'Active' : profile.status === 'suspended' ? 'Disabled' : 'Inactive',
-        allowed_tabs: ['tab-dashboard', 'tab-clients', 'tab-employee-master', 'tab-team', 'tab-employee-profile', 'tab-opportunities', 'tab-activities', 'tab-followups', 'tab-review'],
+        allowed_tabs: deriveAllowedTabsForRole(profile.role),
       });
+    } else {
+      setCurrentUser(EMPTY_UNAUTHENTICATED_USER);
     }
   }, [profile]);
 
@@ -814,7 +831,9 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setTeamMembers(INITIAL_TEAM_MEMBERS);
       setSegments(INITIAL_SEGMENTS);
       setUsers(INITIAL_USERS);
-      setCurrentUser(INITIAL_USERS[0]);
+      if (!profile) {
+        setCurrentUser(EMPTY_UNAUTHENTICATED_USER);
+      }
       localStorage.clear();
       alert('Data successfully restored to factory defaults!');
     }

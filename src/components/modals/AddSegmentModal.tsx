@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { X, Layers, ShieldAlert } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
+import { useRBAC } from '../../context/RBACContext';
 
 export const AddSegmentModal: React.FC = () => {
   const { closeModal, addSegment, teamMembers, currentUser } = useCRM();
-  const isAdmin = currentUser.role === 'System Administrator' || currentUser.role_name === 'super_admin';
+  const { isSuperAdmin, canCreate } = useRBAC();
+  const isAdmin = isSuperAdmin || canCreate('segments');
 
   const [formData, setFormData] = useState({
     name: '',

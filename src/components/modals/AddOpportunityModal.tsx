@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { X, TrendingUp } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
+import { useRBAC } from '../../context/RBACContext';
 import { PIPELINE_STAGES, LEAD_SOURCES } from '../../utils/seedData';
 
 export const AddOpportunityModal: React.FC = () => {
   const { closeModal, addOpportunity, clients, segments, teamMembers, currentUser } = useCRM();
-  const isAdmin = currentUser.role === 'System Administrator' || currentUser.role_name === 'super_admin';
+  const { isSuperAdmin, isOrgAdmin } = useRBAC();
+  const isAdmin = isSuperAdmin || isOrgAdmin;
 
   const [formData, setFormData] = useState({
     title: '',

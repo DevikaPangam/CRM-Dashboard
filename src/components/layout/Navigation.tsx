@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
+import { useRBAC } from '../../context/RBACContext';
+import { CRMModuleKey, PermissionActionEnum } from '../../types/database.types';
 
 interface NavTabItem {
   id: string;
@@ -170,19 +172,33 @@ export const Navigation: React.FC = () => {
     }
   ];
 
-  const { profile } = useAuth();
-  const currentEmail = (profile?.email || currentUser?.email || '').toLowerCase();
-  const isSuperAdminUser =
-    currentEmail.startsWith('devika') ||
-    profile?.role === 'super_admin' ||
-    currentUser?.role === 'System Administrator' ||
-    currentUser?.role_name === 'super_admin';
+  const { canView, canAdmin, isSuperAdmin } = useRBAC();
+
+  const TAB_TO_MODULE: Record<string, { module: CRMModuleKey; action?: PermissionActionEnum }> = {
+    'tab-dashboard': { module: 'dashboard', action: 'view' },
+    'tab-clients': { module: 'clients', action: 'view' },
+    'tab-employee-master': { module: 'team', action: 'view' },
+    'tab-team': { module: 'team', action: 'view' },
+    'tab-employee-profile': { module: 'team', action: 'view' },
+    'tab-segments': { module: 'segments', action: 'view' },
+    'tab-opportunities': { module: 'opportunities', action: 'view' },
+    'tab-calculator': { module: 'calculator', action: 'view' },
+    'tab-activities': { module: 'activities', action: 'view' },
+    'tab-followups': { module: 'followups', action: 'view' },
+    'tab-internal': { module: 'internal', action: 'view' },
+    'tab-documents': { module: 'documents', action: 'view' },
+    'tab-review': { module: 'review', action: 'view' },
+    'tab-users': { module: 'users', action: 'admin' },
+  };
 
   const filterTab = (tab: NavTabItem) => {
-    if (tab.id === 'tab-employee-master' || tab.id === 'tab-employee-profile') return true;
-    if (isSuperAdminUser) return true;
-    if (tab.adminOnly) return false;
-    return (currentUser?.allowed_tabs || ['tab-dashboard', 'tab-clients', 'tab-employee-master', 'tab-opportunities', 'tab-calculator', 'tab-activities', 'tab-followups', 'tab-documents', 'tab-employee-profile']).includes(tab.id);
+    if (isSuperAdmin) return true;
+    const mapping = TAB_TO_MODULE[tab.id];
+    if (mapping) {
+      if (mapping.action === 'admin') return canAdmin(mapping.module);
+      return canView(mapping.module);
+    }
+    return (currentUser?.allowed_tabs || []).includes(tab.id);
   };
 
   return (

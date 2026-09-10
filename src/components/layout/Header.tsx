@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
+import { useRBAC } from '../../context/RBACContext';
 
 export const Header: React.FC = () => {
   const {
@@ -29,12 +30,10 @@ export const Header: React.FC = () => {
     isCloudConnected
   } = useAuth();
 
+  const { isSuperAdmin, currentRole } = useRBAC();
+
   const currentEmail = (profile?.email || authUser?.email || currentUser?.email || '').toLowerCase();
-  const isSuperAdminUser =
-    currentEmail.startsWith('devika') ||
-    profile?.role === 'super_admin' ||
-    currentUser?.role === 'System Administrator' ||
-    currentUser?.role_name === 'super_admin';
+  const isSuperAdminUser = isSuperAdmin;
 
   const displayName =
     profile?.full_name && profile.full_name !== 'System Administrator'
@@ -47,7 +46,7 @@ export const Header: React.FC = () => {
 
   const displayRole = isSuperAdminUser
     ? 'Super Admin'
-    : (profile?.role || currentUser?.role || 'BD Executive').replace('_', ' ');
+    : (currentRole || 'bd_exec').replace('_', ' ').toUpperCase();
 
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);

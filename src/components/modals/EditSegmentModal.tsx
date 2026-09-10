@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { X, Layers, Save, ShieldAlert } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
+import { useRBAC } from '../../context/RBACContext';
 import { BusinessSegment } from '../../types/crm';
 
 export const EditSegmentModal: React.FC = () => {
   const { closeModal, activeModal, updateSegment, teamMembers, currentUser } = useCRM();
-  const isAdmin = currentUser.role === 'System Administrator' || currentUser.role_name === 'super_admin';
+  const { isSuperAdmin, canEdit } = useRBAC();
+  const isAdmin = isSuperAdmin || canEdit('segments');
   const segmentToEdit: BusinessSegment | undefined = activeModal.data;
 
   const [formData, setFormData] = useState({

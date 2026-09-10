@@ -4,6 +4,7 @@ import {
   Truck, FileText, Upload, Calendar, DollarSign, Clock, MapPin, Paperclip, Download
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
+import { useRBAC } from '../../context/RBACContext';
 import { INDUSTRIES, FLEET_SEATER_CAPACITIES, SHIFT_FORMAT_PRESETS, BILLING_FREQUENCIES } from '../../utils/seedData';
 import { ClientType, ClientStatus, ClientContact, DeployedFleetContract, FleetSeaterCapacity, BillingFrequency } from '../../types/crm';
 
@@ -20,7 +21,8 @@ const DESIGNATION_PRESETS = [
 
 export const AddClientModal: React.FC = () => {
   const { closeModal, addClient, clients, segments, teamMembers, currentUser } = useCRM();
-  const isAdmin = currentUser.role === 'System Administrator' || currentUser.role_name === 'super_admin';
+  const { isSuperAdmin, canCreate } = useRBAC();
+  const isAdmin = isSuperAdmin || canCreate('clients');
 
   // Next auto-generated client code
   const autoClientCode = `CLT-${clients.length + 1001}`;

@@ -1,6 +1,6 @@
 export type CurrencyMode = 'INR' | 'USD';
 
-export type UserRole = 'System Administrator' | 'BD Manager' | 'BD Executive' | 'Management Reviewer' | 'Viewer';
+export type UserRole = 'System Administrator' | 'BD Manager' | 'BD Executive' | 'Management Reviewer' | 'Viewer' | 'Unassigned';
 
 export interface SegmentPermission {
   segmentKey: string;

@@ -326,6 +326,50 @@ export function transformDocumentToDB(doc: Partial<CRMDocument>, orgId: string, 
   return payload;
 }
 
+export function deriveAllowedTabsForRole(roleKey?: string, permissions?: any[]): string[] {
+  if (!roleKey) return ['tab-dashboard'];
+
+  // If live permissions array exists, derive tabs based on view permissions
+  if (permissions && permissions.length > 0) {
+    const viewableModules = new Set(
+      permissions.filter((p) => p.action === 'view' && p.is_allowed).map((p) => p.module_key)
+    );
+    const tabs: string[] = ['tab-dashboard'];
+    if (viewableModules.has('clients')) tabs.push('tab-clients');
+    if (viewableModules.has('team')) tabs.push('tab-employee-master', 'tab-team', 'tab-employee-profile');
+    if (viewableModules.has('segments')) tabs.push('tab-segments');
+    if (viewableModules.has('opportunities')) tabs.push('tab-opportunities', 'tab-calculator');
+    if (viewableModules.has('activities')) tabs.push('tab-activities');
+    if (viewableModules.has('followups')) tabs.push('tab-followups');
+    if (viewableModules.has('internal')) tabs.push('tab-internal');
+    if (viewableModules.has('documents')) tabs.push('tab-documents');
+    if (viewableModules.has('review')) tabs.push('tab-review');
+    if (viewableModules.has('users')) tabs.push('tab-users');
+    return tabs;
+  }
+
+  // Role-based derivation matching RBAC matrix
+  const tabs: string[] = ['tab-dashboard'];
+  const isSuper = roleKey === 'super_admin';
+  const isDirector = roleKey === 'bd_director';
+  const isManager = roleKey === 'bd_manager';
+
+  tabs.push('tab-clients', 'tab-employee-master', 'tab-team', 'tab-employee-profile');
+  if (isSuper || isDirector) tabs.push('tab-segments');
+  tabs.push('tab-opportunities', 'tab-calculator', 'tab-activities', 'tab-followups');
+  if (isSuper || isDirector || isManager || roleKey === 'operations_manager' || roleKey === 'finance_executive' || roleKey === 'legal_counsel') {
+    tabs.push('tab-internal');
+  }
+  tabs.push('tab-documents');
+  if (isSuper || isDirector || isManager || roleKey === 'management_viewer' || roleKey === 'analyst') {
+    tabs.push('tab-review');
+  }
+  if (isSuper || isDirector) {
+    tabs.push('tab-users');
+  }
+  return Array.from(new Set(tabs));
+}
+
 export function transformProfileFromDB(p: any): User {
   let mappedRole: any = 'BD Executive';
   if (p.role === 'super_admin') mappedRole = 'System Administrator';
@@ -361,9 +405,7 @@ export function transformProfileFromDB(p: any): User {
     phone: p.phone || '',
     avatar_url: p.avatar_url || '',
     avatar_bg: p.avatar_bg || '#3b82f6',
-    allowed_tabs: p.role === 'super_admin'
-      ? ['tab-dashboard', 'tab-clients', 'tab-employee-master', 'tab-team', 'tab-employee-profile', 'tab-segments', 'tab-opportunities', 'tab-calculator', 'tab-activities', 'tab-followups', 'tab-internal', 'tab-documents', 'tab-review', 'tab-users']
-      : ['tab-dashboard', 'tab-clients', 'tab-employee-master', 'tab-team', 'tab-employee-profile', 'tab-opportunities', 'tab-activities', 'tab-followups', 'tab-documents'],
+    allowed_tabs: deriveAllowedTabsForRole(p.role),
     created_at: p.created_at,
     updated_at: p.updated_at,
   };

@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
+import { useRBAC } from '../../context/RBACContext';
 import { formatCurrency, formatDate, calculateTenure, getPerformanceStatus } from '../../utils/formatters';
 import { User } from '../../types/crm';
 
@@ -30,12 +31,8 @@ export const EmployeeMasterTab: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('Active');
   const [employmentTypeFilter, setEmploymentTypeFilter] = useState<string>('All');
 
-  const isAdmin =
-    profile?.role === 'super_admin' ||
-    profile?.role === 'bd_director' ||
-    currentUser?.role === 'System Administrator' ||
-    currentUser?.role_name === 'super_admin' ||
-    currentUser?.role_name === 'bd_director';
+  const { isOrgAdmin } = useRBAC();
+  const isAdmin = isOrgAdmin;
 
   // Helper to test if a department is Business Development
   const isBD = (dept?: string) => {

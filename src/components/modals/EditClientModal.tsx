@@ -5,6 +5,7 @@ import {
   Clock, MapPin, CheckCircle2, Download, AlertTriangle, Paperclip
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
+import { useRBAC } from '../../context/RBACContext';
 import { INDUSTRIES, FLEET_SEATER_CAPACITIES, SHIFT_FORMAT_PRESETS, BILLING_FREQUENCIES } from '../../utils/seedData';
 import { ClientType, ClientStatus, ClientContact, DeployedFleetContract, FleetSeaterCapacity, BillingFrequency } from '../../types/crm';
 
@@ -21,7 +22,8 @@ const DESIGNATION_PRESETS = [
 
 export const EditClientModal: React.FC = () => {
   const { closeModal, clients, updateClient, segments, teamMembers, activeModal, currentUser } = useCRM();
-  const isAdmin = currentUser.role === 'System Administrator' || currentUser.role_name === 'super_admin';
+  const { isSuperAdmin, canEdit } = useRBAC();
+  const isAdmin = isSuperAdmin || canEdit('clients');
 
   const clientId = activeModal.data?.clientId || activeModal.data?.id;
   const existingClient = clients.find((c) => c.id === clientId);

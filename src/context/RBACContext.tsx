@@ -9,11 +9,18 @@ export interface RBACContextType {
   isOrgAdmin: boolean;
   isManagerOrAbove: boolean;
   hasPermission: (moduleKey: CRMModuleKey, action: PermissionActionEnum) => boolean;
-  isRole: (roles: UserRoleEnum | UserRoleEnum[]) => boolean;
-  canApprove: (moduleKey?: CRMModuleKey) => boolean;
+  can: (moduleKey: CRMModuleKey, action: PermissionActionEnum) => boolean;
+  canView: (moduleKey: CRMModuleKey) => boolean;
+  canCreate: (moduleKey: CRMModuleKey) => boolean;
+  canEdit: (moduleKey: CRMModuleKey) => boolean;
+  canDelete: (moduleKey: CRMModuleKey) => boolean;
   canExport: (moduleKey?: CRMModuleKey) => boolean;
+  canApprove: (moduleKey?: CRMModuleKey) => boolean;
+  canAssign: (moduleKey?: CRMModuleKey) => boolean;
   canAdmin: (moduleKey?: CRMModuleKey) => boolean;
+  isRole: (roles: UserRoleEnum | UserRoleEnum[]) => boolean;
   allowedSegments: string[];
+  normalizedPermissions: Record<CRMModuleKey, Record<PermissionActionEnum, boolean>>;
 }
 
 const RBACContext = createContext<RBACContextType | undefined>(undefined);
@@ -235,6 +242,15 @@ const BASELINE_PERMISSIONS: Record<UserRoleEnum, Partial<Record<CRMModuleKey, Pe
   },
 };
 
+const ALL_MODULE_KEYS: CRMModuleKey[] = [
+  'dashboard', 'clients', 'team', 'segments', 'opportunities', 'calculator',
+  'activities', 'followups', 'internal', 'documents', 'review', 'users'
+];
+
+const ALL_ACTION_KEYS: PermissionActionEnum[] = [
+  'view', 'create', 'edit', 'delete', 'export', 'approve', 'assign', 'admin'
+];
+
 export const RBACProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { profile, permissions: livePermissions, isCloudConnected } = useAuth();
   const { currentUser } = useCRM();
@@ -244,7 +260,7 @@ export const RBACProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (isCloudConnected && profile?.role) {
       return profile.role;
     }
-    return mapUserRoleToEnum(currentUser?.role || 'bd_exec');
+    return mapUserRoleToEnum(currentUser?.role_name || currentUser?.role);
   }, [isCloudConnected, profile, currentUser]);
 
   const allowedSegments = useMemo<string[]>(() => {
@@ -258,41 +274,61 @@ export const RBACProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isOrgAdmin = currentRole === 'super_admin' || currentRole === 'bd_director';
   const isManagerOrAbove = isOrgAdmin || currentRole === 'bd_manager';
 
-  // Dynamic permission check: prefers live database permissions, falls back to baseline matrix
+  // Centralized Permission Resolver
   const hasPermission = (moduleKey: CRMModuleKey, action: PermissionActionEnum): boolean => {
-    if (isSuperAdmin) return true;
+    // If cloud-connected and no authenticated profile, strictly DENY all permissions
+    if (isCloudConnected && !profile) {
+      return false;
+    }
 
-    // 1. Check live permissions from Supabase if available
-    if (isCloudConnected && livePermissions && livePermissions.length > 0) {
+    // 1. Check live permissions from Supabase public.role_permissions
+    if (isCloudConnected && livePermissions) {
       const match = livePermissions.find(
         (p) => p.module_key === moduleKey && p.action === action
       );
       if (match !== undefined) {
         return Boolean(match.is_allowed);
       }
+      // If role permissions exist for this role but action is not listed, deny by default
+      if (livePermissions.length > 0) {
+        return false;
+      }
     }
 
-    // 2. Fallback to client baseline permissions
+    // 2. Offline / local fallback to baseline role permissions
     const rolePerms = BASELINE_PERMISSIONS[currentRole]?.[moduleKey];
     return Boolean(rolePerms && rolePerms.includes(action));
   };
+
+  const can = (moduleKey: CRMModuleKey, action: PermissionActionEnum): boolean => {
+    return hasPermission(moduleKey, action);
+  };
+
+  const canView = (moduleKey: CRMModuleKey): boolean => hasPermission(moduleKey, 'view');
+  const canCreate = (moduleKey: CRMModuleKey): boolean => hasPermission(moduleKey, 'create');
+  const canEdit = (moduleKey: CRMModuleKey): boolean => hasPermission(moduleKey, 'edit');
+  const canDelete = (moduleKey: CRMModuleKey): boolean => hasPermission(moduleKey, 'delete');
+  const canExport = (moduleKey: CRMModuleKey = 'dashboard'): boolean => hasPermission(moduleKey, 'export');
+  const canApprove = (moduleKey: CRMModuleKey = 'internal'): boolean => hasPermission(moduleKey, 'approve');
+  const canAssign = (moduleKey: CRMModuleKey = 'opportunities'): boolean => hasPermission(moduleKey, 'assign');
+  const canAdmin = (moduleKey: CRMModuleKey = 'users'): boolean => hasPermission(moduleKey, 'admin');
 
   const isRole = (roles: UserRoleEnum | UserRoleEnum[]): boolean => {
     const list = Array.isArray(roles) ? roles : [roles];
     return list.includes(currentRole);
   };
 
-  const canApprove = (moduleKey: CRMModuleKey = 'internal'): boolean => {
-    return hasPermission(moduleKey, 'approve');
-  };
-
-  const canExport = (moduleKey: CRMModuleKey = 'dashboard'): boolean => {
-    return hasPermission(moduleKey, 'export');
-  };
-
-  const canAdmin = (moduleKey: CRMModuleKey = 'users'): boolean => {
-    return hasPermission(moduleKey, 'admin');
-  };
+  // Normalized Permission Structure
+  const normalizedPermissions = useMemo(() => {
+    const struct = {} as Record<CRMModuleKey, Record<PermissionActionEnum, boolean>>;
+    for (const mod of ALL_MODULE_KEYS) {
+      struct[mod] = {} as Record<PermissionActionEnum, boolean>;
+      for (const act of ALL_ACTION_KEYS) {
+        struct[mod][act] = hasPermission(mod, act);
+      }
+    }
+    return struct;
+  }, [currentRole, livePermissions, isCloudConnected, profile]);
 
   return (
     <RBACContext.Provider
@@ -302,11 +338,18 @@ export const RBACProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isOrgAdmin,
         isManagerOrAbove,
         hasPermission,
-        isRole,
-        canApprove,
+        can,
+        canView,
+        canCreate,
+        canEdit,
+        canDelete,
         canExport,
+        canApprove,
+        canAssign,
         canAdmin,
+        isRole,
         allowedSegments,
+        normalizedPermissions,
       }}
     >
       {children}

@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
+import { useRBAC } from '../../context/RBACContext';
 import { triggerPasswordReset, revokeUserAccess, updateAdminUser, generateActivationLink, deleteAdminUser } from '../../services/adminService';
 import { fetchAuditLogs, AuditLogRecord } from '../../services/auditService';
 import { formatDate } from '../../utils/formatters';
@@ -30,20 +31,10 @@ import { formatDate } from '../../utils/formatters';
 export const UsersTab: React.FC = () => {
   const { users, updateUser, deleteUser, openModal, currentUser, viewEmployeeProfile } = useCRM();
   const { profile, organization } = useAuth();
+  const { canAdmin, isOrgAdmin } = useRBAC();
 
-  // Admin authority check (super_admin, bd_director, system administrator, or devika.p)
-  const userRole = (profile?.role || currentUser?.role || currentUser?.role_name || '') as string;
-  const userEmail = (profile?.email || currentUser?.email || '').toLowerCase();
-  const isAdmin =
-    userRole === 'super_admin' ||
-    userRole === 'bd_director' ||
-    userRole === 'System Administrator' ||
-    userRole === 'system_admin' ||
-    userRole === 'admin' ||
-    currentUser?.role === 'System Administrator' ||
-    currentUser?.role_name === 'super_admin' ||
-    userEmail.startsWith('devika') ||
-    userEmail === 'devika.p@rajmudragroup.com';
+  // Admin authority check via RBAC context
+  const isAdmin = canAdmin('users') || isOrgAdmin;
 
   const [activeSubView, setActiveSubView] = useState<'users' | 'audit'>('users');
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
