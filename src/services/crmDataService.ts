@@ -14,7 +14,46 @@ import {
   INITIAL_INTERNAL_TASKS, INITIAL_TEAM_MEMBERS, INITIAL_SEGMENTS, INITIAL_USERS, INITIAL_DOCUMENTS
 } from '../utils/seedData';
 
+// ─── UUID SANITIZER UTILITY ──────────────────────────────────────────────────
+export const isValidUUID = (id?: string | null): boolean =>
+  Boolean(id && typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id.trim()));
+
 // ─── ENTITY TRANSFORMERS ──────────────────────────────────────────────────────
+
+export function transformSegmentFromDB(row: any): BusinessSegment {
+  return {
+    id: row.segment_code || row.id,
+    name: row.name,
+    category: row.category || 'Corporate Mobility',
+    targetMarginPct: Number(row.target_margin_pct) || 20,
+    leadOwner: row.lead_owner || 'Devika Pangam',
+    description: row.description || '',
+    activeClientsCount: Number(row.active_clients_count) || 0,
+    pipelineValueINR: Number(row.pipeline_value_inr) || 0,
+  };
+}
+
+export function transformSegmentToDB(seg: Partial<BusinessSegment>, orgId: string) {
+  const payload: Record<string, any> = {
+    organization_id: orgId,
+  };
+  if (seg.id) {
+    if (isValidUUID(seg.id)) {
+      payload.id = seg.id;
+    } else {
+      payload.segment_code = seg.id;
+    }
+  }
+  if (seg.name) payload.name = seg.name;
+  if (seg.category) payload.category = seg.category;
+  if (seg.targetMarginPct !== undefined) payload.target_margin_pct = Number(seg.targetMarginPct) || 20;
+  if (seg.leadOwner) payload.lead_owner = seg.leadOwner;
+  if (seg.description !== undefined) payload.description = seg.description;
+  if (seg.activeClientsCount !== undefined) payload.active_clients_count = Number(seg.activeClientsCount) || 0;
+  if (seg.pipelineValueINR !== undefined) payload.pipeline_value_inr = Number(seg.pipelineValueINR) || 0;
+
+  return payload;
+}
 
 export function transformClientFromDB(row: any, contacts: any[] = []): Client {
   return {
@@ -69,7 +108,7 @@ export function transformClientToDB(client: Partial<Client>, orgId: string, user
   if (client.address !== undefined) payload.address = client.address;
   if (client.deployedFleets !== undefined) payload.deployed_fleets = client.deployedFleets;
   if (client.notes !== undefined) payload.notes = client.notes;
-  if (userId) payload.created_by = userId;
+  if (userId && isValidUUID(userId)) payload.created_by = userId;
 
   return payload;
 }
@@ -122,9 +161,11 @@ export function transformOpportunityToDB(opp: Partial<Opportunity>, orgId: strin
   const payload: Record<string, any> = {
     organization_id: orgId,
   };
+  if (opp.id && isValidUUID(opp.id)) payload.id = opp.id;
   if (opp.code) payload.opportunity_code = opp.code;
+  else if (opp.id && !isValidUUID(opp.id)) payload.opportunity_code = opp.id;
   if (opp.title) payload.title = opp.title;
-  if (opp.clientId) payload.client_id = opp.clientId;
+  payload.client_id = isValidUUID(opp.clientId) ? opp.clientId : null;
   if (opp.clientName) payload.client_name = opp.clientName;
   if (opp.clientType) payload.client_type = opp.clientType;
   if (opp.segment) payload.segment = opp.segment;
@@ -135,7 +176,7 @@ export function transformOpportunityToDB(opp: Partial<Opportunity>, orgId: strin
   if (opp.stage) payload.stage = opp.stage;
   if (opp.probability !== undefined) payload.probability_pct = opp.probability;
   if (opp.status) payload.status = opp.status;
-  if (userId) payload.owner_id = userId;
+  if (userId && isValidUUID(userId)) payload.created_by = userId;
   if (opp.owner) payload.owner_name = opp.owner;
   if (opp.leadSource) payload.lead_source = opp.leadSource;
   if (opp.expectedCloseDate) payload.expected_close_date = opp.expectedCloseDate;
@@ -171,7 +212,7 @@ export function transformActivityFromDB(row: any): Activity {
     opportunityTitle: row.opportunity_title || '',
     date: row.activity_date ? row.activity_date.split('T')[0] : '',
     time: row.activity_time || '',
-    conductedBy: row.conducted_by_name || 'BD Executive',
+    conductedBy: row.conducted_by_name || row.conducted_by || 'BD Executive',
     contactPerson: row.contact_person || '',
     location: row.location || '',
     keyDiscussion: row.key_discussion || '',
@@ -191,7 +232,7 @@ export function transformFollowupFromDB(row: any): Followup {
     opportunityId: row.opportunity_id || '',
     opportunityTitle: row.opportunity_title || '',
     dueDate: row.due_date ? row.due_date.split('T')[0] : '',
-    assignedTo: row.assigned_to_name || '',
+    assignedTo: row.assigned_to_name || row.assigned_to || '',
     type: row.followup_type || 'Call',
     priority: (row.priority as any) || 'Medium',
     description: row.description || '',
@@ -265,7 +306,7 @@ export function transformProfileToDB(user: Partial<User>, orgId: string) {
   const payload: Record<string, any> = {
     organization_id: orgId,
   };
-  if (user.id) payload.id = user.id;
+  if (user.id && isValidUUID(user.id)) payload.id = user.id;
   if (user.name) payload.full_name = user.name;
   if (user.email) payload.email = user.email.trim().toLowerCase();
   if (user.role_name || user.role) {
@@ -283,7 +324,6 @@ export function transformProfileToDB(user: Partial<User>, orgId: string) {
     else if (r === 'Commercial Analyst' || r === 'analyst') payload.role = 'analyst';
     else payload.role = r || 'bd_exec';
   }
-  const isValidUUID = (id?: string | null) => Boolean(id && typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id.trim()));
 
   if (user.department) payload.department = user.department;
   payload.department_id = isValidUUID(user.department_id) ? user.department_id : null;
@@ -312,6 +352,67 @@ export function transformProfileToDB(user: Partial<User>, orgId: string) {
 // ─── CRUD OPERATIONS ─────────────────────────────────────────────────────────
 
 export const crmDataService = {
+  // SEGMENTS
+  async fetchSegments(orgId: string): Promise<BusinessSegment[]> {
+    if (!isSupabaseConfigured()) return INITIAL_SEGMENTS;
+    try {
+      const { data, error } = await (supabase.from('segments') as any)
+        .select('*')
+        .eq('organization_id', orgId)
+        .order('segment_code', { ascending: true });
+
+      if (error) {
+        console.warn('Supabase fetchSegments error, using initial segments:', error);
+        return INITIAL_SEGMENTS;
+      }
+      if (!data || data.length === 0) return INITIAL_SEGMENTS;
+      return (data as any[]).map(transformSegmentFromDB);
+    } catch (err) {
+      console.warn('Supabase fetchSegments error, returning seed segments:', err);
+      return INITIAL_SEGMENTS;
+    }
+  },
+
+  async insertSegment(seg: Omit<BusinessSegment, 'id'>, orgId: string): Promise<BusinessSegment> {
+    if (!isSupabaseConfigured()) {
+      const id = 'SEG-' + String(Date.now()).slice(-2);
+      return { id, ...seg } as BusinessSegment;
+    }
+    const nextCode = 'SEG-' + String(Date.now()).slice(-2);
+    const dbPayload = transformSegmentToDB({ ...seg, id: nextCode }, orgId);
+    const { data, error } = await (supabase.from('segments') as any).insert(dbPayload).select().single();
+    if (error) {
+      console.error('insertSegment error:', error);
+      throw error;
+    }
+    return transformSegmentFromDB(data);
+  },
+
+  async updateSegment(id: string, updates: Partial<BusinessSegment>, orgId: string): Promise<void> {
+    if (!isSupabaseConfigured()) return;
+    const dbPayload = transformSegmentToDB(updates, orgId);
+    delete dbPayload.id; // Do not update PK
+
+    if (isValidUUID(id)) {
+      const { error } = await (supabase.from('segments') as any).update(dbPayload).eq('id', id).eq('organization_id', orgId);
+      if (error) throw error;
+    } else {
+      const { error } = await (supabase.from('segments') as any).update(dbPayload).eq('segment_code', id).eq('organization_id', orgId);
+      if (error) throw error;
+    }
+  },
+
+  async deleteSegment(id: string, orgId: string): Promise<void> {
+    if (!isSupabaseConfigured()) return;
+    if (isValidUUID(id)) {
+      const { error } = await (supabase.from('segments') as any).delete().eq('id', id).eq('organization_id', orgId);
+      if (error) throw error;
+    } else {
+      const { error } = await (supabase.from('segments') as any).delete().eq('segment_code', id).eq('organization_id', orgId);
+      if (error) throw error;
+    }
+  },
+
   // CLIENTS
   async fetchClients(orgId: string): Promise<Client[]> {
     if (!isSupabaseConfigured()) return [];
@@ -437,9 +538,13 @@ export const crmDataService = {
       const id = 'opp_' + Date.now();
       return { id, code: 'OPP-' + String(Date.now()).slice(-4), createdDate: new Date().toISOString().split('T')[0], lastActivityDate: new Date().toISOString().split('T')[0], ...opp } as Opportunity;
     }
-    const dbPayload = transformOpportunityToDB(opp as any, orgId, userId);
+    const oppCode = 'OPP-' + String(Date.now()).slice(-4);
+    const dbPayload = transformOpportunityToDB({ ...opp, code: oppCode }, orgId, userId);
     const { data, error } = await (supabase.from('opportunities') as any).insert(dbPayload).select().single();
-    if (error) throw error;
+    if (error) {
+      console.error('insertOpportunity error:', error);
+      throw error;
+    }
     return transformOpportunityFromDB(data);
   },
 
@@ -481,16 +586,16 @@ export const crmDataService = {
     const { data, error } = await (supabase.from('activities') as any)
       .insert({
         organization_id: orgId,
-        client_id: act.clientId || null,
+        client_id: isValidUUID(act.clientId) ? act.clientId : null,
         client_name: act.clientName,
         client_type: act.clientType,
-        opportunity_id: act.opportunityId || null,
-        opportunity_title: act.opportunityTitle,
+        opportunity_id: isValidUUID(act.opportunityId) ? act.opportunityId : null,
+        opportunity_title: act.opportunityTitle || null,
         activity_type: act.type as any,
         activity_date: act.date,
         activity_time: act.time,
-        conducted_by: userId,
-        conducted_by_name: act.conductedBy,
+        conducted_by: act.conductedBy || 'BD Executive',
+        created_by: isValidUUID(userId) ? userId : null,
         contact_person: act.contactPerson,
         location: act.location,
         key_discussion: act.keyDiscussion,
@@ -502,7 +607,10 @@ export const crmDataService = {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('insertActivity error:', error);
+      throw error;
+    }
     return transformActivityFromDB(data);
   },
 
@@ -531,14 +639,14 @@ export const crmDataService = {
     const { data, error } = await (supabase.from('followups') as any)
       .insert({
         organization_id: orgId,
-        client_id: fol.clientId || null,
+        client_id: isValidUUID(fol.clientId) ? fol.clientId : null,
         client_name: fol.clientName,
         client_type: fol.clientType,
-        opportunity_id: fol.opportunityId || null,
-        opportunity_title: fol.opportunityTitle,
+        opportunity_id: isValidUUID(fol.opportunityId) ? fol.opportunityId : null,
+        opportunity_title: fol.opportunityTitle || null,
         due_date: fol.dueDate,
-        assigned_to: userId,
-        assigned_to_name: fol.assignedTo,
+        assigned_to: fol.assignedTo || 'BD Executive',
+        created_by: isValidUUID(userId) ? userId : null,
         followup_type: fol.type,
         priority: fol.priority as any,
         description: fol.description,
@@ -547,7 +655,10 @@ export const crmDataService = {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('insertFollowup error:', error);
+      throw error;
+    }
     return transformFollowupFromDB(data);
   },
 

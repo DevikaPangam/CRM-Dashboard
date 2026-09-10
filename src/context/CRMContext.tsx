@@ -263,13 +263,14 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setIsLoadingData(true);
     try {
-      const [dbClients, dbOpps, dbActs, dbFoll, dbDocs, dbUsers] = await Promise.all([
+      const [dbClients, dbOpps, dbActs, dbFoll, dbDocs, dbUsers, dbSegments] = await Promise.all([
         crmDataService.fetchClients(currentOrgId),
         crmDataService.fetchOpportunities(currentOrgId),
         crmDataService.fetchActivities(currentOrgId),
         crmDataService.fetchFollowups(currentOrgId),
         crmDataService.fetchDocuments(currentOrgId),
         crmDataService.fetchProfiles(currentOrgId),
+        crmDataService.fetchSegments(currentOrgId),
       ]);
 
       if (dbClients && dbClients.length > 0) {
@@ -284,6 +285,7 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setFollowups(dbFoll);
       setDocuments(dbDocs);
       if (dbUsers.length > 0) setUsers(dbUsers);
+      if (dbSegments && dbSegments.length > 0) setSegments(dbSegments);
     } catch (err) {
       console.warn('Failed to refresh data from Supabase:', err);
     } finally {
@@ -386,6 +388,10 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     localStorage.setItem(`${STORAGE_KEY}_documents`, JSON.stringify(documents));
   }, [documents]);
+
+  useEffect(() => {
+    localStorage.setItem(`${STORAGE_KEY}_segments`, JSON.stringify(segments));
+  }, [segments]);
 
   const toggleCurrency = () => {
     setCurrency((prev) => (prev === 'INR' ? 'USD' : 'INR'));
@@ -710,20 +716,40 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUsers((prev) => prev.filter((u) => u.id !== id && u.name !== id));
   };
 
-  const addSegment = (newSeg: Omit<BusinessSegment, 'id'>) => {
-    const seg: BusinessSegment = {
+  const addSegment = async (newSeg: Omit<BusinessSegment, 'id'>) => {
+    const tempId = `SEG-${String(segments.length + 1).padStart(2, '0')}`;
+    const optimisticSeg: BusinessSegment = {
       ...newSeg,
-      id: `SEG-${String(segments.length + 1).padStart(2, '0')}`,
+      id: tempId,
     };
-    setSegments((prev) => [...prev, seg]);
+    setSegments((prev) => [...prev, optimisticSeg]);
+
+    try {
+      const created = await crmDataService.insertSegment(newSeg, currentOrgId);
+      if (created && created.id !== tempId) {
+        setSegments((prev) => prev.map((s) => (s.id === tempId ? created : s)));
+      }
+    } catch (err) {
+      console.warn('Could not sync insertSegment to Supabase:', err);
+    }
   };
 
-  const updateSegment = (id: string, updated: Partial<BusinessSegment>) => {
+  const updateSegment = async (id: string, updated: Partial<BusinessSegment>) => {
     setSegments((prev) => prev.map((s) => (s.id === id ? { ...s, ...updated } : s)));
+    try {
+      await crmDataService.updateSegment(id, updated, currentOrgId);
+    } catch (err) {
+      console.warn('Could not sync updateSegment to Supabase:', err);
+    }
   };
 
-  const deleteSegment = (id: string) => {
+  const deleteSegment = async (id: string) => {
     setSegments((prev) => prev.filter((s) => s.id !== id));
+    try {
+      await crmDataService.deleteSegment(id, currentOrgId);
+    } catch (err) {
+      console.warn('Could not sync deleteSegment to Supabase:', err);
+    }
   };
 
   const addUser = async (newUser: Omit<User, 'id'>) => {
