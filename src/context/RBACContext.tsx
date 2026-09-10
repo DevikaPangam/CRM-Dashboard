@@ -43,6 +43,21 @@ const mapUserRoleToEnum = (roleStr?: string): UserRoleEnum => {
     case 'Analyst':
     case 'analyst':
       return 'analyst';
+    case 'Operations Manager':
+    case 'operations_manager':
+      return 'operations_manager';
+    case 'Centralised Ops Supervisor':
+    case 'cops_supervisor':
+      return 'cops_supervisor';
+    case 'Maintenance Workshop Eng':
+    case 'maintenance_engineer':
+      return 'maintenance_engineer';
+    case 'Finance & Pricing Exec':
+    case 'finance_executive':
+      return 'finance_executive';
+    case 'Legal & Contracts Counsel':
+    case 'legal_counsel':
+      return 'legal_counsel';
     default:
       return 'bd_exec';
   }
@@ -145,6 +160,76 @@ const BASELINE_PERMISSIONS: Record<UserRoleEnum, Partial<Record<CRMModuleKey, Pe
     followups: ['view', 'export'],
     internal: ['view', 'export'],
     documents: ['view', 'export'],
+    review: ['view', 'export'],
+    users: [],
+  },
+  operations_manager: {
+    dashboard: ['view', 'export'],
+    clients: ['view', 'export'],
+    team: ['view'],
+    segments: ['view'],
+    opportunities: ['view', 'edit', 'export'],
+    calculator: ['view'],
+    activities: ['view', 'create', 'edit'],
+    followups: ['view', 'create', 'edit'],
+    internal: ['view', 'create', 'edit', 'approve'],
+    documents: ['view', 'create', 'edit', 'export'],
+    review: ['view', 'export'],
+    users: [],
+  },
+  cops_supervisor: {
+    dashboard: ['view'],
+    clients: ['view'],
+    team: ['view'],
+    segments: ['view'],
+    opportunities: ['view'],
+    calculator: ['view'],
+    activities: ['view', 'create', 'edit'],
+    followups: ['view', 'create', 'edit'],
+    internal: ['view', 'create', 'edit'],
+    documents: ['view', 'create', 'edit'],
+    review: ['view'],
+    users: [],
+  },
+  maintenance_engineer: {
+    dashboard: ['view'],
+    clients: ['view'],
+    team: ['view'],
+    segments: ['view'],
+    opportunities: ['view'],
+    calculator: ['view'],
+    activities: ['view', 'create', 'edit'],
+    followups: ['view', 'create', 'edit'],
+    internal: ['view', 'create', 'edit'],
+    documents: ['view', 'create', 'edit'],
+    review: ['view'],
+    users: [],
+  },
+  finance_executive: {
+    dashboard: ['view', 'export'],
+    clients: ['view', 'export'],
+    team: ['view'],
+    segments: ['view', 'export'],
+    opportunities: ['view', 'edit', 'export'],
+    calculator: ['view', 'create', 'edit', 'export'],
+    activities: ['view'],
+    followups: ['view'],
+    internal: ['view', 'create', 'edit', 'approve'],
+    documents: ['view', 'create', 'edit', 'export'],
+    review: ['view', 'export'],
+    users: [],
+  },
+  legal_counsel: {
+    dashboard: ['view', 'export'],
+    clients: ['view', 'export'],
+    team: ['view'],
+    segments: ['view'],
+    opportunities: ['view', 'export'],
+    calculator: ['view'],
+    activities: ['view'],
+    followups: ['view'],
+    internal: ['view', 'create', 'edit', 'approve'],
+    documents: ['view', 'create', 'edit', 'delete', 'export', 'approve'],
     review: ['view', 'export'],
     users: [],
   },

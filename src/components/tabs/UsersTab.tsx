@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   ShieldCheck,
   ShieldPlus,
@@ -28,7 +28,7 @@ import { fetchAuditLogs, AuditLogRecord } from '../../services/auditService';
 import { formatDate } from '../../utils/formatters';
 
 export const UsersTab: React.FC = () => {
-  const { users, updateUser, deleteUser, openModal, currentUser } = useCRM();
+  const { users, updateUser, deleteUser, openModal, currentUser, viewEmployeeProfile } = useCRM();
   const { profile, organization } = useAuth();
 
   // Admin authority check (super_admin, bd_director, system administrator, or devika.p)
@@ -49,6 +49,32 @@ export const UsersTab: React.FC = () => {
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [activationModal, setActivationModal] = useState<{ link: string; email: string; name: string } | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
+
+  // User Directory Filters
+  const [userSearch, setUserSearch] = useState<string>('');
+  const [userDeptFilter, setUserDeptFilter] = useState<string>('All');
+  const [userStatusFilter, setUserStatusFilter] = useState<string>('All');
+
+  const filteredUsers = useMemo(() => {
+    return users.filter((u) => {
+      if (userStatusFilter !== 'All' && u.status !== userStatusFilter) return false;
+      if (userDeptFilter !== 'All') {
+        const uDept = (u.department || '').trim().toLowerCase();
+        const targetDept = userDeptFilter.trim().toLowerCase();
+        if (!uDept.includes(targetDept) && targetDept !== uDept) return false;
+      }
+      if (userSearch.trim()) {
+        const q = userSearch.toLowerCase();
+        const matchName = u.name?.toLowerCase().includes(q);
+        const matchEmail = u.email?.toLowerCase().includes(q);
+        const matchEmpId = u.employee_id?.toLowerCase().includes(q);
+        const matchDesig = u.designation?.toLowerCase().includes(q);
+        const matchRole = (u.role_name || u.role)?.toLowerCase().includes(q);
+        if (!matchName && !matchEmail && !matchEmpId && !matchDesig && !matchRole) return false;
+      }
+      return true;
+    });
+  }, [users, userSearch, userDeptFilter, userStatusFilter]);
 
   // Audit Logs State
   const [auditLogs, setAuditLogs] = useState<AuditLogRecord[]>([]);
@@ -118,6 +144,16 @@ export const UsersTab: React.FC = () => {
       case 'bd_exec':
       case 'bd executive':
         return { bg: '#f5f3ff', text: '#7c3aed', border: '#ddd6fe', label: 'BD Executive' };
+      case 'operations_manager':
+        return { bg: '#ecfdf5', text: '#059669', border: '#a7f3d0', label: 'Operations Manager' };
+      case 'cops_supervisor':
+        return { bg: '#e0f2fe', text: '#0284c7', border: '#bae6fd', label: 'Centralised Ops Supervisor' };
+      case 'maintenance_engineer':
+        return { bg: '#fef3c7', text: '#d97706', border: '#fde68a', label: 'Maintenance Workshop Eng' };
+      case 'finance_executive':
+        return { bg: '#f0fdf4', text: '#16a34a', border: '#bbf7d0', label: 'Finance & Pricing Exec' };
+      case 'legal_counsel':
+        return { bg: '#fdf2f8', text: '#db2777', border: '#fbcfe8', label: 'Legal & Contracts Counsel' };
       case 'management_viewer':
       case 'management reviewer':
         return { bg: '#fff7ed', text: '#ea580c', border: '#fed7aa', label: 'Management Reviewer' };
@@ -341,8 +377,42 @@ export const UsersTab: React.FC = () => {
       {/* VIEW 1: USER DIRECTORY */}
       {activeSubView === 'users' && (
         <div className="table-card">
-          <div className="table-header-bar">
+          <div className="table-header-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
             <div className="table-title">Corporate Directory &amp; RBAC Access Matrix</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <div style={{ position: 'relative', width: '220px' }}>
+                <Search size={13} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                <input
+                  type="text"
+                  placeholder="Search name, email, ID..."
+                  value={userSearch}
+                  onChange={(e) => setUserSearch(e.target.value)}
+                  style={{ width: '100%', padding: '5px 8px 5px 28px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
+                />
+              </div>
+              <select
+                value={userDeptFilter}
+                onChange={(e) => setUserDeptFilter(e.target.value)}
+                style={{ padding: '5px 10px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '6px', background: '#fff' }}
+              >
+                <option value="All">All Departments</option>
+                <option value="Business Development">Business Development</option>
+                <option value="Operations">Operations</option>
+                <option value="Centralised Operations">Centralised Operations</option>
+                <option value="Maintenance">Maintenance</option>
+                <option value="Finance">Finance</option>
+                <option value="Legal">Legal</option>
+              </select>
+              <select
+                value={userStatusFilter}
+                onChange={(e) => setUserStatusFilter(e.target.value)}
+                style={{ padding: '5px 10px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '6px', background: '#fff' }}
+              >
+                <option value="All">All Statuses</option>
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+              </select>
+            </div>
           </div>
           <div className="table-responsive">
             <table className="data-table">
@@ -357,7 +427,14 @@ export const UsersTab: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {users.map((u) => {
+                {filteredUsers.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} style={{ textAlign: 'center', padding: '32px', color: '#64748b' }}>
+                      No employees match the specified search and department filters.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredUsers.map((u) => {
                   const roleBadge = getRoleBadge(u.role_name || u.role);
                   const isCurrent = u.id === profile?.id;
                   return (
@@ -466,6 +543,16 @@ export const UsersTab: React.FC = () => {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <button
                             className="btn btn-secondary btn-xs"
+                            onClick={() => viewEmployeeProfile(u.id)}
+                            title="View Complete Employee Dossier & Performance"
+                            style={{ color: '#8b5cf6', borderColor: '#ddd6fe', background: '#faf5ff' }}
+                          >
+                            <UserCheck size={12} style={{ color: '#8b5cf6' }} />
+                            <span>Profile</span>
+                          </button>
+
+                          <button
+                            className="btn btn-secondary btn-xs"
                             onClick={() => handleEditUser(u)}
                             title="Edit Permissions, Role & Details"
                           >
@@ -523,7 +610,7 @@ export const UsersTab: React.FC = () => {
                       </td>
                     </tr>
                   );
-                })}
+                }))}
               </tbody>
             </table>
           </div>

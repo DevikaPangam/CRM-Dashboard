@@ -182,14 +182,21 @@ router.get('/hierarchy-options', authenticateAdmin, async (req, res) => {
       return res.json({
         success: true,
         organizations: [{ id: '00000000-0000-0000-0000-000000000001', name: 'Rajmudra Group', slug: 'rajmudra-group' }],
+        regions: [
+          { id: '20000000-0000-0000-0000-000000000001', name: 'West Region', code: 'REG-WEST', description: 'Maharashtra, Gujarat & Goa' },
+          { id: '20000000-0000-0000-0000-000000000002', name: 'North Region', code: 'REG-NORTH', description: 'Delhi NCR, Haryana, Punjab, UP' },
+          { id: '20000000-0000-0000-0000-000000000003', name: 'South Region', code: 'REG-SOUTH', description: 'Karnataka, Tamil Nadu, Telangana' },
+          { id: '20000000-0000-0000-0000-000000000004', name: 'East Region', code: 'REG-EAST', description: 'West Bengal, Odisha, Bihar' },
+          { id: '20000000-0000-0000-0000-000000000005', name: 'Central Region', code: 'REG-CENTRAL', description: 'Madhya Pradesh & Chhattisgarh' },
+        ],
         teams: [
-          { id: '10000000-0000-0000-0000-000000000001', name: 'Enterprise BD - West', code: 'EBD-W' },
-          { id: '10000000-0000-0000-0000-000000000002', name: 'Fleet Operations & Dispatch', code: 'FLEET-OPS' },
-          { id: '10000000-0000-0000-0000-000000000003', name: 'Commercial Pricing & Proposals', code: 'PRICING' },
-          { id: '10000000-0000-0000-0000-000000000004', name: 'Legal & Contract Compliance', code: 'LEGAL' },
+          { id: '00000000-0000-0000-0001-000000000001', name: 'Enterprise BD West', code: 'TEAM-BD-WEST', region_id: '20000000-0000-0000-0000-000000000001', region: 'West Region', department: 'BD' },
+          { id: '00000000-0000-0000-0001-000000000002', name: 'Fleet Operations & Asset Roster', code: 'TEAM-OPS-FLEET', region_id: '20000000-0000-0000-0000-000000000001', region: 'West Region', department: 'Fleet / Asset Management' },
+          { id: '00000000-0000-0000-0001-000000000003', name: 'Commercials, Pricing & Proposals', code: 'TEAM-PRICING', region_id: '20000000-0000-0000-0000-000000000005', region: 'Central Region', department: 'Pricing & Commercials' },
+          { id: '00000000-0000-0000-0001-000000000004', name: 'Legal & Contract Compliance', code: 'TEAM-LEGAL', region_id: '20000000-0000-0000-0000-000000000005', region: 'Central Region', department: 'Legal & Compliance' },
         ],
         managers: [
-          { id: '00000000-0000-0000-0000-000000000001', full_name: 'Devika Pangam', role: 'super_admin', designation: 'Managing Director / System Administrator' },
+          { id: '00000000-0000-0000-0000-000000000001', full_name: 'Devika Pangam', role: 'super_admin', designation: 'Managing Director / System Administrator', department: 'Executive Management & Administration' },
         ],
       });
     }
@@ -200,19 +207,27 @@ router.get('/hierarchy-options', authenticateAdmin, async (req, res) => {
     const { data: orgs } = await supabaseAdmin
       .from('organizations')
       .select('id, name, slug')
-      .eq('status', 'active');
+      .eq('is_active', true);
+
+    // Fetch normalized regions
+    const { data: regions } = await supabaseAdmin
+      .from('regions')
+      .select('id, name, code, description, is_active')
+      .eq('organization_id', orgId)
+      .eq('is_active', true)
+      .order('name', { ascending: true });
 
     // Fetch teams
     const { data: teams } = await supabaseAdmin
       .from('teams')
-      .select('id, name, code, is_active')
+      .select('id, name, code, region_id, region, department, is_active')
       .eq('organization_id', orgId)
       .eq('is_active', true);
 
     // Fetch eligible managers (super_admin, bd_director, bd_manager)
     const { data: managers } = await supabaseAdmin
       .from('profiles')
-      .select('id, full_name, email, role, designation')
+      .select('id, full_name, email, role, designation, department, region')
       .eq('organization_id', orgId)
       .in('role', ['super_admin', 'bd_director', 'bd_manager'])
       .eq('status', 'active');
@@ -220,6 +235,7 @@ router.get('/hierarchy-options', authenticateAdmin, async (req, res) => {
     res.json({
       success: true,
       organizations: orgs || [],
+      regions: regions || [],
       teams: teams || [],
       managers: managers || [],
     });
@@ -448,6 +464,14 @@ router.post('/provision', authenticateAdmin, async (req, res) => {
       role = 'bd_exec',
       department = 'Business Development',
       designation = 'BD Executive',
+      employee_id = null,
+      region = 'West',
+      location = 'Corporate HQ - Mumbai',
+      joining_date = null,
+      employment_type = 'Full-time',
+      is_regional_owner = false,
+      annual_target_inr = 0,
+      phone = null,
       team_id = null,
       manager_id = null,
       organization_id = req.caller.organization_id,
@@ -635,6 +659,14 @@ router.post('/provision', authenticateAdmin, async (req, res) => {
         role,
         department,
         designation,
+        employee_id: employee_id || null,
+        region: region || 'West',
+        location: location || 'Corporate HQ - Mumbai',
+        joining_date: joining_date || new Date().toISOString().split('T')[0],
+        employment_type: employment_type || 'Full-time',
+        is_regional_owner: Boolean(is_regional_owner),
+        annual_target_inr: Number(annual_target_inr) || 0,
+        phone: phone || null,
         team_id: team_id || null,
         manager_id: manager_id || null,
         status: initialStatus,
@@ -693,6 +725,14 @@ router.put('/:id', authenticateAdmin, async (req, res) => {
       role,
       department,
       designation,
+      employee_id,
+      region,
+      location,
+      joining_date,
+      employment_type,
+      is_regional_owner,
+      annual_target_inr,
+      phone,
       team_id,
       manager_id,
       status,
@@ -752,6 +792,14 @@ router.put('/:id', authenticateAdmin, async (req, res) => {
     if (role !== undefined && VALID_ROLES.includes(role)) updates.role = role;
     if (department !== undefined) updates.department = department;
     if (designation !== undefined) updates.designation = designation;
+    if (employee_id !== undefined) updates.employee_id = employee_id;
+    if (region !== undefined) updates.region = region;
+    if (location !== undefined) updates.location = location;
+    if (joining_date !== undefined) updates.joining_date = joining_date;
+    if (employment_type !== undefined) updates.employment_type = employment_type;
+    if (is_regional_owner !== undefined) updates.is_regional_owner = Boolean(is_regional_owner);
+    if (annual_target_inr !== undefined) updates.annual_target_inr = Number(annual_target_inr) || 0;
+    if (phone !== undefined) updates.phone = phone;
     if (team_id !== undefined) updates.team_id = team_id || null;
     if (manager_id !== undefined) updates.manager_id = manager_id || null;
     if (status !== undefined && VALID_STATUSES.includes(status)) updates.status = status;

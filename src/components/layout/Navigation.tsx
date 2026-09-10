@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   LayoutDashboard, Building2, UserCheck, Layers, GitBranch, Calendar,
   Clock, Workflow, Paperclip, Presentation, ShieldCheck, RotateCcw, Download,
-  Calculator, ChevronLeft, ChevronRight, Sparkles, Database
+  Calculator, ChevronLeft, ChevronRight, Sparkles, Database, Users
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
@@ -67,11 +67,24 @@ export const Navigation: React.FC = () => {
           badge: clients.length,
         },
         {
+          id: 'tab-employee-master',
+          label: 'Employee Master',
+          fullLabel: 'Employee Master',
+          icon: <Users size={18} style={{ color: '#0284c7' }} />,
+          badge: users.length,
+        },
+        {
           id: 'tab-team',
           label: 'BD Team',
           fullLabel: 'BD Team & Owners',
           icon: <UserCheck size={18} style={{ color: '#0284c7' }} />,
           badge: teamMembers.length,
+        },
+        {
+          id: 'tab-employee-profile',
+          label: 'Employee Profile',
+          fullLabel: 'Employee Dossier & Performance',
+          icon: <Sparkles size={18} style={{ color: '#8b5cf6' }} />,
         },
         {
           id: 'tab-segments',
@@ -166,9 +179,10 @@ export const Navigation: React.FC = () => {
     currentUser?.role_name === 'super_admin';
 
   const filterTab = (tab: NavTabItem) => {
+    if (tab.id === 'tab-employee-master' || tab.id === 'tab-employee-profile') return true;
     if (isSuperAdminUser) return true;
     if (tab.adminOnly) return false;
-    return (currentUser?.allowed_tabs || ['tab-dashboard', 'tab-clients', 'tab-opportunities', 'tab-calculator', 'tab-activities', 'tab-followups', 'tab-documents']).includes(tab.id);
+    return (currentUser?.allowed_tabs || ['tab-dashboard', 'tab-clients', 'tab-employee-master', 'tab-opportunities', 'tab-calculator', 'tab-activities', 'tab-followups', 'tab-documents', 'tab-employee-profile']).includes(tab.id);
   };
 
   return (

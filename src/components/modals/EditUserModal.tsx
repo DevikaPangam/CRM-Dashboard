@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Shield, Save, Mail, AlertTriangle, KeyRound, UserX, CheckCircle, RefreshCw } from 'lucide-react';
+import { X, Shield, Save, Mail, AlertTriangle, KeyRound, UserX, CheckCircle, Building2 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
 import { updateAdminUser, triggerPasswordReset, revokeUserAccess, getHierarchyOptions, HierarchyOptions } from '../../services/adminService';
@@ -14,6 +14,11 @@ const ROLE_OPTIONS: Array<{ value: UserRoleEnum; label: string; description: str
   { value: 'bd_manager', label: 'BD Manager', description: 'Team leader, pipeline reviews & commercial proposals' },
   { value: 'bd_sr_exec', label: 'Senior BD Executive', description: 'Enterprise deal inception & key accounts' },
   { value: 'bd_exec', label: 'BD Executive', description: 'Daily client interactions, leads & follow-ups' },
+  { value: 'operations_manager', label: 'Operations Manager', description: 'Fleet logistics, driver roster & route control' },
+  { value: 'cops_supervisor', label: 'Centralised Ops Supervisor', description: 'Control tower telemetry & panic response' },
+  { value: 'maintenance_engineer', label: 'Maintenance Workshop Eng', description: 'Preventive maintenance & workshop repair' },
+  { value: 'finance_executive', label: 'Finance & Pricing Exec', description: 'Commercial pricing, client invoicing & audits' },
+  { value: 'legal_counsel', label: 'Legal & Contracts Counsel', description: 'Master contracts, SLAs & statutory compliance' },
   { value: 'management_viewer', label: 'Management Reviewer', description: 'Read-only executive analytics & reports' },
   { value: 'analyst', label: 'Business Analyst', description: 'Data export & analytics dashboards' },
 ];
@@ -28,6 +33,8 @@ export const EditUserModal: React.FC = () => {
 
   const [hierarchy, setHierarchy] = useState<HierarchyOptions>({
     organizations: [],
+    departments: [],
+    regions: [],
     teams: [],
     managers: [],
   });
@@ -35,22 +42,37 @@ export const EditUserModal: React.FC = () => {
   // Map legacy role to UserRoleEnum if needed
   const getMappedRole = (roleStr?: string): UserRoleEnum => {
     if (roleStr === 'System Administrator' || roleStr === 'super_admin') return 'super_admin';
-    if (roleStr === 'BD Manager' || roleStr === 'bd_director' || roleStr === 'bd_manager') return 'bd_manager';
+    if (roleStr === 'BD Director' || roleStr === 'bd_director') return 'bd_director';
+    if (roleStr === 'BD Manager' || roleStr === 'bd_manager') return 'bd_manager';
     if (roleStr === 'Management Reviewer' || roleStr === 'management_viewer') return 'management_viewer';
     if (roleStr === 'Senior BD Executive' || roleStr === 'bd_sr_exec') return 'bd_sr_exec';
     if (roleStr === 'Business Analyst' || roleStr === 'analyst') return 'analyst';
+    if (roleStr === 'Operations Manager' || roleStr === 'operations_manager') return 'operations_manager';
+    if (roleStr === 'Centralised Ops Supervisor' || roleStr === 'cops_supervisor') return 'cops_supervisor';
+    if (roleStr === 'Maintenance Workshop Eng' || roleStr === 'maintenance_engineer') return 'maintenance_engineer';
+    if (roleStr === 'Finance & Pricing Exec' || roleStr === 'finance_executive') return 'finance_executive';
+    if (roleStr === 'Legal & Contracts Counsel' || roleStr === 'legal_counsel') return 'legal_counsel';
     return 'bd_exec';
   };
 
   const [formData, setFormData] = useState({
     fullName: userToEdit?.name || userToEdit?.full_name || '',
     email: userToEdit?.email || '',
+    employeeId: userToEdit?.employee_id || '',
+    phone: userToEdit?.phone || '',
     role: getMappedRole(userToEdit?.role_name || userToEdit?.role),
     department: userToEdit?.department || 'Business Development',
     designation: userToEdit?.designation || 'BD Executive',
+    region: userToEdit?.region || 'West Region',
+    regionId: userToEdit?.region_id || '',
     teamId: userToEdit?.team_id || '',
     managerId: userToEdit?.manager_id || '',
-    status: (userToEdit?.status?.toLowerCase() === 'inactive' ? 'inactive' : 'active') as UserStatusEnum,
+    joiningDate: userToEdit?.joining_date || '',
+    location: userToEdit?.location || '',
+    employmentType: (userToEdit?.employment_type || 'Full-time') as 'Full-time' | 'Contract' | 'Probation' | 'Part-time',
+    isRegionalOwner: Boolean(userToEdit?.is_regional_owner),
+    annualTargetINR: userToEdit?.annual_target_inr || 0,
+    status: (userToEdit?.status?.toLowerCase() === 'inactive' || userToEdit?.status?.toLowerCase() === 'suspended' ? 'inactive' : 'active') as UserStatusEnum,
   });
 
   const [permissions, setPermissions] = useState<SegmentPermission[]>(() =>
@@ -66,7 +88,7 @@ export const EditUserModal: React.FC = () => {
 
   useEffect(() => {
     let isMounted = true;
-    getHierarchyOptions().then((opts) => {
+    getHierarchyOptions(true).then((opts) => {
       if (isMounted) setHierarchy(opts);
     });
     return () => {
@@ -79,11 +101,20 @@ export const EditUserModal: React.FC = () => {
       setFormData({
         fullName: userToEdit.name || userToEdit.full_name || '',
         email: userToEdit.email || '',
+        employeeId: userToEdit.employee_id || '',
+        phone: userToEdit.phone || '',
         role: getMappedRole(userToEdit.role_name || userToEdit.role),
         department: userToEdit.department || 'Business Development',
         designation: userToEdit.designation || 'BD Executive',
+        region: userToEdit.region || 'West Region',
+        regionId: userToEdit.region_id || '',
         teamId: userToEdit.team_id || '',
         managerId: userToEdit.manager_id || '',
+        joiningDate: userToEdit.joining_date || '',
+        location: userToEdit.location || '',
+        employmentType: (userToEdit.employment_type || 'Full-time') as any,
+        isRegionalOwner: Boolean(userToEdit.is_regional_owner),
+        annualTargetINR: userToEdit.annual_target_inr || 0,
         status: (userToEdit.status?.toLowerCase() === 'inactive' || userToEdit.status?.toLowerCase() === 'suspended' ? 'inactive' : 'active') as UserStatusEnum,
       });
     }
@@ -98,11 +129,25 @@ export const EditUserModal: React.FC = () => {
     else if (role === 'bd_manager') designation = 'Senior Manager - Corporate Sales';
     else if (role === 'bd_sr_exec') designation = 'Senior BD Executive';
     else if (role === 'bd_exec') designation = 'BD Executive';
+    else if (role === 'operations_manager') designation = 'Operations Manager';
+    else if (role === 'cops_supervisor') designation = 'Centralised Ops Supervisor';
+    else if (role === 'maintenance_engineer') designation = 'Fleet Maintenance Engineer';
+    else if (role === 'finance_executive') designation = 'Finance & Commercials Executive';
+    else if (role === 'legal_counsel') designation = 'Legal & Contract Compliance Counsel';
     else if (role === 'management_viewer') designation = 'Executive Reviewer';
     else if (role === 'analyst') designation = 'Commercial Analyst';
 
     setFormData({ ...formData, role, designation });
     setPermissions(getDefaultPermissionsForRole(role));
+  };
+
+  const handleRegionChange = (regionId: string) => {
+    const selected = hierarchy.regions.find((r) => r.id === regionId);
+    setFormData((prev) => ({
+      ...prev,
+      regionId,
+      region: selected ? selected.name : prev.region,
+    }));
   };
 
   const handleSaveChanges = async (e: React.FormEvent) => {
@@ -120,6 +165,12 @@ export const EditUserModal: React.FC = () => {
       return;
     }
 
+    // Rule 6: Prevent an employee from assigning themselves as manager
+    if (formData.managerId && formData.managerId === userToEdit.id) {
+      setErrorMessage('Hierarchy Rule Violation: An employee cannot be assigned as their own reporting manager.');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -128,6 +179,14 @@ export const EditUserModal: React.FC = () => {
         role: formData.role,
         department: formData.department.trim(),
         designation: formData.designation.trim(),
+        employee_id: formData.employeeId.trim() || undefined,
+        region: formData.region,
+        location: formData.location.trim() || undefined,
+        joining_date: formData.joiningDate || undefined,
+        employment_type: formData.employmentType,
+        is_regional_owner: formData.isRegionalOwner,
+        annual_target_inr: Number(formData.annualTargetINR) || 0,
+        phone: formData.phone.trim() || undefined,
         team_id: formData.teamId || null,
         manager_id: formData.managerId || null,
         status: formData.status,
@@ -145,6 +204,9 @@ export const EditUserModal: React.FC = () => {
       else if (formData.role === 'bd_director' || formData.role === 'bd_manager') legacyRole = 'BD Manager';
       else if (formData.role === 'management_viewer') legacyRole = 'Management Reviewer';
 
+      const selectedTeam = hierarchy.teams.find((t) => t.id === formData.teamId);
+      const selectedManager = hierarchy.managers.find((m) => m.id === formData.managerId);
+
       updateUser(userToEdit.id, {
         name: formData.fullName.trim(),
         email: formData.email.trim(),
@@ -152,11 +214,24 @@ export const EditUserModal: React.FC = () => {
         role_name: formData.role,
         department: formData.department.trim(),
         designation: formData.designation.trim(),
+        employee_id: formData.employeeId.trim() || undefined,
+        region: formData.region,
+        region_id: formData.regionId || undefined,
+        location: formData.location.trim() || undefined,
+        joining_date: formData.joiningDate || undefined,
+        employment_type: formData.employmentType,
+        is_regional_owner: formData.isRegionalOwner,
+        annual_target_inr: Number(formData.annualTargetINR) || 0,
+        phone: formData.phone.trim() || undefined,
+        team_id: formData.teamId || undefined,
+        team_name: selectedTeam?.name,
+        manager_id: formData.managerId || undefined,
+        manager_name: selectedManager?.full_name,
         status: formData.status === 'active' ? 'Active' : 'Inactive',
         permissions,
       });
 
-      setSuccessMessage('User profile and access permissions updated successfully.');
+      setSuccessMessage('User profile, hierarchy assignment, and permissions updated successfully.');
       setTimeout(() => {
         closeModal();
       }, 1200);
@@ -196,7 +271,7 @@ export const EditUserModal: React.FC = () => {
     const res = await revokeUserAccess(userToEdit.id);
     setActionLoading(null);
     if (res.success) {
-      setFormData((prev) => ({ ...prev, status: 'suspended' as any }));
+      setFormData((prev) => ({ ...prev, status: 'inactive' as any }));
       updateUser(userToEdit.id, { status: 'Inactive' });
       setSuccessMessage(`Access revoked for ${formData.fullName}. Account is now suspended.`);
     } else {
@@ -210,7 +285,7 @@ export const EditUserModal: React.FC = () => {
         <div className="modal-header-section">
           <div className="modal-header-title">
             <Shield size={18} style={{ color: '#0284c7' }} />
-            <span>Manage User &amp; Access Controls ({formData.fullName})</span>
+            <span>Manage Employee &amp; Access Controls ({formData.fullName})</span>
           </div>
           <button className="modal-close-btn" onClick={closeModal}>
             <X size={18} />
@@ -284,7 +359,32 @@ export const EditUserModal: React.FC = () => {
               </div>
             </div>
 
-            {/* Row 2: Role & Department */}
+            {/* Row 2: Employee ID & Phone */}
+            <div className="form-grid-2">
+              <div className="form-group">
+                <label>Employee ID (ERP / HRMS)</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="e.g. EMP-2026-042"
+                  value={formData.employeeId}
+                  onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Contact Phone / Mobile</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="+91 98201 00000"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                />
+              </div>
+            </div>
+
+            {/* Row 3: Role & Department */}
             <div className="form-grid-2">
               <div className="form-group">
                 <label>Assigned System Role *</label>
@@ -312,17 +412,83 @@ export const EditUserModal: React.FC = () => {
               </div>
 
               <div className="form-group">
-                <label>Department</label>
-                <input
-                  type="text"
+                <label>Department *</label>
+                <select
                   className="form-control"
                   value={formData.department}
-                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                />
+                  onChange={(e) => {
+                    const newDept = e.target.value;
+                    setFormData((prev) => {
+                      const matchingTeams = hierarchy.teams.filter((t) => {
+                        const tDept = (t.department || '').toLowerCase();
+                        const targetDept = newDept.toLowerCase();
+                        const isMatch = tDept === targetDept || 
+                          (targetDept.includes('business development') && (tDept === 'bd' || tDept.includes('business development'))) ||
+                          (targetDept.includes('operations') && !targetDept.includes('centralised') && (tDept === 'operations' || tDept === 'ops')) ||
+                          (targetDept.includes('centralised operations') && (tDept === 'centralised operations' || tDept === 'cop')) ||
+                          (targetDept.includes('maintenance') && (tDept === 'maintenance' || tDept === 'mnt')) ||
+                          (targetDept.includes('finance') && (tDept === 'finance' || tDept === 'fin' || tDept.includes('pricing') || tDept.includes('accounts'))) ||
+                          (targetDept.includes('legal') && (tDept === 'legal' || tDept === 'leg' || tDept.includes('compliance')));
+                        const isRegMatch = !prev.regionId || !t.region_id || t.region_id === prev.regionId;
+                        return isMatch && isRegMatch;
+                      });
+                      return {
+                        ...prev,
+                        department: newDept,
+                        teamId: matchingTeams.length > 0 ? matchingTeams[0].id : prev.teamId,
+                      };
+                    });
+                  }}
+                >
+                  <optgroup label="Active Departments (Rajmudra Group)">
+                    {hierarchy.departments && hierarchy.departments.length > 0 ? (
+                      hierarchy.departments
+                        .filter((d) => d.is_active)
+                        .map((d) => (
+                          <option key={d.id} value={d.department_name}>
+                            {d.department_name} ({d.department_code})
+                          </option>
+                        ))
+                    ) : (
+                      <>
+                        <option value="Business Development">Business Development (BD)</option>
+                        <option value="Operations">Operations (OPS)</option>
+                        <option value="Centralised Operations">Centralised Operations (COP)</option>
+                        <option value="Maintenance">Maintenance (MNT)</option>
+                        <option value="Finance">Finance (FIN)</option>
+                        <option value="Legal">Legal (LEG)</option>
+                      </>
+                    )}
+                  </optgroup>
+                  {hierarchy.departments &&
+                    hierarchy.departments.filter((d) => !d.is_active).length > 0 && (
+                      <optgroup label="Historical / Inactive Departments (Restricted)">
+                        {hierarchy.departments
+                          .filter((d) => !d.is_active)
+                          .map((d) => (
+                            <option key={d.id} value={d.department_name}>
+                              {d.department_name} ({d.department_code}) — Inactive
+                            </option>
+                          ))}
+                      </optgroup>
+                    )}
+                  {/* If user's current department is not in departments list, display it */}
+                  {formData.department &&
+                    !hierarchy.departments.some(
+                      (d) => d.department_name.toLowerCase() === formData.department.toLowerCase()
+                    ) && (
+                      <optgroup label="Current Assigned Department">
+                        <option value={formData.department}>{formData.department} (Legacy Custom)</option>
+                      </optgroup>
+                    )}
+                </select>
+                <span style={{ fontSize: '11px', color: '#64748b', marginTop: '3px', display: 'block' }}>
+                  Active departments for corporate operations
+                </span>
               </div>
             </div>
 
-            {/* Row 3: Designation & Status */}
+            {/* Row 4: Designation & Account Status */}
             <div className="form-grid-2">
               <div className="form-group">
                 <label>Designation</label>
@@ -349,40 +515,136 @@ export const EditUserModal: React.FC = () => {
               </div>
             </div>
 
-            {/* Row 4: Team & Reporting Manager */}
-            <div className="form-grid-2">
+            {/* Section: Region, Team & Reporting Manager Structure */}
+            <div style={{ margin: '14px 0 10px 0', padding: '12px', background: '#f0f9ff', borderRadius: '8px', border: '1px solid #bae6fd' }}>
+              <div style={{ fontSize: '12.5px', fontWeight: 600, color: '#0369a1', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Building2 size={15} />
+                <span>Organizational Hierarchy &amp; Reporting Assignment</span>
+              </div>
+              
+              <div className="form-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                {/* Region Dropdown */}
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label style={{ fontSize: '12px', fontWeight: 600 }}>Region *</label>
+                  <select
+                    className="form-control"
+                    value={formData.regionId}
+                    onChange={(e) => handleRegionChange(e.target.value)}
+                  >
+                    <option value="">-- Select Region --</option>
+                    {hierarchy.regions.map((reg) => (
+                      <option key={reg.id} value={reg.id}>
+                        {reg.name} ({reg.code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Team Dropdown */}
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label style={{ fontSize: '12px', fontWeight: 600 }}>Assigned Team</label>
+                  <select
+                    className="form-control"
+                    value={formData.teamId}
+                    onChange={(e) => setFormData({ ...formData, teamId: e.target.value })}
+                  >
+                    <option value="">-- No Specific Team --</option>
+                    {hierarchy.teams
+                      .filter((t) => {
+                        const tDept = (t.department || '').toLowerCase();
+                        const targetDept = (formData.department || '').toLowerCase();
+                        const isDeptMatch = !targetDept || tDept === targetDept || 
+                          (targetDept.includes('business development') && (tDept === 'bd' || tDept.includes('business development'))) ||
+                          (targetDept.includes('operations') && !targetDept.includes('centralised') && (tDept === 'operations' || tDept === 'ops')) ||
+                          (targetDept.includes('centralised operations') && (tDept === 'centralised operations' || tDept === 'cop')) ||
+                          (targetDept.includes('maintenance') && (tDept === 'maintenance' || tDept === 'mnt')) ||
+                          (targetDept.includes('finance') && (tDept === 'finance' || tDept === 'fin' || tDept.includes('pricing') || tDept.includes('accounts'))) ||
+                          (targetDept.includes('legal') && (tDept === 'legal' || tDept === 'leg' || tDept.includes('compliance')));
+                        const isRegionMatch = !formData.regionId || !t.region_id || t.region_id === formData.regionId;
+                        return isDeptMatch && isRegionMatch;
+                      })
+                      .map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name} ({t.code})
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
+                {/* Reporting Manager Dropdown — Exclude Self to Prevent Self-Assignment (Rule 6) */}
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label style={{ fontSize: '12px', fontWeight: 600 }}>Reporting Manager</label>
+                  <select
+                    className="form-control"
+                    value={formData.managerId}
+                    onChange={(e) => setFormData({ ...formData, managerId: e.target.value })}
+                  >
+                    <option value="">-- No Direct Manager (Top Level) --</option>
+                    {hierarchy.managers
+                      .filter((m) => m.id !== userToEdit.id)
+                      .map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.full_name} ({m.designation || m.role})
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Row 5: Employment Type, Joining Date & Location */}
+            <div className="form-grid-3" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
               <div className="form-group">
-                <label>Assigned BD Team</label>
+                <label>Employment Type</label>
                 <select
                   className="form-control"
-                  value={formData.teamId}
-                  onChange={(e) => setFormData({ ...formData, teamId: e.target.value })}
+                  value={formData.employmentType}
+                  onChange={(e) => setFormData({ ...formData, employmentType: e.target.value as any })}
                 >
-                  <option value="">-- No Specific Team --</option>
-                  {hierarchy.teams.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name} ({t.code})
-                    </option>
-                  ))}
+                  <option value="Full-time">Full-time</option>
+                  <option value="Contract">Contract</option>
+                  <option value="Probation">Probation</option>
+                  <option value="Part-time">Part-time</option>
                 </select>
               </div>
 
               <div className="form-group">
-                <label>Reporting Manager</label>
-                <select
+                <label>Joining Date</label>
+                <input
+                  type="date"
                   className="form-control"
-                  value={formData.managerId}
-                  onChange={(e) => setFormData({ ...formData, managerId: e.target.value })}
-                >
-                  <option value="">-- No Direct Manager (Top Level) --</option>
-                  {hierarchy.managers.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.full_name} ({m.designation || m.role})
-                    </option>
-                  ))}
-                </select>
+                  value={formData.joiningDate}
+                  onChange={(e) => setFormData({ ...formData, joiningDate: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Base Location / Hub</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="e.g. Corporate HQ - Mumbai"
+                  value={formData.location}
+                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                />
               </div>
             </div>
+
+            {/* Regional Owner Checkbox — Strictly restricted to Business Development */}
+            {formData.department === 'Business Development' && (
+              <div style={{ marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input
+                  type="checkbox"
+                  id="isRegionalOwnerEdit"
+                  checked={formData.isRegionalOwner}
+                  onChange={(e) => setFormData({ ...formData, isRegionalOwner: e.target.checked })}
+                  style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                />
+                <label htmlFor="isRegionalOwnerEdit" style={{ fontSize: '13px', fontWeight: 500, color: '#334155', cursor: 'pointer', margin: 0 }}>
+                  Designate as <strong>Regional Owner / Head</strong> (Appears in Regional Ownership Roster)
+                </label>
+              </div>
+            )}
 
             {/* Granular Segment Permissions Matrix */}
             <SegmentPermissionsMatrix

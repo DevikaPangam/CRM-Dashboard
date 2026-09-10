@@ -113,15 +113,26 @@ export const INITIAL_SEGMENTS: BusinessSegment[] = [
 export const INITIAL_USERS: User[] = [
   {
     id: 'USR-001',
+    employee_id: 'EMP-001',
     name: 'Devika Pangam',
     email: 'devika.p@rajmudragroup.com',
     role: 'System Administrator',
     role_name: 'super_admin',
     department: 'Executive Management & Administration',
     designation: 'Managing Director / System Administrator',
+    region: 'All Corporate Business Segments & Regions',
+    location: 'Corporate HQ - Mumbai',
+    joining_date: '2020-04-01',
+    employment_type: 'Full-time',
+    is_regional_owner: true,
+    annual_target_inr: 265000000,
+    achieved_inr: 199700000,
+    active_opps_count: 22,
+    phone: '+91 99999 00000',
+    avatar_bg: '#f59e0b',
     status: 'Active',
     allowed_tabs: [
-      'tab-dashboard', 'tab-clients', 'tab-team', 'tab-segments',
+      'tab-dashboard', 'tab-clients', 'tab-employee-master', 'tab-team', 'tab-employee-profile', 'tab-segments',
       'tab-opportunities', 'tab-calculator', 'tab-activities', 'tab-followups',
       'tab-internal', 'tab-documents', 'tab-review', 'tab-users'
     ]

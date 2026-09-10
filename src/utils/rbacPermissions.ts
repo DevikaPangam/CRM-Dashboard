@@ -15,8 +15,8 @@ export const ALL_SEGMENTS: Array<{ key: string; label: string }> = [
 export function getDefaultPermissionsForRole(roleName: string): SegmentPermission[] {
   const roleLower = (roleName || '').toLowerCase();
   const isSuper = roleLower === 'super_admin' || roleLower === 'system administrator';
-  const isDirectorOrManager = roleLower === 'bd_director' || roleLower === 'bd_manager' || roleLower === 'bd manager';
-  const isExec = roleLower === 'bd_sr_exec' || roleLower === 'bd_exec' || roleLower === 'bd executive';
+  const isDirectorOrManager = roleLower === 'bd_director' || roleLower === 'bd_manager' || roleLower === 'bd manager' || roleLower.includes('manager') || roleLower.includes('supervisor');
+  const isExec = roleLower === 'bd_sr_exec' || roleLower === 'bd_exec' || roleLower === 'bd executive' || roleLower.includes('executive') || roleLower.includes('engineer') || roleLower.includes('counsel');
 
   return ALL_SEGMENTS.map((seg) => {
     if (isSuper) {
@@ -38,7 +38,7 @@ export function getDefaultPermissionsForRole(roleName: string): SegmentPermissio
         canView: true,
         canAdd: !isUserMgmt,
         canEdit: !isUserMgmt,
-        canDelete: seg.key === 'clients' || seg.key === 'opportunities' || seg.key === 'proposals' || seg.key === 'activities',
+        canDelete: seg.key === 'clients' || seg.key === 'opportunities' || seg.key === 'proposals' || seg.key === 'activities' || seg.key === 'internal',
         canExport: true,
       };
     }

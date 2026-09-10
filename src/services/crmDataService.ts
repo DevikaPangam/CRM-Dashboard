@@ -491,26 +491,55 @@ export const crmDataService = {
     }
   },
 
-  // USERS & PROFILES
+  // USERS & PROFILES (Unified Single Source of Truth)
   async fetchProfiles(orgId: string): Promise<User[]> {
     if (!isSupabaseConfigured()) return INITIAL_USERS;
     try {
       const { data, error } = await (supabase.from('profiles') as any)
         .select('*')
-        .eq('organization_id', orgId);
+        .eq('organization_id', orgId)
+        .order('created_at', { ascending: true });
 
       if (error) throw error;
       if (!data || data.length === 0) return INITIAL_USERS;
 
-      return (data as any[]).map((p) => ({
-        id: p.id,
-        name: p.full_name,
-        email: p.email,
-        role: p.role === 'super_admin' ? 'System Administrator' : p.role === 'bd_director' || p.role === 'bd_manager' ? 'BD Manager' : p.role === 'management_viewer' ? 'Management Reviewer' : 'BD Executive',
-        role_name: p.role,
-        status: p.status === 'active' ? 'Active' : 'Inactive',
-        allowed_tabs: ['tab-dashboard', 'tab-clients', 'tab-opportunities', 'tab-activities', 'tab-followups'],
-      }));
+      return (data as any[]).map((p) => {
+        let mappedRole: any = 'BD Executive';
+        if (p.role === 'super_admin') mappedRole = 'System Administrator';
+        else if (p.role === 'bd_director' || p.role === 'bd_manager') mappedRole = 'BD Manager';
+        else if (p.role === 'management_viewer') mappedRole = 'Management Reviewer';
+
+        return {
+          id: p.id,
+          employee_id: p.employee_id || `EMP-${p.id.slice(0, 4).toUpperCase()}`,
+          name: p.full_name,
+          email: p.email,
+          organization_id: p.organization_id,
+          role: mappedRole,
+          role_name: p.role,
+          department: p.department || 'Business Development',
+          designation: p.designation || 'Executive',
+          region: p.region || 'West',
+          location: p.location || 'Corporate HQ - Mumbai',
+          joining_date: p.joining_date || (p.created_at ? p.created_at.split('T')[0] : '2025-01-01'),
+          employment_type: p.employment_type || 'Full-time',
+          is_regional_owner: Boolean(p.is_regional_owner),
+          team_id: p.team_id || undefined,
+          manager_id: p.manager_id || undefined,
+          status: p.status === 'active' ? 'Active' : p.status === 'suspended' ? 'Disabled' : 'Inactive',
+          annual_target_inr: Number(p.annual_target_inr) || 0,
+          achieved_inr: 0,
+          active_opps_count: 0,
+          phone: p.phone || '',
+          avatar_url: p.avatar_url || '',
+          avatar_bg: p.avatar_bg || '#3b82f6',
+          allowed_tabs: p.role === 'super_admin'
+            ? ['tab-dashboard', 'tab-clients', 'tab-employee-master', 'tab-team', 'tab-employee-profile', 'tab-segments', 'tab-opportunities', 'tab-calculator', 'tab-activities', 'tab-followups', 'tab-internal', 'tab-documents', 'tab-review', 'tab-users']
+            : ['tab-dashboard', 'tab-clients', 'tab-employee-master', 'tab-team', 'tab-employee-profile', 'tab-opportunities', 'tab-activities', 'tab-followups', 'tab-documents'],
+          created_at: p.created_at,
+          updated_at: p.updated_at,
+        };
+      });
     } catch (err) {
       console.warn('Supabase fetchProfiles error, using fallback:', err);
       return INITIAL_USERS;

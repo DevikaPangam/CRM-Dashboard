@@ -101,3 +101,60 @@ export function getDelegationStatusBadge(status?: string): { bg: string; text: s
       return { bg: '#fef3c7', text: '#d97706', border: '#fde68a' };
   }
 }
+/**
+ * Calculate employee tenure from joining date string (YYYY-MM-DD)
+ */
+export function calculateTenure(joiningDate?: string): string {
+  if (!joiningDate) return 'New Joiner';
+  try {
+    const start = new Date(joiningDate);
+    const now = new Date();
+    if (isNaN(start.getTime())) return 'New Joiner';
+
+    let years = now.getFullYear() - start.getFullYear();
+    let months = now.getMonth() - start.getMonth();
+
+    if (months < 0) {
+      years -= 1;
+      months += 12;
+    }
+
+    if (years > 0 && months > 0) {
+      return `${years} yr${years > 1 ? 's' : ''} ${months} mo${months > 1 ? 's' : ''}`;
+    }
+    if (years > 0) {
+      return `${years} yr${years > 1 ? 's' : ''}`;
+    }
+    if (months > 0) {
+      return `${months} mo${months > 1 ? 's' : ''}`;
+    }
+    return '< 1 month';
+  } catch {
+    return 'New Joiner';
+  }
+}
+
+/**
+ * Compute performance status based on annual target quota and won revenue
+ */
+export function getPerformanceStatus(wonINR: number, targetINR: number): {
+  status: 'Exceeding Target' | 'On Track' | 'Needs Attention' | 'At Risk';
+  badgeBg: string;
+  badgeText: string;
+  badgeBorder: string;
+} {
+  if (!targetINR || targetINR <= 0) {
+    return { status: 'On Track', badgeBg: '#f0fdf4', badgeText: '#16a34a', badgeBorder: '#bbf7d0' };
+  }
+  const pct = (wonINR / targetINR) * 100;
+  if (pct >= 85) {
+    return { status: 'Exceeding Target', badgeBg: '#ecfdf5', badgeText: '#059669', badgeBorder: '#6ee7b7' };
+  }
+  if (pct >= 50) {
+    return { status: 'On Track', badgeBg: '#eff6ff', badgeText: '#2563eb', badgeBorder: '#bfdbfe' };
+  }
+  if (pct >= 25) {
+    return { status: 'Needs Attention', badgeBg: '#fffbeb', badgeText: '#d97706', badgeBorder: '#fde68a' };
+  }
+  return { status: 'At Risk', badgeBg: '#fef2f2', badgeText: '#dc2626', badgeBorder: '#fecaca' };
+}

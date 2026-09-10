@@ -16,6 +16,8 @@ import { DocumentsTab } from './components/tabs/DocumentsTab';
 import { ReviewTab } from './components/tabs/ReviewTab';
 import { UsersTab } from './components/tabs/UsersTab';
 import { ProposalCalculatorTab } from './components/tabs/ProposalCalculatorTab';
+import { EmployeeProfileTab } from './components/tabs/EmployeeProfileTab';
+import { EmployeeMasterTab } from './components/tabs/EmployeeMasterTab';
 import { GlobalModals } from './components/modals/GlobalModals';
 import { RefreshCw } from 'lucide-react';
 
@@ -53,6 +55,8 @@ export const App: React.FC = () => {
         return <DashboardTab />;
       case 'tab-clients':
         return <ClientsTab />;
+      case 'tab-employee-master':
+        return <EmployeeMasterTab />;
       case 'tab-team':
         return <TeamTab />;
       case 'tab-segments':
@@ -73,6 +77,8 @@ export const App: React.FC = () => {
         return <ReviewTab />;
       case 'tab-users':
         return <UsersTab />;
+      case 'tab-employee-profile':
+        return <EmployeeProfileTab />;
       default:
         return <DashboardTab />;
     }

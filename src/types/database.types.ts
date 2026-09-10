@@ -17,6 +17,11 @@ export type UserRoleEnum =
   | 'bd_manager'
   | 'bd_sr_exec'
   | 'bd_exec'
+  | 'operations_manager'
+  | 'cops_supervisor'
+  | 'maintenance_engineer'
+  | 'finance_executive'
+  | 'legal_counsel'
   | 'management_viewer'
   | 'analyst';
 
@@ -142,6 +147,26 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['organizations']['Insert']>;
       };
 
+      regions: {
+        Row: {
+          id: string;
+          organization_id: string;
+          name: string;
+          code: string;
+          description: string | null;
+          regional_head_id: string | null;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['regions']['Row'], 'id' | 'created_at' | 'updated_at'> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['regions']['Insert']>;
+      };
+
       teams: {
         Row: {
           id: string;
@@ -150,6 +175,7 @@ export interface Database {
           code: string;
           department: DelegationDeptEnum;
           region: string;
+          region_id: string | null;
           leader_id: string | null;
           annual_target_inr: number;
           description: string | null;
@@ -177,9 +203,16 @@ export interface Database {
           employee_id: string | null;
           phone: string | null;
           avatar_url: string | null;
+          avatar_bg: string | null;
           team_id: string | null;
           manager_id: string | null;
           status: UserStatusEnum;
+          region: string;
+          region_id: string | null;
+          location: string | null;
+          joining_date: string | null;
+          employment_type: 'Full-time' | 'Contract' | 'Probation' | 'Part-time';
+          is_regional_owner: boolean;
           allowed_segments: string[];
           annual_target_inr: number;
           last_login_at: string | null;
@@ -485,6 +518,62 @@ export interface Database {
         };
         Update: Partial<Database['public']['Tables']['notifications']['Insert']>;
       };
+
+      employee_history: {
+        Row: {
+          id: string;
+          employee_id: string;
+          organization_id: string;
+          event_type: string;
+          effective_date: string;
+          title: string;
+          description?: string | null;
+          previous_value?: Json | null;
+          new_value?: Json | null;
+          designation_before?: string | null;
+          designation_after?: string | null;
+          department_before?: string | null;
+          department_after?: string | null;
+          team_before?: string | null;
+          team_after?: string | null;
+          region_before?: string | null;
+          region_after?: string | null;
+          manager_before?: string | null;
+          manager_after?: string | null;
+          location_before?: string | null;
+          location_after?: string | null;
+          created_by?: string | null;
+          created_by_name?: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['employee_history']['Row'], 'id' | 'created_at' | 'updated_at'> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['employee_history']['Insert']>;
+      };
+
+      departments: {
+        Row: {
+          id: string;
+          organization_id: string;
+          department_name: string;
+          department_code: string;
+          description?: string | null;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['departments']['Row'], 'id' | 'created_at' | 'updated_at'> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['departments']['Insert']>;
+      };
     };
   };
 }
+

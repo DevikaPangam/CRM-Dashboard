@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import {
-  Client, Opportunity, Activity, Followup, InternalTask, TeamMember, BusinessSegment, User, CurrencyMode, FilterState, CRMDocument
+  Client, Opportunity, Activity, Followup, InternalTask, TeamMember, BusinessSegment, User, CurrencyMode, FilterState, CRMDocument, EmployeeHistoryEvent
 } from '../types/crm';
 import {
   INITIAL_CLIENTS, INITIAL_OPPORTUNITIES, INITIAL_ACTIVITIES, INITIAL_FOLLOWUPS,
@@ -12,6 +12,11 @@ import { crmDataService } from '../services/crmDataService';
 import { subscribeToCRMRealtime } from '../services/realtimeService';
 import { isSupabaseConfigured } from '../utils/supabaseClient';
 import { logExportEvent, logAuditEvent } from '../services/auditService';
+import {
+  fetchEmployeeHistory, addCareerHistoryEvent, detectAndRecordAutoHistory,
+  createCanonicalJoiningEvent, loadStoredHistory
+} from '../services/careerHistoryService';
+import { generateDefaultKRAsForDepartment } from '../services/kraKpiService';
 
 interface ModalState {
   type: string | null;
@@ -22,6 +27,9 @@ interface CRMContextType {
   // Navigation & View
   currentTab: string;
   setCurrentTab: (tab: string) => void;
+  selectedProfileUserId: string | null;
+  setSelectedProfileUserId: (userId: string | null) => void;
+  viewEmployeeProfile: (userId: string) => void;
 
   // Currency
   currency: CurrencyMode;
@@ -34,6 +42,11 @@ interface CRMContextType {
   addUser: (user: Omit<User, 'id'>) => void;
   updateUser: (id: string, user: Partial<User>) => void;
   deleteUser: (id: string) => void;
+
+  // Employee Career History
+  employeeHistory: EmployeeHistoryEvent[];
+  addCareerEvent: (event: Omit<EmployeeHistoryEvent, 'id' | 'created_at' | 'updated_at'>) => Promise<EmployeeHistoryEvent>;
+  getEmployeeHistory: (employeeId: string) => EmployeeHistoryEvent[];
 
   // Filters & Search
   filters: FilterState;
@@ -117,6 +130,13 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const [currentTab, setCurrentTab] = useState<string>('tab-dashboard');
+  const [selectedProfileUserId, setSelectedProfileUserId] = useState<string | null>(null);
+
+  const viewEmployeeProfile = useCallback((userId: string) => {
+    setSelectedProfileUserId(userId);
+    setCurrentTab('tab-employee-profile');
+  }, []);
+
   const [currency, setCurrency] = useState<CurrencyMode>(() => loadStored<CurrencyMode>('currency', 'INR'));
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isLoadingData, setIsLoadingData] = useState<boolean>(false);
@@ -142,7 +162,56 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [followups, setFollowups] = useState<Followup[]>(() => loadStored<Followup[]>('followups', INITIAL_FOLLOWUPS));
   const [internalTasks, setInternalTasks] = useState<InternalTask[]>(() => loadStored<InternalTask[]>('internalTasks', INITIAL_INTERNAL_TASKS));
   const [documents, setDocuments] = useState<CRMDocument[]>(() => loadStored<CRMDocument[]>('documents', INITIAL_DOCUMENTS));
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(() => loadStored<TeamMember[]>('teamMembers', INITIAL_TEAM_MEMBERS));
+  const [employeeHistory, setEmployeeHistory] = useState<EmployeeHistoryEvent[]>(() => loadStoredHistory());
+
+  const getEmployeeHistory = useCallback((employeeId: string) => {
+    const history = employeeHistory.filter((h) => h.employee_id === employeeId);
+    if (history.length === 0) {
+      const targetUser = users.find((u) => u.id === employeeId);
+      if (targetUser) {
+        const canonical = createCanonicalJoiningEvent(targetUser);
+        return [canonical];
+      }
+    }
+    return history.sort((a, b) => new Date(b.effective_date).getTime() - new Date(a.effective_date).getTime());
+  }, [employeeHistory, users]);
+
+  const addCareerEvent = useCallback(async (event: Omit<EmployeeHistoryEvent, 'id' | 'created_at' | 'updated_at'>) => {
+    const newRecord = await addCareerHistoryEvent(event, currentUser);
+    setEmployeeHistory((prev) => [newRecord, ...prev]);
+    return newRecord;
+  }, [currentUser]);
+
+  const mapUserToTeamMember = (u: User, index: number = 0): TeamMember => {
+    const colors = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#06b6d4', '#ec4899'];
+    return {
+      id: u.id,
+      name: u.name,
+      title: u.designation || u.role_name || u.role,
+      email: u.email,
+      phone: u.phone || '+91 98000 00000',
+      region: u.region || 'West Region',
+      annualTargetINR: u.annual_target_inr || 50000000,
+      achievedINR: u.achieved_inr || 0,
+      activeOppsCount: u.active_opps_count || 0,
+      avatarBg: u.avatar_bg || colors[index % colors.length],
+      status: u.status === 'Disabled' ? 'Disabled' : u.status === 'Inactive' ? 'Inactive' : 'Active',
+      employee_id: u.employee_id,
+      team_id: u.team_id,
+      team_name: u.team_name,
+      manager_id: u.manager_id,
+      manager_name: u.manager_name,
+      is_regional_owner: u.is_regional_owner,
+      joining_date: u.joining_date,
+      location: u.location,
+      employment_type: u.employment_type,
+    };
+  };
+
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(() => {
+    const initialUnified = loadStored<User[]>('users', INITIAL_USERS);
+    return initialUnified.map(mapUserToTeamMember);
+  });
   const [segments, setSegments] = useState<BusinessSegment[]>(() => loadStored<BusinessSegment[]>('segments', INITIAL_SEGMENTS));
 
   const [activeModal, setActiveModal] = useState<ModalState>({ type: null });
@@ -159,15 +228,34 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       setCurrentUser({
         id: profile.id,
+        employee_id: profile.employee_id || `EMP-${profile.id.slice(0, 4).toUpperCase()}`,
         name: profile.full_name,
         email: profile.email,
+        organization_id: profile.organization_id,
         role: mappedRole,
         role_name: profile.role,
-        status: profile.status === 'active' ? 'Active' : 'Inactive',
-        allowed_tabs: ['tab-dashboard', 'tab-clients', 'tab-opportunities', 'tab-activities', 'tab-followups', 'tab-review'],
+        department: profile.department || 'Business Development',
+        designation: profile.designation || 'Executive',
+        region: profile.region || 'West',
+        location: profile.location || 'Corporate HQ - Mumbai',
+        joining_date: profile.joining_date || (profile.created_at ? profile.created_at.split('T')[0] : '2025-01-01'),
+        employment_type: (profile.employment_type as any) || 'Full-time',
+        is_regional_owner: Boolean(profile.is_regional_owner),
+        team_id: profile.team_id || undefined,
+        manager_id: profile.manager_id || undefined,
+        annual_target_inr: Number(profile.annual_target_inr) || 0,
+        phone: profile.phone || '',
+        avatar_bg: profile.avatar_bg || '#f59e0b',
+        status: profile.status === 'active' ? 'Active' : profile.status === 'suspended' ? 'Disabled' : 'Inactive',
+        allowed_tabs: ['tab-dashboard', 'tab-clients', 'tab-employee-master', 'tab-team', 'tab-employee-profile', 'tab-opportunities', 'tab-activities', 'tab-followups', 'tab-review'],
       });
     }
   }, [profile]);
+
+  // Keep teamMembers continuously in sync with users
+  useEffect(() => {
+    setTeamMembers(users.map(mapUserToTeamMember));
+  }, [users]);
 
   // Load live data from Supabase when profile/orgId is available
   const refreshCRMData = useCallback(async () => {
@@ -572,20 +660,54 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addTeamMember = (newMember: Omit<TeamMember, 'id'>) => {
-    const member: TeamMember = {
-      ...newMember,
-      id: `BD-${String(teamMembers.length + 1).padStart(2, '0')}`,
-      avatarBg: ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#06b6d4', '#ec4899'][teamMembers.length % 6],
+    const newUserId = `USR-${String(users.length + 1).padStart(3, '0')}`;
+    const newUser: User = {
+      id: newUserId,
+      employee_id: `EMP-${String(users.length + 1).padStart(3, '0')}`,
+      name: newMember.name,
+      email: newMember.email || `${newMember.name.toLowerCase().replace(/\s+/g, '.')}@rajmudragroup.com`,
+      role: 'BD Executive',
+      role_name: 'bd_exec',
+      department: 'Business Development',
+      designation: newMember.title || 'BD Executive',
+      region: newMember.region || 'West',
+      location: 'Corporate HQ - Mumbai',
+      joining_date: new Date().toISOString().split('T')[0],
+      employment_type: 'Full-time',
+      is_regional_owner: true,
+      annual_target_inr: newMember.annualTargetINR || 50000000,
+      achieved_inr: newMember.achievedINR || 0,
+      active_opps_count: newMember.activeOppsCount || 0,
+      phone: newMember.phone || '+91 98000 00000',
+      avatar_bg: newMember.avatarBg || ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#06b6d4', '#ec4899'][users.length % 6],
+      status: (newMember.status as any) || 'Active',
+      allowed_tabs: ['tab-dashboard', 'tab-clients', 'tab-team', 'tab-opportunities', 'tab-activities', 'tab-followups'],
     };
-    setTeamMembers((prev) => [...prev, member]);
+    setUsers((prev) => [...prev, newUser]);
   };
 
   const updateTeamMember = (id: string, updated: Partial<TeamMember>) => {
-    setTeamMembers((prev) => prev.map((m) => (m.id === id ? { ...m, ...updated } : m)));
+    setUsers((prev) =>
+      prev.map((u) => {
+        if (u.id === id || u.name === id) {
+          return {
+            ...u,
+            name: updated.name !== undefined ? updated.name : u.name,
+            designation: updated.title !== undefined ? updated.title : u.designation,
+            email: updated.email !== undefined ? updated.email : u.email,
+            phone: updated.phone !== undefined ? updated.phone : u.phone,
+            region: updated.region !== undefined ? updated.region : u.region,
+            annual_target_inr: updated.annualTargetINR !== undefined ? updated.annualTargetINR : u.annual_target_inr,
+            status: updated.status !== undefined ? (updated.status as any) : u.status,
+          };
+        }
+        return u;
+      })
+    );
   };
 
   const deleteTeamMember = (id: string) => {
-    setTeamMembers((prev) => prev.filter((m) => m.id !== id));
+    setUsers((prev) => prev.filter((u) => u.id !== id && u.name !== id));
   };
 
   const addSegment = (newSeg: Omit<BusinessSegment, 'id'>) => {
@@ -604,18 +726,105 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSegments((prev) => prev.filter((s) => s.id !== id));
   };
 
-  const addUser = (newUser: Omit<User, 'id'>) => {
+  const addUser = async (newUser: Omit<User, 'id'>) => {
+    // 1. Duplicate Prevention check against existing email and employee_id
+    const normalizedEmail = (newUser.email || '').trim().toLowerCase();
+    const normalizedEmpId = (newUser.employee_id || '').trim().toUpperCase();
+
+    const existingIndex = users.findIndex(
+      (u) =>
+        (normalizedEmail && u.email?.trim().toLowerCase() === normalizedEmail) ||
+        (normalizedEmpId && u.employee_id?.trim().toUpperCase() === normalizedEmpId)
+    );
+
+    if (existingIndex !== -1) {
+      console.warn('Duplicate user detected by email or employee ID. Updating existing user record instead.');
+      const existing = users[existingIndex];
+      const updatedUser: User = {
+        ...existing,
+        ...newUser,
+        id: existing.id,
+      };
+      setUsers((prev) => prev.map((u, i) => (i === existingIndex ? updatedUser : u)));
+      return;
+    }
+
+    const isBD = (newUser.department || '').trim().toLowerCase() === 'business development' || (newUser.department || '').trim().toLowerCase() === 'bd';
     const user: User = {
       ...newUser,
       id: `USR-${String(users.length + 1).padStart(3, '0')}`,
+      employee_id: newUser.employee_id || `EMP-${String(users.length + 1).padStart(3, '0')}`,
+      region: newUser.region || 'West',
+      location: newUser.location || 'Corporate HQ - Mumbai',
+      joining_date: newUser.joining_date || new Date().toISOString().split('T')[0],
+      employment_type: newUser.employment_type || 'Full-time',
+      is_regional_owner: isBD ? (newUser.is_regional_owner ?? false) : false,
+      annual_target_inr: newUser.annual_target_inr ?? 50000000,
+      phone: newUser.phone || '+91 98000 00000',
+      avatar_bg: newUser.avatar_bg || ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#06b6d4', '#ec4899'][users.length % 6],
     };
     setUsers((prev) => [...prev, user]);
+
+    // 2. Record canonical joining milestone in employee career trajectory
+    try {
+      const joinEvent = createCanonicalJoiningEvent(user);
+      const created = await addCareerHistoryEvent(joinEvent, currentUser);
+      setEmployeeHistory((prev) => [created, ...prev]);
+    } catch (err) {
+      console.warn('Failed to record joining milestone:', err);
+    }
+
+    // 3. Initialize Department KRAs and KPIs automatically
+    try {
+      generateDefaultKRAsForDepartment(user, 'FY2026-27', 'Annual FY26-27');
+    } catch (err) {
+      console.warn('Failed to generate default KRAs for new employee:', err);
+    }
+
+    // 4. Record Audit Log for User Creation
+    try {
+      await logAuditEvent({
+        organizationId: user.organization_id || currentOrgId,
+        userId: currentUser?.id || 'sys-admin',
+        userName: currentUser?.name || 'System Administrator',
+        action: 'USER_INVITED',
+        entityType: 'users',
+        entityId: user.id,
+        newValues: {
+          employee_id: user.employee_id,
+          email: user.email,
+          role: user.role_name || user.role,
+          department: user.department,
+          designation: user.designation,
+          region: user.region,
+          team_id: user.team_id,
+          manager_id: user.manager_id,
+          joining_date: user.joining_date,
+          status: user.status,
+        },
+      });
+    } catch (err) {
+      console.warn('Failed to log audit event for user creation:', err);
+    }
   };
 
-  const updateUser = (id: string, updated: Partial<User>) => {
+  const updateUser = async (id: string, updated: Partial<User>) => {
+    const oldUser = users.find((u) => u.id === id);
     setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...updated } : u)));
     if (currentUser.id === id) {
       setCurrentUser((prev) => ({ ...prev, ...updated }));
+    }
+
+    // Automatically detect structural property changes and generate history records
+    if (oldUser) {
+      try {
+        const autoEvents = await detectAndRecordAutoHistory(oldUser, updated, currentUser);
+        if (autoEvents && autoEvents.length > 0) {
+          setEmployeeHistory((prev) => [...autoEvents, ...prev]);
+        }
+      } catch (err) {
+        console.warn('Failed to auto-record career history events:', err);
+      }
     }
   };
 
@@ -681,6 +890,9 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       value={{
         currentTab,
         setCurrentTab,
+        selectedProfileUserId,
+        setSelectedProfileUserId,
+        viewEmployeeProfile,
         currency,
         toggleCurrency,
         currentUser,
@@ -689,6 +901,9 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addUser,
         updateUser,
         deleteUser,
+        employeeHistory,
+        addCareerEvent,
+        getEmployeeHistory,
         filters,
         setFilters,
         searchQuery,

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Briefcase, Search, ChevronDown, PlusCircle, Building, TrendingUp, Users,
-  PhoneCall, FileText, GitPullRequest, UserPlus, Layers, ShieldPlus, Shield, RotateCcw, LogOut
+  PhoneCall, FileText, GitPullRequest, UserPlus, Layers, ShieldPlus, Shield, RotateCcw, LogOut, User as UserIcon
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
@@ -17,6 +17,7 @@ export const Header: React.FC = () => {
     setSearchQuery,
     openModal,
     setCurrentTab,
+    viewEmployeeProfile,
     resetToFactoryData
   } = useCRM();
 
@@ -146,16 +147,27 @@ export const Header: React.FC = () => {
               </div>
 
               <div style={{ padding: '8px 12px', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <button
+                  className="btn btn-secondary btn-xs"
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '6px' }}
+                  onClick={() => {
+                    const myId = profile?.id || users.find(u => u.email.toLowerCase() === currentEmail)?.id || currentUser.id;
+                    viewEmployeeProfile(myId);
+                    setUserMenuOpen(false);
+                  }}
+                >
+                  <UserIcon size={12} style={{ color: '#0284c7' }} /> My Employee Profile
+                </button>
                 {isSuperAdminUser && (
                   <button
                     className="btn btn-secondary btn-xs"
-                    style={{ width: '100%' }}
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '6px' }}
                     onClick={() => {
                       setCurrentTab('tab-users');
                       setUserMenuOpen(false);
                     }}
                   >
-                    <Shield size={12} /> Users &amp; Permissions
+                    <Shield size={12} style={{ color: '#dc2626' }} /> Users &amp; Permissions
                   </button>
                 )}
                 <button

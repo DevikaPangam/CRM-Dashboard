@@ -39,7 +39,14 @@ export type AuditAction =
   | 'DOCUMENT_DOWNLOADED'
   | 'DOCUMENT_DELETED'
   | 'DATA_EXPORT_CSV'
-  | 'DATA_EXPORT_JSON';
+  | 'DATA_EXPORT_JSON'
+  | 'CAREER_EVENT_CREATED'
+  | 'CAREER_EVENT_UPDATED'
+  | 'KPI_CREATED'
+  | 'KPI_ACTUAL_UPDATED'
+  | 'KPI_TARGET_UPDATED'
+  | 'KRA_CREATED'
+  | 'KRA_UPDATED';
 
 export interface AuditLogRecord {
   id: string;

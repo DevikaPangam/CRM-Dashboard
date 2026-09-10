@@ -17,6 +17,13 @@ import { DelegationMatrixModal } from './DelegationMatrixModal';
 import { ApprovalModal } from './ApprovalModal';
 import { DealInceptionModal } from './DealInceptionModal';
 import { ImportClientsModal } from './ImportClientsModal';
+import { EmployeeProfileModal } from './EmployeeProfileModal';
+import { AddCareerEventModal } from './AddCareerEventModal';
+import { EditKPIModal } from './EditKPIModal';
+import { AddKRAModal } from './AddKRAModal';
+import { AddKPIModal } from './AddKPIModal';
+import { KRAHistoryModal } from './KRAHistoryModal';
+import { AddPerformanceReviewModal } from './AddPerformanceReviewModal';
 
 export const GlobalModals: React.FC = () => {
   const { activeModal } = useCRM();
@@ -48,6 +55,20 @@ export const GlobalModals: React.FC = () => {
       return <AddUserModal />;
     case 'editUser':
       return <EditUserModal />;
+    case 'employeeProfile':
+      return <EmployeeProfileModal />;
+    case 'addCareerEvent':
+      return <AddCareerEventModal />;
+    case 'editKPI':
+      return <EditKPIModal />;
+    case 'addKRA':
+      return <AddKRAModal />;
+    case 'addKPI':
+      return <AddKPIModal />;
+    case 'kraHistory':
+      return <KRAHistoryModal />;
+    case 'addPerformanceReview':
+      return <AddPerformanceReviewModal />;
     case 'uploadDoc':
       return <UploadDocModal />;
     case 'editDoc':
