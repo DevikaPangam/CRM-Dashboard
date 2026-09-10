@@ -683,6 +683,14 @@ export const crmDataService = {
     return transformActivityFromDB(data);
   },
 
+  async deleteActivity(id: string, orgId: string): Promise<void> {
+    if (!isSupabaseConfigured()) return;
+    if (isValidUUID(id)) {
+      const { error } = await (supabase.from('activities') as any).delete().eq('id', id).eq('organization_id', orgId);
+      if (error) throw error;
+    }
+  },
+
   // FOLLOWUPS
   async fetchFollowups(orgId: string): Promise<Followup[]> {
     if (!isSupabaseConfigured()) return [];
@@ -735,11 +743,24 @@ export const crmDataService = {
     if (!isSupabaseConfigured()) return;
     const dbPayload: any = {};
     if (updates.status) dbPayload.status = updates.status;
-    if (updates.remarks) dbPayload.remarks = updates.remarks;
+    if (updates.remarks !== undefined) dbPayload.remarks = updates.remarks;
     if (updates.completedDate) dbPayload.completed_at = updates.completedDate;
+    if (updates.dueDate) dbPayload.due_date = updates.dueDate;
+    if (updates.description) dbPayload.description = updates.description;
+    if (updates.priority) dbPayload.priority = updates.priority;
 
-    const { error } = await (supabase.from('followups') as any).update(dbPayload).eq('id', id).eq('organization_id', orgId);
-    if (error) throw error;
+    if (isValidUUID(id)) {
+      const { error } = await (supabase.from('followups') as any).update(dbPayload).eq('id', id).eq('organization_id', orgId);
+      if (error) throw error;
+    }
+  },
+
+  async deleteFollowup(id: string, orgId: string): Promise<void> {
+    if (!isSupabaseConfigured()) return;
+    if (isValidUUID(id)) {
+      const { error } = await (supabase.from('followups') as any).delete().eq('id', id).eq('organization_id', orgId);
+      if (error) throw error;
+    }
   },
 
   // INTERNAL TASKS (Delegation Matrix & Operations Tasks)

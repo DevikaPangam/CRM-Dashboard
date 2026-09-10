@@ -594,8 +594,13 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const deleteActivity = (id: string) => {
+  const deleteActivity = async (id: string) => {
     setActivities((prev) => prev.filter((a) => a.id !== id));
+    try {
+      await crmDataService.deleteActivity(id, currentOrgId);
+    } catch (err) {
+      console.warn('Could not sync deleteActivity to Supabase:', err);
+    }
   };
 
   const addFollowup = async (newFol: Omit<Followup, 'id'>) => {
@@ -628,8 +633,13 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const deleteFollowup = (id: string) => {
+  const deleteFollowup = async (id: string) => {
     setFollowups((prev) => prev.filter((f) => f.id !== id));
+    try {
+      await crmDataService.deleteFollowup(id, currentOrgId);
+    } catch (err) {
+      console.warn('Could not sync deleteFollowup to Supabase:', err);
+    }
   };
 
   const addInternalTask = async (newTask: Omit<InternalTask, 'id'>) => {
