@@ -152,28 +152,7 @@ export const LoginPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Cloud Connection Badge */}
-        {!isCloudConnected && (
-          <div
-            style={{
-              background: '#eff6ff',
-              border: '1px solid #bfdbfe',
-              borderRadius: '8px',
-              padding: '10px 12px',
-              marginBottom: '18px',
-              fontSize: '11.5px',
-              color: '#1e40af',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-            }}
-          >
-            <Sparkles size={16} style={{ color: '#2563eb', flexShrink: 0 }} />
-            <span>
-              <strong>Local / Mock Mode:</strong> Connect Supabase cloud credentials in <code>.env</code> to activate live PostgreSQL auth.
-            </span>
-          </div>
-        )}
+
 
         {/* Error Alert */}
         {errorMsg && (

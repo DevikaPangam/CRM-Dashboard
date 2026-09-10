@@ -60,15 +60,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isCloudConnected = isSupabaseConfigured();
 
   /**
-   * Loads the CRM profile, organization, team, manager, and role permissions.
+   * Loads the CRM profile, organization, team, manager, and role permissions for an authenticated Supabase user.
    */
   const loadCRMProfile = useCallback(async (userId: string): Promise<boolean> => {
     if (!isCloudConnected) {
+      setAuthState('UNAUTHENTICATED');
+      setAccessDeniedReason('Supabase Cloud is not configured.');
       return false;
     }
 
     try {
-      // 1. Fetch Profile
+      // 1. Fetch Profile from public.profiles
       const { data: rawProfile, error: profileError } = await (supabase
         .from('profiles')
         .select('*')
@@ -78,10 +80,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const userProfile = rawProfile as ProfileRow | null;
 
       if (profileError) {
-        console.error('Error fetching CRM profile:', profileError);
+        console.error('Error fetching CRM profile from database:', profileError);
       }
 
-      // Strict Rule: If profile does not exist -> Access Not Provisioned (Do not create a default user)
+      // Strict Rule: If profile does not exist in public.profiles -> Show Access Not Provisioned
       if (!userProfile) {
         setProfile(null);
         setOrganization(null);
@@ -90,13 +92,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setPermissions([]);
         setAuthState('PROFILE_NOT_FOUND');
         setAccessDeniedReason(
-          'Your account has authenticated, but no CRM profile has been provisioned in the directory. ' +
-          'Please contact your System Administrator to assign your role and organization.'
+          'Your corporate account authenticated successfully, but no CRM profile has been provisioned in the directory. ' +
+          'Please contact your System Administrator to assign your role and organization workspace.'
         );
         return false;
       }
 
-      // Strict Rule: If profile is inactive or suspended -> Deny CRM Access
+      // Strict Rule: If profile status is not active -> Deny CRM Access
       if (userProfile.status !== 'active') {
         setProfile(userProfile);
         setOrganization(null);
@@ -174,7 +176,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      // 6. Expose Authenticated State
+      // 6. Confirm Authenticated State
       setAuthState('AUTHENTICATED');
       setAccessDeniedReason(null);
       return true;
@@ -187,72 +189,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [isCloudConnected]);
 
-  const getProfileForEmail = (emailLower: string): ProfileRow => {
-    const isSuper = emailLower.startsWith('devika') || emailLower.includes('super_admin');
-    const nameFromEmail = emailLower.split('@')[0].replace('.', ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-    const fullName = isSuper
-      ? 'Devika Pangam'
-      : emailLower.includes('connect')
-      ? 'Connect Support Team'
-      : nameFromEmail;
-    const designation = isSuper ? 'Managing Director / System Administrator' : 'Corporate BD Member';
-    const role = isSuper ? 'super_admin' : 'bd_exec';
-    const id = isSuper ? '00000000-0000-0000-0000-000000000001' : `USR-${emailLower.replace(/[^a-z0-9]/g, '')}`;
-
-    return {
-      id,
-      organization_id: '00000000-0000-0000-0000-000000000001',
-      email: emailLower,
-      full_name: fullName,
-      role,
-      status: 'active',
-      department: isSuper ? 'Executive Management' : 'Business Development',
-      designation,
-      employee_id: `EMP-${emailLower.slice(0, 3).toUpperCase()}`,
-      phone: '+91 99999 00000',
-      avatar_url: '',
-      team_id: null,
-      manager_id: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    } as unknown as ProfileRow;
-  };
-
   // Initialize and listen to Supabase Auth State changes
   useEffect(() => {
     let isMounted = true;
 
-    if (!isCloudConnected) {
-      setIsLoading(false);
-      const mockAuthed = localStorage.getItem('CORPBD_MOCK_AUTHENTICATED');
-      if (mockAuthed === 'true') {
-        const emailLower = (localStorage.getItem('CORPBD_MOCK_EMAIL') || 'devika.p@rajmudragroup.com').toLowerCase();
-        setProfile(getProfileForEmail(emailLower));
-        setAuthState('AUTHENTICATED');
-      } else {
-        setAuthState('UNAUTHENTICATED');
-      }
-      return;
-    }
-
     // 1. Recover existing session from Supabase client storage
     supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
       if (!isMounted) return;
-      if (initialSession) {
+      if (initialSession?.user) {
         setSession(initialSession);
         setAuthUser(initialSession.user);
         loadCRMProfile(initialSession.user.id).finally(() => {
           if (isMounted) setIsLoading(false);
         });
       } else {
-        const mockAuthed = localStorage.getItem('CORPBD_MOCK_AUTHENTICATED');
-        if (mockAuthed === 'true') {
-          const emailLower = (localStorage.getItem('CORPBD_MOCK_EMAIL') || 'devika.p@rajmudragroup.com').toLowerCase();
-          setProfile(getProfileForEmail(emailLower));
-          setAuthState('AUTHENTICATED');
-        } else {
-          setAuthState('UNAUTHENTICATED');
-        }
+        setAuthState('UNAUTHENTICATED');
+        setIsLoading(false);
+      }
+    }).catch((err) => {
+      console.warn('Session recovery notice:', err);
+      if (isMounted) {
+        setAuthState('UNAUTHENTICATED');
         setIsLoading(false);
       }
     });
@@ -265,22 +222,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSession(newSession);
         setAuthUser(newSession.user);
         await loadCRMProfile(newSession.user.id);
+        setIsLoading(false);
       } else {
-        const mockAuthed = localStorage.getItem('CORPBD_MOCK_AUTHENTICATED');
-        if (mockAuthed === 'true') {
-          const emailLower = (localStorage.getItem('CORPBD_MOCK_EMAIL') || 'devika.p@rajmudragroup.com').toLowerCase();
-          setProfile(getProfileForEmail(emailLower));
-          setAuthState('AUTHENTICATED');
-        } else {
-          setAuthUser(null);
-          setProfile(null);
-          setOrganization(null);
-          setTeam(null);
-          setManager(null);
-          setPermissions([]);
-          setAuthState('UNAUTHENTICATED');
-          setAccessDeniedReason(null);
-        }
+        setSession(null);
+        setAuthUser(null);
+        setProfile(null);
+        setOrganization(null);
+        setTeam(null);
+        setManager(null);
+        setPermissions([]);
+        setAuthState('UNAUTHENTICATED');
+        setAccessDeniedReason(null);
+        setIsLoading(false);
       }
     });
 
@@ -288,9 +241,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, [isCloudConnected, loadCRMProfile]);
+  }, [loadCRMProfile]);
 
-  // Sign In Action (Enforces @rajmudragroup.com corporate domain)
+  // Sign In Action (Enforces @rajmudragroup.com corporate domain and authenticates via Supabase Auth)
   const signIn = async (email: string, pass: string): Promise<{ success: boolean; error?: string }> => {
     let rawEmail = email ? email.trim().toLowerCase() : '';
     if (rawEmail && !rawEmail.includes('@')) {
@@ -304,40 +257,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     const emailLower = rawEmail;
+    setIsLoading(true);
 
-    if (isCloudConnected) {
-      setIsLoading(true);
-      try {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: emailLower,
-          password: pass,
-        });
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: emailLower,
+        password: pass,
+      });
 
-        if (!error && data.user) {
-          setSession(data.session);
-          setAuthUser(data.user);
-          const profileLoaded = await loadCRMProfile(data.user.id);
-          if (profileLoaded) {
-            setIsLoading(false);
-            logAuthEvent('LOGIN_SUCCESS', emailLower, { method: 'supabase_auth' });
-            return { success: true };
-          }
-        }
-      } catch (err: any) {
-        console.warn('Supabase Auth attempt notice:', err?.message);
+      if (error) {
+        setIsLoading(false);
+        logAuthEvent('LOGIN_FAILURE', emailLower, { reason: error.message });
+        return { success: false, error: error.message };
       }
-    }
 
-    // Direct corporate login authentication (ensures instant login for devika.p@rajmudragroup.com with SuperAdmin@2026! or Admin@2026)
-    localStorage.setItem('CORPBD_MOCK_AUTHENTICATED', 'true');
-    localStorage.setItem('CORPBD_MOCK_EMAIL', emailLower);
-    const mockProfile = getProfileForEmail(emailLower);
-    setProfile(mockProfile);
-    setAuthState('AUTHENTICATED');
-    setAccessDeniedReason(null);
-    setIsLoading(false);
-    logAuthEvent('LOGIN_SUCCESS', emailLower, { method: 'corporate_login' });
-    return { success: true };
+      if (data?.user) {
+        setSession(data.session);
+        setAuthUser(data.user);
+        const profileLoaded = await loadCRMProfile(data.user.id);
+        setIsLoading(false);
+
+        if (profileLoaded) {
+          logAuthEvent('LOGIN_SUCCESS', emailLower, { method: 'supabase_email_password' });
+          return { success: true };
+        } else {
+          return {
+            success: false,
+            error: 'Authentication confirmed, but no active CRM profile was found for this user in the directory.',
+          };
+        }
+      }
+
+      setIsLoading(false);
+      return { success: false, error: 'Authentication failed. Please check your credentials.' };
+    } catch (err: any) {
+      setIsLoading(false);
+      console.error('Supabase signInWithPassword exception:', err);
+      return { success: false, error: err?.message || 'A network error occurred during sign in.' };
+    }
   };
 
   // Sign Out Action
@@ -349,13 +306,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         organizationId: profile.organization_id,
       });
     }
-    if (isCloudConnected) {
-      try {
-        await supabase.auth.signOut();
-      } catch (err) {
-        console.error('Sign out error:', err);
-      }
+
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error('Sign out error:', err);
     }
+
     setSession(null);
     setAuthUser(null);
     setProfile(null);
@@ -365,28 +322,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setPermissions([]);
     setAuthState('UNAUTHENTICATED');
     setAccessDeniedReason(null);
-    localStorage.removeItem('CORPBD_MOCK_AUTHENTICATED');
-    localStorage.removeItem('CORPBD_MOCK_EMAIL');
   };
 
-  // Password Reset Request (Enforces @rajmudragroup.com corporate domain)
+  // Password Reset Request (Dispatches secure reset email via Supabase Auth)
   const resetPassword = async (email: string): Promise<{ success: boolean; error?: string; message?: string }> => {
-    const domainValidation = validateCorporateEmail(email);
+    let rawEmail = email ? email.trim().toLowerCase() : '';
+    if (rawEmail && !rawEmail.includes('@')) {
+      rawEmail = `${rawEmail}@rajmudragroup.com`;
+    }
+
+    const domainValidation = validateCorporateEmail(rawEmail);
     if (!domainValidation.isValid) {
       return { success: false, error: domainValidation.error };
     }
 
-    logAuthEvent('PASSWORD_RESET_INITIATED', email, { channel: 'zoho_corporate' });
-
-    if (!isCloudConnected) {
-      return { 
-        success: true, 
-        message: 'Password reset simulation: In production, a recovery email is sent to your Zoho corporate mailbox via Supabase Auth.' 
-      };
-    }
+    logAuthEvent('PASSWORD_RESET_INITIATED', rawEmail, { channel: 'supabase_auth' });
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+      const { error } = await supabase.auth.resetPasswordForEmail(rawEmail, {
         redirectTo: `${window.location.origin}/index.html?type=recovery`,
       });
 
@@ -396,7 +349,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       return { 
         success: true, 
-        message: `A secure password reset link has been dispatched to your corporate inbox (${email}). Please check your Zoho webmail.` 
+        message: `A secure password reset link has been dispatched to your corporate inbox (${rawEmail}). Please check your corporate email.` 
       };
     } catch (err: any) {
       return { success: false, error: err.message || 'Failed to dispatch reset email.' };
@@ -405,10 +358,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Password Update Action
   const updatePassword = async (newPassword: string): Promise<{ success: boolean; error?: string; message?: string }> => {
-    if (!isCloudConnected) {
-      return { success: true, message: 'Password updated in local development mode.' };
-    }
-
     try {
       const { error } = await supabase.auth.updateUser({
         password: newPassword,
