@@ -6,6 +6,7 @@
 
 import { supabase, isSupabaseConfigured } from '../utils/supabaseClient';
 import { UserRoleEnum, UserStatusEnum } from '../types/database.types';
+import { SegmentPermission } from '../types/crm';
 import { crmDataService } from './crmDataService';
 
 export interface ProvisionUserPayload {
@@ -28,6 +29,7 @@ export interface ProvisionUserPayload {
   status?: UserStatusEnum;
   provisioning_method: 'invite' | 'password';
   temp_password?: string;
+  permissions?: SegmentPermission[];
 }
 
 export interface UpdateUserPayload {
@@ -37,6 +39,7 @@ export interface UpdateUserPayload {
   designation?: string;
   employee_id?: string;
   region?: string;
+  region_id?: string;
   location?: string;
   joining_date?: string;
   employment_type?: 'Full-time' | 'Contract' | 'Probation' | 'Part-time';
@@ -46,6 +49,7 @@ export interface UpdateUserPayload {
   team_id?: string | null;
   manager_id?: string | null;
   status?: UserStatusEnum;
+  permissions?: SegmentPermission[];
 }
 
 import { DepartmentMaster } from '../types/crm';
@@ -399,6 +403,11 @@ export async function provisionUser(payload: ProvisionUserPayload): Promise<{ su
         throw new Error(verifyErr?.message || 'Verification of newly provisioned Supabase profile failed.');
       }
 
+      // 5. Persist customized role permissions if provided
+      if (payload.role && payload.permissions && payload.permissions.length > 0) {
+        await crmDataService.saveRolePermissions(payload.role, payload.permissions, orgId);
+      }
+
       return {
         success: true,
         message: `Employee ${payload.full_name} (${payload.email}) provisioned and verified in Supabase.`,
@@ -462,6 +471,7 @@ export async function updateAdminUser(userId: string, payload: UpdateUserPayload
         designation: payload.designation,
         employee_id: payload.employee_id,
         region: payload.region,
+        region_id: payload.region_id || undefined,
         location: payload.location,
         joining_date: payload.joining_date,
         employment_type: payload.employment_type,
@@ -473,9 +483,14 @@ export async function updateAdminUser(userId: string, payload: UpdateUserPayload
         status: payload.status ? (payload.status === 'active' ? 'Active' : 'Inactive') : undefined,
       }, orgId);
 
+      // Persist role permissions if supplied
+      if (payload.role && payload.permissions && payload.permissions.length > 0) {
+        await crmDataService.saveRolePermissions(payload.role, payload.permissions, orgId);
+      }
+
       return {
         success: true,
-        message: 'User profile updated and persisted in Supabase.',
+        message: 'User profile and permissions updated and persisted in Supabase.',
         user: { id: userId, ...payload },
       };
     } catch (err: any) {

@@ -6,8 +6,9 @@ import { useRBAC } from '../../context/RBACContext';
 import { updateAdminUser, triggerPasswordReset, revokeUserAccess, getHierarchyOptions, HierarchyOptions } from '../../services/adminService';
 import { UserRoleEnum, UserStatusEnum } from '../../types/database.types';
 import { SegmentPermissionsMatrix } from '../common/SegmentPermissionsMatrix';
-import { getDefaultPermissionsForRole } from '../../utils/rbacPermissions';
+import { getDefaultPermissionsForRole, convertRolePermissionsToSegmentPermissions } from '../../utils/rbacPermissions';
 import { SegmentPermission } from '../../types/crm';
+import { crmDataService } from '../../services/crmDataService';
 
 const ROLE_OPTIONS: Array<{ value: UserRoleEnum; label: string; description: string; requiresSuperAdmin?: boolean }> = [
   { value: 'super_admin', label: 'Super Administrator', description: 'Full system & tenant management authority', requiresSuperAdmin: true },
@@ -26,7 +27,7 @@ const ROLE_OPTIONS: Array<{ value: UserRoleEnum; label: string; description: str
 
 export const EditUserModal: React.FC = () => {
   const { closeModal, activeModal, updateUser } = useCRM();
-  const { profile } = useAuth();
+  const { profile, refreshProfile } = useAuth();
   const { canAdmin, canEdit } = useRBAC();
   const userToEdit: any = activeModal.data;
 
@@ -79,13 +80,12 @@ export const EditUserModal: React.FC = () => {
   });
 
   const [permissions, setPermissions] = useState<SegmentPermission[]>(() =>
-    userToEdit?.permissions && userToEdit.permissions.length > 0
-      ? userToEdit.permissions
-      : getDefaultPermissionsForRole(userToEdit?.role_name || userToEdit?.role || 'bd_exec')
+    getDefaultPermissionsForRole(userToEdit?.role_name || userToEdit?.role || 'bd_exec')
   );
 
   const [loading, setLoading] = useState(false);
   const [isHierarchyLoading, setIsHierarchyLoading] = useState(true);
+  const [isPermissionsLoading, setIsPermissionsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -104,6 +104,36 @@ export const EditUserModal: React.FC = () => {
       isMounted = false;
     };
   }, []);
+
+  // Fetch authoritative role_permissions from Supabase for the active role
+  useEffect(() => {
+    let isMounted = true;
+    setIsPermissionsLoading(true);
+    const orgId = profile?.organization_id || '00000000-0000-0000-0000-000000000001';
+    const targetRole = formData.role;
+
+    crmDataService.fetchRolePermissions(orgId, targetRole)
+      .then((dbPerms) => {
+        if (isMounted) {
+          if (dbPerms && dbPerms.length > 0) {
+            setPermissions(convertRolePermissionsToSegmentPermissions(dbPerms, targetRole));
+          } else {
+            setPermissions(getDefaultPermissionsForRole(targetRole));
+          }
+        }
+      })
+      .catch((err) => {
+        console.warn('Could not load role permissions from Supabase:', err);
+        if (isMounted) setPermissions(getDefaultPermissionsForRole(targetRole));
+      })
+      .finally(() => {
+        if (isMounted) setIsPermissionsLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [formData.role, profile?.organization_id]);
 
   useEffect(() => {
     if (userToEdit) {
@@ -147,7 +177,6 @@ export const EditUserModal: React.FC = () => {
     else if (role === 'analyst') designation = 'Commercial Analyst';
 
     setFormData({ ...formData, role, designation });
-    setPermissions(getDefaultPermissionsForRole(role));
   };
 
   const handleRegionChange = (regionId: string) => {
@@ -190,6 +219,7 @@ export const EditUserModal: React.FC = () => {
         designation: formData.designation.trim(),
         employee_id: formData.employeeId.trim() || undefined,
         region: formData.region,
+        region_id: formData.regionId || undefined,
         location: formData.location.trim() || undefined,
         joining_date: formData.joiningDate || undefined,
         employment_type: formData.employmentType,
@@ -199,6 +229,7 @@ export const EditUserModal: React.FC = () => {
         team_id: formData.teamId || null,
         manager_id: formData.managerId || null,
         status: formData.status,
+        permissions,
       });
 
       if (!res.success) {
@@ -206,6 +237,9 @@ export const EditUserModal: React.FC = () => {
         setLoading(false);
         return;
       }
+
+      // Refresh live permissions in AuthContext so useRBAC reflects changes immediately
+      await refreshProfile();
 
       // Map display role for CRMContext
       let legacyRole: any = 'BD Executive';
@@ -667,6 +701,8 @@ export const EditUserModal: React.FC = () => {
               permissions={permissions}
               onChange={setPermissions}
               roleName={formData.role}
+              roleLabel={ROLE_OPTIONS.find((r) => r.value === formData.role)?.label}
+              isLoading={isPermissionsLoading}
             />
 
             {/* Security Actions Panel */}

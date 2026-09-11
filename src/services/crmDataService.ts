@@ -7,12 +7,14 @@
 import { supabase, isSupabaseConfigured } from '../utils/supabaseClient';
 import {
   Client, Opportunity, Activity, Followup, InternalTask,
-  CRMDocument, TeamMember, BusinessSegment, User, ClientContact
+  CRMDocument, TeamMember, BusinessSegment, User, ClientContact, SegmentPermission
 } from '../types/crm';
+import { UserRoleEnum } from '../types/database.types';
 import {
   INITIAL_CLIENTS, INITIAL_OPPORTUNITIES, INITIAL_ACTIVITIES, INITIAL_FOLLOWUPS,
   INITIAL_INTERNAL_TASKS, INITIAL_TEAM_MEMBERS, INITIAL_SEGMENTS, INITIAL_USERS, INITIAL_DOCUMENTS
 } from '../utils/seedData';
+import { convertSegmentPermissionsToRolePermissions } from '../utils/rbacPermissions';
 
 // ─── UUID SANITIZER UTILITY ──────────────────────────────────────────────────
 export const isValidUUID = (id?: string | null): boolean =>
@@ -456,6 +458,99 @@ export function transformProfileToDB(user: Partial<User>, orgId: string) {
   if (user.avatar_url) payload.avatar_url = user.avatar_url;
 
   return payload;
+}
+
+export async function validateProfileForeignKeys(
+  dbPayload: Record<string, any>,
+  orgId: string,
+  targetProfileId?: string
+): Promise<void> {
+  if (!isSupabaseConfigured()) return;
+
+  const profileId = targetProfileId || dbPayload.id;
+
+  // 1. Manager Validation (Fail-Closed)
+  if (dbPayload.manager_id) {
+    if (!isValidUUID(dbPayload.manager_id)) {
+      throw new Error('Selected reporting manager ID is invalid. Please select a valid active manager.');
+    }
+
+    if (profileId && dbPayload.manager_id === profileId) {
+      throw new Error('Hierarchy Integrity Violation: An employee cannot be assigned as their own reporting manager.');
+    }
+
+    const { data: mgrProfile, error: mgrErr } = await (supabase.from('profiles') as any)
+      .select('id, status, organization_id, full_name')
+      .eq('id', dbPayload.manager_id)
+      .maybeSingle();
+
+    if (mgrErr) {
+      console.error('Error verifying manager profile in database:', mgrErr);
+      throw new Error(`Failed to verify reporting manager: ${mgrErr.message}`);
+    }
+
+    if (!mgrProfile) {
+      throw new Error('Selected reporting manager is no longer available. Please refresh the manager list and select an active manager.');
+    }
+
+    if (mgrProfile.status !== 'active') {
+      throw new Error(`Selected reporting manager (${mgrProfile.full_name || 'User'}) is inactive. Please select an active manager.`);
+    }
+
+    if (mgrProfile.organization_id && mgrProfile.organization_id !== orgId) {
+      throw new Error('Cross-Organization Violation: Selected reporting manager belongs to a different organization workspace.');
+    }
+  }
+
+  // 2. Team Validation (Fail-Closed)
+  if (dbPayload.team_id) {
+    if (!isValidUUID(dbPayload.team_id)) {
+      throw new Error('Selected team ID is invalid. Please select a valid team.');
+    }
+
+    const { data: teamRow, error: teamErr } = await (supabase.from('teams') as any)
+      .select('id, organization_id, is_active')
+      .eq('id', dbPayload.team_id)
+      .maybeSingle();
+
+    if (teamErr) {
+      console.error('Error verifying team in database:', teamErr);
+      throw new Error(`Failed to verify team assignment: ${teamErr.message}`);
+    }
+
+    if (!teamRow) {
+      throw new Error('Selected team does not exist. Please refresh and select a valid team.');
+    }
+
+    if (teamRow.organization_id && teamRow.organization_id !== orgId) {
+      throw new Error('Cross-Organization Violation: Selected team belongs to a different organization workspace.');
+    }
+  }
+
+  // 3. Region Validation (Fail-Closed)
+  if (dbPayload.region_id) {
+    if (!isValidUUID(dbPayload.region_id)) {
+      throw new Error('Selected region ID is invalid. Please select a valid region.');
+    }
+
+    const { data: regRow, error: regErr } = await (supabase.from('regions') as any)
+      .select('id, organization_id')
+      .eq('id', dbPayload.region_id)
+      .maybeSingle();
+
+    if (regErr) {
+      console.error('Error verifying region in database:', regErr);
+      throw new Error(`Failed to verify region assignment: ${regErr.message}`);
+    }
+
+    if (!regRow) {
+      throw new Error('Selected region does not exist. Please refresh and select a valid region.');
+    }
+
+    if (regRow.organization_id && regRow.organization_id !== orgId) {
+      throw new Error('Cross-Organization Violation: Selected region belongs to a different organization workspace.');
+    }
+  }
 }
 
 // ─── CRUD OPERATIONS ─────────────────────────────────────────────────────────
@@ -998,99 +1093,6 @@ export const crmDataService = {
     }
   },
 
-export async function validateProfileForeignKeys(
-  dbPayload: Record<string, any>,
-  orgId: string,
-  targetProfileId?: string
-): Promise<void> {
-  if (!isSupabaseConfigured()) return;
-
-  const profileId = targetProfileId || dbPayload.id;
-
-  // 1. Manager Validation (Fail-Closed)
-  if (dbPayload.manager_id) {
-    if (!isValidUUID(dbPayload.manager_id)) {
-      throw new Error('Selected reporting manager ID is invalid. Please select a valid active manager.');
-    }
-
-    if (profileId && dbPayload.manager_id === profileId) {
-      throw new Error('Hierarchy Integrity Violation: An employee cannot be assigned as their own reporting manager.');
-    }
-
-    const { data: mgrProfile, error: mgrErr } = await (supabase.from('profiles') as any)
-      .select('id, status, organization_id, full_name')
-      .eq('id', dbPayload.manager_id)
-      .maybeSingle();
-
-    if (mgrErr) {
-      console.error('Error verifying manager profile in database:', mgrErr);
-      throw new Error(`Failed to verify reporting manager: ${mgrErr.message}`);
-    }
-
-    if (!mgrProfile) {
-      throw new Error('Selected reporting manager is no longer available. Please refresh the manager list and select an active manager.');
-    }
-
-    if (mgrProfile.status !== 'active') {
-      throw new Error(`Selected reporting manager (${mgrProfile.full_name || 'User'}) is inactive. Please select an active manager.`);
-    }
-
-    if (mgrProfile.organization_id && mgrProfile.organization_id !== orgId) {
-      throw new Error('Cross-Organization Violation: Selected reporting manager belongs to a different organization workspace.');
-    }
-  }
-
-  // 2. Team Validation (Fail-Closed)
-  if (dbPayload.team_id) {
-    if (!isValidUUID(dbPayload.team_id)) {
-      throw new Error('Selected team ID is invalid. Please select a valid team.');
-    }
-
-    const { data: teamRow, error: teamErr } = await (supabase.from('teams') as any)
-      .select('id, organization_id, is_active')
-      .eq('id', dbPayload.team_id)
-      .maybeSingle();
-
-    if (teamErr) {
-      console.error('Error verifying team in database:', teamErr);
-      throw new Error(`Failed to verify team assignment: ${teamErr.message}`);
-    }
-
-    if (!teamRow) {
-      throw new Error('Selected team does not exist. Please refresh and select a valid team.');
-    }
-
-    if (teamRow.organization_id && teamRow.organization_id !== orgId) {
-      throw new Error('Cross-Organization Violation: Selected team belongs to a different organization workspace.');
-    }
-  }
-
-  // 3. Region Validation (Fail-Closed)
-  if (dbPayload.region_id) {
-    if (!isValidUUID(dbPayload.region_id)) {
-      throw new Error('Selected region ID is invalid. Please select a valid region.');
-    }
-
-    const { data: regRow, error: regErr } = await (supabase.from('regions') as any)
-      .select('id, organization_id')
-      .eq('id', dbPayload.region_id)
-      .maybeSingle();
-
-    if (regErr) {
-      console.error('Error verifying region in database:', regErr);
-      throw new Error(`Failed to verify region assignment: ${regErr.message}`);
-    }
-
-    if (!regRow) {
-      throw new Error('Selected region does not exist. Please refresh and select a valid region.');
-    }
-
-    if (regRow.organization_id && regRow.organization_id !== orgId) {
-      throw new Error('Cross-Organization Violation: Selected region belongs to a different organization workspace.');
-    }
-  }
-}
-
   async upsertProfile(user: Partial<User>, orgId: string): Promise<User> {
     if (!isSupabaseConfigured()) {
       const id = user.id || `USR-${Date.now()}`;
@@ -1146,6 +1148,44 @@ export async function validateProfileForeignKeys(
     if (error) {
       console.error('Supabase deleteProfile error:', error);
       throw error;
+    }
+  },
+
+  // ROLE PERMISSIONS (Source of Truth for RBAC Matrix)
+  async fetchRolePermissions(orgId: string, role?: string): Promise<any[]> {
+    if (!isSupabaseConfigured()) return [];
+    try {
+      let query = (supabase.from('role_permissions') as any)
+        .select('*')
+        .eq('organization_id', orgId);
+
+      if (role) {
+        query = query.eq('role', role);
+      }
+
+      const { data, error } = await query;
+      if (error) {
+        console.error('Supabase fetchRolePermissions error:', error);
+        throw error;
+      }
+      return data || [];
+    } catch (err) {
+      console.warn('Supabase fetchRolePermissions failed, using fallback:', err);
+      return [];
+    }
+  },
+
+  async saveRolePermissions(role: UserRoleEnum, permissions: SegmentPermission[], orgId: string): Promise<void> {
+    if (!isSupabaseConfigured()) return;
+    const rows = convertSegmentPermissionsToRolePermissions(permissions, role, orgId);
+    if (!rows || rows.length === 0) return;
+
+    const { error } = await (supabase.from('role_permissions') as any)
+      .upsert(rows, { onConflict: 'organization_id,role,module_key,action' });
+
+    if (error) {
+      console.error('Supabase saveRolePermissions error:', error);
+      throw new Error(`Failed to persist role permissions: ${error.message}`);
     }
   },
 };

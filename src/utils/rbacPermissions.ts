@@ -1,5 +1,5 @@
 import { SegmentPermission } from '../types/crm';
-import { UserRoleEnum } from '../types/database.types';
+import { UserRoleEnum, PermissionActionEnum } from '../types/database.types';
 
 export type CRMAction = 'view' | 'create' | 'edit' | 'delete' | 'export' | 'approve' | 'assign' | 'admin';
 
@@ -257,6 +257,90 @@ export function getDefaultPermissionsForRole(roleName: string): SegmentPermissio
       canExport: false,
     };
   });
+}
+
+/**
+ * Transforms live Supabase role_permissions database rows into a UI-ready SegmentPermission array.
+ * Preserves explicit FALSE permissions (distinguishing false from undefined).
+ */
+export function convertRolePermissionsToSegmentPermissions(
+  perms: Array<{ module_key: string; action: string; is_allowed: boolean }>,
+  roleName: string
+): SegmentPermission[] {
+  if (!perms || perms.length === 0) {
+    return getDefaultPermissionsForRole(roleName);
+  }
+
+  const lookup = new Map<string, boolean>();
+  for (const row of perms) {
+    lookup.set(`${row.module_key}:${row.action}`, Boolean(row.is_allowed));
+  }
+
+  return ALL_SEGMENTS.map((seg) => {
+    // Map proposals to calculator module key in DB
+    const moduleKeys = seg.key === 'proposals' ? ['calculator', 'proposals', 'opportunities'] : [seg.key];
+
+    const getPerm = (action: string): boolean => {
+      for (const mKey of moduleKeys) {
+        const key = `${mKey}:${action}`;
+        if (lookup.has(key)) {
+          return lookup.get(key)!;
+        }
+      }
+      return false; // Fail-closed default
+    };
+
+    return {
+      segmentKey: seg.key,
+      segmentLabel: seg.label,
+      canView: getPerm('view'),
+      canAdd: getPerm('create'),
+      canEdit: getPerm('edit'),
+      canDelete: getPerm('delete'),
+      canExport: getPerm('export'),
+    };
+  });
+}
+
+/**
+ * Converts UI SegmentPermission matrix into normalized Supabase role_permissions insert/update rows.
+ * Explicitly writes boolean true/false for all segment actions.
+ */
+export function convertSegmentPermissionsToRolePermissions(
+  segmentPerms: SegmentPermission[],
+  role: UserRoleEnum,
+  orgId: string
+): Array<{
+  organization_id: string;
+  role: UserRoleEnum;
+  module_key: string;
+  module_name: string;
+  action: PermissionActionEnum;
+  is_allowed: boolean;
+}> {
+  const rows: Array<{
+    organization_id: string;
+    role: UserRoleEnum;
+    module_key: string;
+    module_name: string;
+    action: PermissionActionEnum;
+    is_allowed: boolean;
+  }> = [];
+
+  for (const seg of segmentPerms) {
+    const moduleKey = seg.segmentKey === 'proposals' ? 'calculator' : seg.segmentKey;
+    const moduleName = seg.segmentLabel;
+
+    rows.push(
+      { organization_id: orgId, role, module_key: moduleKey, module_name: moduleName, action: 'view', is_allowed: Boolean(seg.canView) },
+      { organization_id: orgId, role, module_key: moduleKey, module_name: moduleName, action: 'create', is_allowed: Boolean(seg.canAdd) },
+      { organization_id: orgId, role, module_key: moduleKey, module_name: moduleName, action: 'edit', is_allowed: Boolean(seg.canEdit) },
+      { organization_id: orgId, role, module_key: moduleKey, module_name: moduleName, action: 'delete', is_allowed: Boolean(seg.canDelete) },
+      { organization_id: orgId, role, module_key: moduleKey, module_name: moduleName, action: 'export', is_allowed: Boolean(seg.canExport) }
+    );
+  }
+
+  return rows;
 }
 
 /**

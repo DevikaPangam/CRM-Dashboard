@@ -7,8 +7,9 @@ import { validateCorporateEmail } from '../../utils/authValidators';
 import { provisionUser, getHierarchyOptions, HierarchyOptions } from '../../services/adminService';
 import { UserRoleEnum, UserStatusEnum } from '../../types/database.types';
 import { SegmentPermissionsMatrix } from '../common/SegmentPermissionsMatrix';
-import { getDefaultPermissionsForRole } from '../../utils/rbacPermissions';
+import { getDefaultPermissionsForRole, convertRolePermissionsToSegmentPermissions } from '../../utils/rbacPermissions';
 import { SegmentPermission } from '../../types/crm';
+import { crmDataService } from '../../services/crmDataService';
 
 const ROLE_OPTIONS: Array<{ value: UserRoleEnum; label: string; description: string; requiresSuperAdmin?: boolean; defaultDept?: string }> = [
   { value: 'super_admin', label: 'Super Administrator', description: 'Full system & multi-tenant organization authority', requiresSuperAdmin: true },
@@ -68,6 +69,7 @@ export const AddUserModal: React.FC = () => {
 
   const [loading, setLoading] = useState(false);
   const [isHierarchyLoading, setIsHierarchyLoading] = useState(true);
+  const [isPermissionsLoading, setIsPermissionsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -98,6 +100,36 @@ export const AddUserModal: React.FC = () => {
     };
   }, []);
 
+  // Fetch authoritative role_permissions from Supabase for the selected role
+  useEffect(() => {
+    let isMounted = true;
+    setIsPermissionsLoading(true);
+    const orgId = profile?.organization_id || '00000000-0000-0000-0000-000000000001';
+    const targetRole = formData.role;
+
+    crmDataService.fetchRolePermissions(orgId, targetRole)
+      .then((dbPerms) => {
+        if (isMounted) {
+          if (dbPerms && dbPerms.length > 0) {
+            setPermissions(convertRolePermissionsToSegmentPermissions(dbPerms, targetRole));
+          } else {
+            setPermissions(getDefaultPermissionsForRole(targetRole));
+          }
+        }
+      })
+      .catch((err) => {
+        console.warn('Could not load role permissions from Supabase:', err);
+        if (isMounted) setPermissions(getDefaultPermissionsForRole(targetRole));
+      })
+      .finally(() => {
+        if (isMounted) setIsPermissionsLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [formData.role, profile?.organization_id]);
+
   const handleRoleChange = (role: UserRoleEnum) => {
     let designation = formData.designation;
     let dept = formData.department;
@@ -123,7 +155,6 @@ export const AddUserModal: React.FC = () => {
       department: dept,
       isRegionalOwner: isBD ? formData.isRegionalOwner : false,
     });
-    setPermissions(getDefaultPermissionsForRole(role));
   };
 
   const handleRegionChange = (regionId: string) => {
@@ -184,6 +215,7 @@ export const AddUserModal: React.FC = () => {
         status: formData.status,
         provisioning_method: formData.provisioningMethod,
         temp_password: formData.tempPassword,
+        permissions,
       });
 
       if (!result.success) {
@@ -595,6 +627,8 @@ export const AddUserModal: React.FC = () => {
               permissions={permissions}
               onChange={setPermissions}
               roleName={formData.role}
+              roleLabel={ROLE_OPTIONS.find((r) => r.value === formData.role)?.label}
+              isLoading={isPermissionsLoading}
             />
 
             {/* Row 6: Account Status & Provisioning Method */}

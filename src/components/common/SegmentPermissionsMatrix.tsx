@@ -7,17 +7,23 @@ interface Props {
   permissions: SegmentPermission[];
   onChange: (permissions: SegmentPermission[]) => void;
   roleName?: string;
+  roleLabel?: string;
   readOnly?: boolean;
+  isLoading?: boolean;
 }
 
 export const SegmentPermissionsMatrix: React.FC<Props> = ({
   permissions,
   onChange,
   roleName = 'bd_exec',
+  roleLabel,
   readOnly = false,
+  isLoading = false,
 }) => {
+  const displayRole = roleLabel || roleName.replace(/_/g, ' ').toUpperCase();
+
   const handleToggle = (segmentKey: string, field: keyof Omit<SegmentPermission, 'segmentKey' | 'segmentLabel'>) => {
-    if (readOnly) return;
+    if (readOnly || isLoading) return;
     const updated = permissions.map((p) => {
       if (p.segmentKey === segmentKey) {
         return { ...p, [field]: !p[field] };
@@ -28,34 +34,40 @@ export const SegmentPermissionsMatrix: React.FC<Props> = ({
   };
 
   const handleSelectAll = (field: keyof Omit<SegmentPermission, 'segmentKey' | 'segmentLabel'>, value: boolean) => {
-    if (readOnly) return;
+    if (readOnly || isLoading) return;
     const updated = permissions.map((p) => ({ ...p, [field]: value }));
     onChange(updated);
   };
 
   const handleResetDefaults = () => {
-    if (readOnly) return;
+    if (readOnly || isLoading) return;
     const defaults = getDefaultPermissionsForRole(roleName);
     onChange(defaults);
   };
 
   return (
     <div style={{ marginTop: '16px', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <ShieldCheck size={17} style={{ color: '#0284c7' }} />
-          <strong style={{ fontSize: '13.5px', color: '#0f172a' }}>
-            Segment Action Permissions Matrix (Add, Edit, Delete Controls)
-          </strong>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <ShieldCheck size={17} style={{ color: '#0284c7' }} />
+            <strong style={{ fontSize: '13.5px', color: '#0f172a' }}>
+              Role Permission Matrix ({displayRole})
+            </strong>
+          </div>
+          <span style={{ fontSize: '11.5px', color: '#64748b', display: 'block', marginTop: '2px' }}>
+            Source of truth: Supabase role_permissions. Configures enterprise RBAC action access for this role.
+          </span>
         </div>
 
-        {!readOnly && (
+        {!readOnly && !isLoading && (
           <div style={{ display: 'flex', gap: '8px' }}>
             <button
               type="button"
               className="btn btn-secondary btn-sm"
               onClick={() => handleSelectAll('canAdd', true)}
               style={{ fontSize: '11px', padding: '4px 8px' }}
+              title="Enable Addition across all segments (in memory until saved)"
             >
               + Allow All Addition
             </button>
@@ -64,6 +76,7 @@ export const SegmentPermissionsMatrix: React.FC<Props> = ({
               className="btn btn-secondary btn-sm"
               onClick={() => handleSelectAll('canEdit', true)}
               style={{ fontSize: '11px', padding: '4px 8px' }}
+              title="Enable Edit across all segments (in memory until saved)"
             >
               + Allow All Edit
             </button>
@@ -72,6 +85,7 @@ export const SegmentPermissionsMatrix: React.FC<Props> = ({
               className="btn btn-secondary btn-sm"
               onClick={handleResetDefaults}
               style={{ fontSize: '11px', padding: '4px 8px', color: '#0284c7', borderColor: '#bae6fd' }}
+              title="Reset in-memory matrix to baseline role defaults"
             >
               <RotateCcw size={12} />
               Reset Defaults
@@ -79,6 +93,12 @@ export const SegmentPermissionsMatrix: React.FC<Props> = ({
           </div>
         )}
       </div>
+
+      {isLoading ? (
+        <div style={{ padding: '24px', textAlign: 'center', color: '#64748b', fontSize: '13px' }}>
+          <span>Loading active role permissions from Supabase...</span>
+        </div>
+      ) : (
 
       <div style={{ overflowX: 'auto' }}>
         <table className="crm-table" style={{ fontSize: '12px', width: '100%', borderCollapse: 'collapse' }}>
@@ -158,6 +178,7 @@ export const SegmentPermissionsMatrix: React.FC<Props> = ({
           </tbody>
         </table>
       </div>
+      )}
     </div>
   );
 };
