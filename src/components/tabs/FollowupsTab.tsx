@@ -9,12 +9,16 @@ import { scopeRecordsByUserRole } from '../../utils/rbacPermissions';
 
 export const FollowupsTab: React.FC = () => {
   const { followups, completeFollowup, deleteFollowup, openModal, currentUser } = useCRM();
-  const { currentRole } = useRBAC();
+  const { can, currentRole } = useRBAC();
 
   const [statusFilter, setStatusFilter] = useState('All');
   const [localSearch, setLocalSearch] = useState('');
 
   const today = new Date().setHours(0, 0, 0, 0);
+
+  const canCreate = can('followups', 'create');
+  const canEdit = can('followups', 'edit');
+  const canDelete = can('followups', 'delete');
 
   const scopedFollowups = useMemo(() => {
     return scopeRecordsByUserRole(followups, currentUser, currentRole, 'assignedTo');
@@ -45,7 +49,7 @@ export const FollowupsTab: React.FC = () => {
   const overdueCount = scopedFollowups.filter((f) => getComputedStatus(f) === 'Overdue').length;
 
   return (
-    <section>
+    <section aria-label="Follow-up and Action Item Tracker">
       {/* Top Header */}
       <div
         style={{
@@ -66,7 +70,13 @@ export const FollowupsTab: React.FC = () => {
           </p>
         </div>
 
-        <button className="btn btn-primary" onClick={() => openModal('addFollowup')}>
+        <button
+          className="btn btn-primary"
+          onClick={() => openModal('addFollowup')}
+          disabled={!canCreate}
+          aria-label="Schedule new follow-up task"
+          title={canCreate ? 'Schedule a new follow-up' : 'Permission Required: Create Follow-up'}
+        >
           <Calendar size={15} />
           <span>+ Schedule Follow-up</span>
         </button>
@@ -75,6 +85,7 @@ export const FollowupsTab: React.FC = () => {
       {/* Overdue Banner if overdue items exist */}
       {overdueCount > 0 && (
         <div
+          role="alert"
           style={{
             background: '#fee2e2',
             border: '1px solid #fecaca',
@@ -87,7 +98,7 @@ export const FollowupsTab: React.FC = () => {
             color: '#991b1b',
           }}
         >
-          <AlertTriangle size={20} style={{ color: '#dc2626' }} />
+          <AlertTriangle size={20} style={{ color: '#dc2626' }} aria-hidden="true" />
           <div>
             <strong style={{ fontSize: '13px' }}>Attention: You have {overdueCount} overdue follow-up action items!</strong>
             <div style={{ fontSize: '12px', color: '#b91c1c' }}>
@@ -101,19 +112,25 @@ export const FollowupsTab: React.FC = () => {
       <div className="filter-toolbar">
         <div className="filter-group">
           <div className="filter-item">
-            <Search size={14} style={{ color: '#64748b' }} />
+            <Search size={14} style={{ color: '#64748b' }} aria-hidden="true" />
             <input
               type="text"
               placeholder="Search client, action item, owner..."
               value={localSearch}
               onChange={(e) => setLocalSearch(e.target.value)}
+              aria-label="Search follow-up tasks"
               style={{ width: '230px' }}
             />
           </div>
 
           <div className="filter-item">
-            <label>Status:</label>
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <label htmlFor="followup-status-filter">Status:</label>
+            <select
+              id="followup-status-filter"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              aria-label="Filter follow-up tasks by status"
+            >
               <option value="All">All Follow-ups</option>
               <option value="Pending">Pending</option>
               <option value="Overdue">Overdue ({overdueCount})</option>
@@ -130,7 +147,7 @@ export const FollowupsTab: React.FC = () => {
       {/* Table */}
       <div className="table-card">
         <div className="table-responsive">
-          <table className="data-table">
+          <table className="data-table" aria-label="Follow-up Action Items Table">
             <thead>
               <tr>
                 <th>Status</th>
@@ -201,7 +218,9 @@ export const FollowupsTab: React.FC = () => {
                           <button
                             className="btn btn-success btn-xs"
                             onClick={() => completeFollowup(fol.id)}
-                            title="Mark Completed"
+                            disabled={!canEdit}
+                            aria-label={`Mark task completed: ${fol.description}`}
+                            title={canEdit ? 'Mark Completed' : 'Permission Required: Edit Follow-up'}
                           >
                             <CheckCircle2 size={12} />
                             <span>Done</span>
@@ -213,7 +232,9 @@ export const FollowupsTab: React.FC = () => {
                           className="btn btn-secondary btn-xs"
                           style={{ color: '#dc2626' }}
                           onClick={() => deleteFollowup(fol.id)}
-                          title="Delete Follow-up"
+                          disabled={!canDelete}
+                          aria-label={`Delete task: ${fol.description}`}
+                          title={canDelete ? 'Delete Follow-up' : 'Permission Required: Delete Follow-up'}
                         >
                           <Trash2 size={12} />
                         </button>
