@@ -307,53 +307,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (error) {
-        // Guaranteed Bootstrap for Managing Director & System Administrator devika.p@rajmudragroup.com
-        if (emailLower === 'devika.p@rajmudragroup.com' || emailLower.endsWith('@rajmudragroup.com')) {
-          const superAdminProfile: ProfileRow = {
-            id: '00000000-0000-0000-0000-000000000001',
-            organization_id: '00000000-0000-0000-0000-000000000001',
-            full_name: 'Devika Pangam',
-            email: emailLower,
-            role: 'super_admin',
-            department: 'Executive Management & Administration',
-            designation: 'Managing Director / System Administrator',
-            employee_id: 'EMP-001',
-            phone: '+91 99999 00000',
-            avatar_url: null,
-            avatar_bg: '#f59e0b',
-            team_id: null,
-            manager_id: null,
-            status: 'active',
-            region: 'All Corporate Business Segments & Regions',
-            region_id: null,
-            location: 'Corporate HQ - Mumbai',
-            joining_date: '2020-04-01',
-            employment_type: 'Full-time',
-            is_regional_owner: true,
-            allowed_segments: [],
-            annual_target_inr: 265000000,
-            last_login_at: new Date().toISOString(),
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          };
-
-          try {
-            await (supabase.from('profiles') as any).upsert(superAdminProfile);
-          } catch (dbErr) {
-            console.warn('Supabase DB profile sync notice:', dbErr);
-          }
-
-          setProfile(superAdminProfile);
-          setAuthState('AUTHENTICATED');
-          setAccessDeniedReason(null);
-          setIsLoading(false);
-          logAuthEvent('LOGIN_SUCCESS', emailLower, { method: 'corporate_admin_bootstrap' });
-          return { success: true };
-        }
-
         setIsLoading(false);
         logAuthEvent('LOGIN_FAILURE', emailLower, { reason: error.message });
-        return { success: false, error: error.message };
+        return { success: false, error: error.message || 'Invalid credentials or authentication failed.' };
       }
 
       if (data?.user) {
