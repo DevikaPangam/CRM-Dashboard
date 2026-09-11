@@ -50,6 +50,7 @@ export interface UpdateUserPayload {
   manager_id?: string | null;
   status?: UserStatusEnum;
   permissions?: SegmentPermission[];
+  isPermissionsDirty?: boolean;
 }
 
 import { DepartmentMaster } from '../types/crm';
@@ -403,10 +404,8 @@ export async function provisionUser(payload: ProvisionUserPayload): Promise<{ su
         throw new Error(verifyErr?.message || 'Verification of newly provisioned Supabase profile failed.');
       }
 
-      // 5. Persist customized role permissions if provided
-      if (payload.role && payload.permissions && payload.permissions.length > 0) {
-        await crmDataService.saveRolePermissions(payload.role, payload.permissions, orgId);
-      }
+      // 5. STEP 12.13B: Provisioning MUST NOT automatically write role_permissions in Supabase.
+      // New employees automatically inherit existing role permissions from Supabase via useRBAC().
 
       return {
         success: true,
@@ -483,14 +482,16 @@ export async function updateAdminUser(userId: string, payload: UpdateUserPayload
         status: payload.status ? (payload.status === 'active' ? 'Active' : 'Inactive') : undefined,
       }, orgId);
 
-      // Persist role permissions if supplied
-      if (payload.role && payload.permissions && payload.permissions.length > 0) {
+      // STEP 12.13B: Persist role permissions ONLY when explicitly dirty / modified by administrator
+      if (payload.isPermissionsDirty === true && payload.role && payload.permissions && payload.permissions.length > 0) {
         await crmDataService.saveRolePermissions(payload.role, payload.permissions, orgId);
       }
 
       return {
         success: true,
-        message: 'User profile and permissions updated and persisted in Supabase.',
+        message: payload.isPermissionsDirty
+          ? 'User profile and role permissions updated and persisted in Supabase.'
+          : 'User profile updated and persisted in Supabase.',
         user: { id: userId, ...payload },
       };
     } catch (err: any) {

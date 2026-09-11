@@ -47,12 +47,35 @@ export const SegmentPermissionsMatrix: React.FC<Props> = ({
 
   return (
     <div style={{ marginTop: '16px', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px' }}>
+      {/* Explicit Enterprise Role-Level Scope Warning Banner */}
+      <div
+        style={{
+          padding: '10px 14px',
+          background: '#eff6ff',
+          border: '1px solid #bfdbfe',
+          borderRadius: '6px',
+          marginBottom: '12px',
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '10px',
+        }}
+      >
+        <ShieldCheck size={18} style={{ color: '#1d4ed8', flexShrink: 0, marginTop: '2px' }} />
+        <div style={{ fontSize: '12px', color: '#1e40af', lineHeight: '1.45' }}>
+          <strong style={{ display: 'block', marginBottom: '2px', color: '#1e3a8a' }}>
+            Enterprise Role Permissions — {displayRole}
+          </strong>
+          <span>
+            These permissions are assigned at the <strong>ROLE level</strong>. Changes will apply to <strong>ALL users</strong> assigned to this role in this organization.
+          </span>
+        </div>
+      </div>
+
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <ShieldCheck size={17} style={{ color: '#0284c7' }} />
-            <strong style={{ fontSize: '13.5px', color: '#0f172a' }}>
-              Role Permission Matrix ({displayRole})
+            <strong style={{ fontSize: '13px', color: '#0f172a' }}>
+              Action Permission Matrix ({displayRole})
             </strong>
           </div>
           <span style={{ fontSize: '11.5px', color: '#64748b', display: 'block', marginTop: '2px' }}>

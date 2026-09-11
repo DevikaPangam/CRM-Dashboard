@@ -215,7 +215,6 @@ export const AddUserModal: React.FC = () => {
         status: formData.status,
         provisioning_method: formData.provisioningMethod,
         temp_password: formData.tempPassword,
-        permissions,
       });
 
       if (!result.success) {
@@ -622,14 +621,30 @@ export const AddUserModal: React.FC = () => {
               </div>
             )}
 
-            {/* Granular Segment Permissions Matrix */}
-            <SegmentPermissionsMatrix
-              permissions={permissions}
-              onChange={setPermissions}
-              roleName={formData.role}
-              roleLabel={ROLE_OPTIONS.find((r) => r.value === formData.role)?.label}
-              isLoading={isPermissionsLoading}
-            />
+            {/* Granular Segment Permissions Matrix (Role Inheritance Preview) */}
+            <div style={{ marginTop: '14px' }}>
+              <div
+                style={{
+                  padding: '8px 12px',
+                  background: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  color: '#475569',
+                  marginBottom: '-10px',
+                }}
+              >
+                ℹ️ <strong>Role Permission Inheritance:</strong> The new employee will automatically inherit the enterprise permissions configured for the <strong>{ROLE_OPTIONS.find((r) => r.value === formData.role)?.label || formData.role}</strong> role. Role permissions are administered centrally.
+              </div>
+              <SegmentPermissionsMatrix
+                permissions={permissions}
+                onChange={setPermissions}
+                roleName={formData.role}
+                roleLabel={ROLE_OPTIONS.find((r) => r.value === formData.role)?.label}
+                isLoading={isPermissionsLoading}
+                readOnly={true}
+              />
+            </div>
 
             {/* Row 6: Account Status & Provisioning Method */}
             <div className="form-grid-2" style={{ marginTop: '16px' }}>

@@ -82,6 +82,9 @@ export const EditUserModal: React.FC = () => {
   const [permissions, setPermissions] = useState<SegmentPermission[]>(() =>
     getDefaultPermissionsForRole(userToEdit?.role_name || userToEdit?.role || 'bd_exec')
   );
+  const [initialPermissions, setInitialPermissions] = useState<SegmentPermission[]>([]);
+  const [isPermissionsDirty, setIsPermissionsDirty] = useState(false);
+  const [showRoleConfirmModal, setShowRoleConfirmModal] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [isHierarchyLoading, setIsHierarchyLoading] = useState(true);
@@ -89,6 +92,24 @@ export const EditUserModal: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  const arePermissionsEqual = (a: SegmentPermission[], b: SegmentPermission[]): boolean => {
+    if (!a || !b || a.length !== b.length) return false;
+    for (const pA of a) {
+      const pB = b.find((x) => x.segmentKey === pA.segmentKey);
+      if (!pB) return false;
+      if (
+        Boolean(pA.canView) !== Boolean(pB.canView) ||
+        Boolean(pA.canAdd) !== Boolean(pB.canAdd) ||
+        Boolean(pA.canEdit) !== Boolean(pB.canEdit) ||
+        Boolean(pA.canDelete) !== Boolean(pB.canDelete) ||
+        Boolean(pA.canExport) !== Boolean(pB.canExport)
+      ) {
+        return false;
+      }
+    }
+    return true;
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -115,16 +136,22 @@ export const EditUserModal: React.FC = () => {
     crmDataService.fetchRolePermissions(orgId, targetRole)
       .then((dbPerms) => {
         if (isMounted) {
-          if (dbPerms && dbPerms.length > 0) {
-            setPermissions(convertRolePermissionsToSegmentPermissions(dbPerms, targetRole));
-          } else {
-            setPermissions(getDefaultPermissionsForRole(targetRole));
-          }
+          const loadedPerms = (dbPerms && dbPerms.length > 0)
+            ? convertRolePermissionsToSegmentPermissions(dbPerms, targetRole)
+            : getDefaultPermissionsForRole(targetRole);
+          setPermissions(loadedPerms);
+          setInitialPermissions(loadedPerms);
+          setIsPermissionsDirty(false);
         }
       })
       .catch((err) => {
         console.warn('Could not load role permissions from Supabase:', err);
-        if (isMounted) setPermissions(getDefaultPermissionsForRole(targetRole));
+        if (isMounted) {
+          const defs = getDefaultPermissionsForRole(targetRole);
+          setPermissions(defs);
+          setInitialPermissions(defs);
+          setIsPermissionsDirty(false);
+        }
       })
       .finally(() => {
         if (isMounted) setIsPermissionsLoading(false);
@@ -179,6 +206,11 @@ export const EditUserModal: React.FC = () => {
     setFormData({ ...formData, role, designation });
   };
 
+  const handlePermissionsChange = (updated: SegmentPermission[]) => {
+    setPermissions(updated);
+    setIsPermissionsDirty(!arePermissionsEqual(updated, initialPermissions));
+  };
+
   const handleRegionChange = (regionId: string) => {
     const selected = hierarchy.regions.find((r) => r.id === regionId);
     setFormData((prev) => ({
@@ -188,27 +220,9 @@ export const EditUserModal: React.FC = () => {
     }));
   };
 
-  const handleSaveChanges = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const performSave = async (saveRolePermissions: boolean) => {
     setErrorMessage(null);
     setSuccessMessage(null);
-
-    if (isEditingSelf && formData.role !== profile?.role) {
-      setErrorMessage('Security Alert: You cannot modify your own administrator role.');
-      return;
-    }
-
-    if (formData.role === 'super_admin' && !isSuperAdmin) {
-      setErrorMessage('Security Alert: Only a Super Administrator can assign the Super Admin role.');
-      return;
-    }
-
-    // Rule 6: Prevent an employee from assigning themselves as manager
-    if (formData.managerId && formData.managerId === userToEdit.id) {
-      setErrorMessage('Hierarchy Rule Violation: An employee cannot be assigned as their own reporting manager.');
-      return;
-    }
-
     setLoading(true);
 
     try {
@@ -229,7 +243,8 @@ export const EditUserModal: React.FC = () => {
         team_id: formData.teamId || null,
         manager_id: formData.managerId || null,
         status: formData.status,
-        permissions,
+        permissions: saveRolePermissions ? permissions : undefined,
+        isPermissionsDirty: saveRolePermissions,
       });
 
       if (!res.success) {
@@ -238,8 +253,10 @@ export const EditUserModal: React.FC = () => {
         return;
       }
 
-      // Refresh live permissions in AuthContext so useRBAC reflects changes immediately
-      await refreshProfile();
+      // Refresh live permissions in AuthContext if role permissions were saved
+      if (saveRolePermissions) {
+        await refreshProfile();
+      }
 
       // Map display role for CRMContext
       let legacyRole: any = 'BD Executive';
@@ -271,10 +288,14 @@ export const EditUserModal: React.FC = () => {
         manager_id: formData.managerId || undefined,
         manager_name: selectedManager?.full_name,
         status: formData.status === 'active' ? 'Active' : 'Inactive',
-        permissions,
+        permissions: saveRolePermissions ? permissions : undefined,
       });
 
-      setSuccessMessage('User profile, hierarchy assignment, and permissions updated successfully.');
+      setSuccessMessage(
+        saveRolePermissions
+          ? 'Employee profile and role-level enterprise permissions updated successfully.'
+          : 'Employee profile updated successfully (Role permissions unchanged).'
+      );
       setTimeout(() => {
         closeModal();
       }, 1200);
@@ -283,6 +304,37 @@ export const EditUserModal: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSaveChanges = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    if (isEditingSelf && formData.role !== profile?.role) {
+      setErrorMessage('Security Alert: You cannot modify your own administrator role.');
+      return;
+    }
+
+    if (formData.role === 'super_admin' && !isSuperAdmin) {
+      setErrorMessage('Security Alert: Only a Super Administrator can assign the Super Admin role.');
+      return;
+    }
+
+    // Rule 6: Prevent an employee from assigning themselves as manager
+    if (formData.managerId && formData.managerId === userToEdit.id) {
+      setErrorMessage('Hierarchy Rule Violation: An employee cannot be assigned as their own reporting manager.');
+      return;
+    }
+
+    // If permissions have been modified, prompt for explicit role-wide confirmation
+    if (isPermissionsDirty) {
+      setShowRoleConfirmModal(true);
+      return;
+    }
+
+    // Otherwise, perform profile-only save
+    await performSave(false);
   };
 
   const handleResetPassword = async () => {
@@ -322,13 +374,98 @@ export const EditUserModal: React.FC = () => {
     }
   };
 
+  const roleLabel = ROLE_OPTIONS.find((r) => r.value === formData.role)?.label || formData.role;
+
   return (
     <div className="modal-overlay" onClick={closeModal}>
+      {/* Role-Wide Permission Change Confirmation Modal */}
+      {showRoleConfirmModal && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(15, 23, 42, 0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            backdropFilter: 'blur(3px)',
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '10px',
+              padding: '24px',
+              maxWidth: '520px',
+              width: '92%',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.25), 0 10px 10px -5px rgba(0, 0, 0, 0.05)',
+              border: '1px solid #cbd5e1',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+              <AlertTriangle size={24} style={{ color: '#d97706' }} />
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>
+                Role-wide permission change
+              </h3>
+            </div>
+            <div style={{ fontSize: '13px', color: '#334155', lineHeight: '1.6', marginBottom: '20px' }}>
+              <p style={{ margin: '0 0 10px 0' }}>
+                You are changing permissions for the <strong>{roleLabel}</strong> role.
+              </p>
+              <div
+                style={{
+                  margin: '0 0 12px 0',
+                  background: '#fef3c7',
+                  padding: '12px 14px',
+                  borderRadius: '6px',
+                  border: '1px solid #fde68a',
+                  color: '#92400e',
+                  fontSize: '12.5px',
+                  lineHeight: '1.5',
+                }}
+              >
+                ⚠️ <strong>Enterprise Impact:</strong> These changes will apply to <strong>ALL users</strong> assigned to this role in this organization. This is <strong>not</strong> an employee-specific permission change.
+              </div>
+              <p style={{ margin: 0, fontWeight: 500, color: '#0f172a' }}>
+                Do you want to continue?
+              </p>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setShowRoleConfirmModal(false)}
+                disabled={loading}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ background: '#d97706', borderColor: '#b45309', color: '#ffffff' }}
+                onClick={async () => {
+                  setShowRoleConfirmModal(false);
+                  await performSave(true);
+                }}
+                disabled={loading}
+              >
+                {loading ? 'Applying...' : 'Apply to Entire Role'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="modal-content-box" style={{ maxWidth: '780px' }} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header-section">
           <div className="modal-header-title">
             <Shield size={18} style={{ color: '#0284c7' }} />
-            <span>Manage Employee &amp; Access Controls ({formData.fullName})</span>
+            <span>Edit Employee Profile ({formData.fullName})</span>
           </div>
           <button className="modal-close-btn" onClick={closeModal}>
             <X size={18} />
@@ -696,12 +833,12 @@ export const EditUserModal: React.FC = () => {
               </div>
             )}
 
-            {/* Granular Segment Permissions Matrix */}
+            {/* Granular Segment Permissions Matrix (Role-Level) */}
             <SegmentPermissionsMatrix
               permissions={permissions}
-              onChange={setPermissions}
+              onChange={handlePermissionsChange}
               roleName={formData.role}
-              roleLabel={ROLE_OPTIONS.find((r) => r.value === formData.role)?.label}
+              roleLabel={roleLabel}
               isLoading={isPermissionsLoading}
             />
 
@@ -755,7 +892,9 @@ export const EditUserModal: React.FC = () => {
               ) : (
                 <>
                   <Save size={15} />
-                  <span>Save User Access Changes</span>
+                  <span>
+                    {isPermissionsDirty ? 'Save Profile & Apply Role Permissions' : 'Save Employee Profile'}
+                  </span>
                 </>
               )}
             </button>
