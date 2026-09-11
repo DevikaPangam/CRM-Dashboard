@@ -15,7 +15,8 @@ export type AuthStateStatus =
   | 'AUTHENTICATED' 
   | 'UNAUTHENTICATED' 
   | 'PROFILE_NOT_FOUND' 
-  | 'ACCOUNT_SUSPENDED';
+  | 'ACCOUNT_SUSPENDED'
+  | 'PASSWORD_RECOVERY';
 
 export interface AuthContextType {
   // Session & Identity
@@ -32,6 +33,7 @@ export interface AuthContextType {
   isLoading: boolean;
   accessDeniedReason: string | null;
   isCloudConnected: boolean;
+  isPasswordRecoveryMode: boolean;
 
   // Actions
   signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
@@ -57,6 +59,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [authState, setAuthState] = useState<AuthStateStatus>('LOADING');
   const [accessDeniedReason, setAccessDeniedReason] = useState<string | null>(null);
+  const [isPasswordRecoveryMode, setIsPasswordRecoveryMode] = useState<boolean>(false);
 
   const isCloudConnected = isSupabaseConfigured();
 
@@ -193,32 +196,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Initialize and listen to Supabase Auth State changes
   useEffect(() => {
     let isMounted = true;
+    const isRecoveryUrl = window.location.search.includes('type=recovery') || window.location.hash.includes('type=recovery');
 
-    // 1. Initial Session Recovery
-    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
+    if (isRecoveryUrl) {
+      setIsPasswordRecoveryMode(true);
+      setAuthState('PASSWORD_RECOVERY');
+    }
+
+    // 1. Realtime Auth State Change Listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       if (!isMounted) return;
 
-      if (initialSession?.user) {
-        setSession(initialSession);
-        setAuthUser(initialSession.user);
-        loadCRMProfile(initialSession.user.id).finally(() => {
-          if (isMounted) setIsLoading(false);
-        });
-      } else {
-        setAuthState('UNAUTHENTICATED');
+      if (event === 'PASSWORD_RECOVERY' || (isRecoveryUrl && newSession?.user)) {
+        setSession(newSession);
+        setAuthUser(newSession?.user || null);
+        setIsPasswordRecoveryMode(true);
+        setAuthState('PASSWORD_RECOVERY');
         setIsLoading(false);
+        return;
       }
-    }).catch((err) => {
-      console.warn('Session recovery notice:', err);
-      if (isMounted) {
-        setAuthState('UNAUTHENTICATED');
-        setIsLoading(false);
-      }
-    });
-
-    // 2. Realtime Auth State Change Listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
-      if (!isMounted) return;
 
       if (newSession?.user) {
         setSession(newSession);
@@ -233,17 +229,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setTeam(null);
         setManager(null);
         setPermissions([]);
-        setAuthState('UNAUTHENTICATED');
+        if (!isPasswordRecoveryMode) {
+          setAuthState('UNAUTHENTICATED');
+        }
         setAccessDeniedReason(null);
         setIsLoading(false);
       }
     });
 
+    // 2. Initial Session Recovery (Only when not processing a recovery callback URL)
+    if (!isRecoveryUrl) {
+      supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
+        if (!isMounted) return;
+
+        if (initialSession?.user) {
+          setSession(initialSession);
+          setAuthUser(initialSession.user);
+          loadCRMProfile(initialSession.user.id).finally(() => {
+            if (isMounted) setIsLoading(false);
+          });
+        } else {
+          setAuthState('UNAUTHENTICATED');
+          setIsLoading(false);
+        }
+      }).catch((err) => {
+        console.warn('Session recovery notice:', err);
+        if (isMounted) {
+          setAuthState('UNAUTHENTICATED');
+          setIsLoading(false);
+        }
+      });
+    }
+
     return () => {
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, [loadCRMProfile]);
+  }, [loadCRMProfile, isPasswordRecoveryMode]);
 
   // Sign In Action (Enforces @rajmudragroup.com corporate domain and authenticates via Supabase Auth)
   const signIn = async (email: string, pass: string): Promise<{ success: boolean; error?: string }> => {
@@ -448,8 +470,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     logAuthEvent('PASSWORD_RESET_INITIATED', rawEmail, { channel: 'supabase_auth' });
 
     try {
+      // Use standards-based URL instance to ensure exactly one '?' query separator
+      const redirectUrl = new URL(`${window.location.origin}/index.html`);
+      redirectUrl.searchParams.set('type', 'recovery');
+
       const { error } = await supabase.auth.resetPasswordForEmail(rawEmail, {
-        redirectTo: `${window.location.origin}/index.html?type=recovery`,
+        redirectTo: redirectUrl.toString(),
       });
 
       if (error) {
@@ -474,6 +500,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) {
         return { success: false, error: error.message };
+      }
+
+      setIsPasswordRecoveryMode(false);
+      if (authUser) {
+        const profileLoaded = await loadCRMProfile(authUser.id);
+        if (!profileLoaded && authState === 'PASSWORD_RECOVERY') {
+          setAuthState('AUTHENTICATED');
+        }
+      } else {
+        setAuthState('AUTHENTICATED');
       }
 
       return { success: true, message: 'Your password has been successfully updated.' };
@@ -507,6 +543,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoading,
         accessDeniedReason,
         isCloudConnected,
+        isPasswordRecoveryMode,
         signIn,
         signUp,
         signOut,

@@ -10,10 +10,13 @@ export const LoginPage: React.FC = () => {
     signIn,
     signUp,
     resetPassword,
+    updatePassword,
+    authUser,
     authState,
     accessDeniedReason,
     isLoading,
     isCloudConnected,
+    isPasswordRecoveryMode,
     signOut,
     clearAccessDenied,
   } = useAuth();
@@ -30,6 +33,12 @@ export const LoginPage: React.FC = () => {
   const [resetEmail, setResetEmail] = useState('');
   const [resetStatus, setResetStatus] = useState<{ success?: boolean; message?: string } | null>(null);
   const [isResetting, setIsResetting] = useState(false);
+
+  // Password Recovery screen state
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [updateStatus, setUpdateStatus] = useState<{ success?: boolean; message?: string; error?: string } | null>(null);
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,6 +85,141 @@ export const LoginPage: React.FC = () => {
       setResetStatus({ success: false, message: result.error });
     }
   };
+
+  // ─── Screen: Password Recovery Screen ───────────────────────────────────────
+  if (authState === 'PASSWORD_RECOVERY' || isPasswordRecoveryMode) {
+    const handleUpdatePasswordSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!newPassword || !confirmPassword) {
+        setUpdateStatus({ success: false, error: 'Please fill in both password fields.' });
+        return;
+      }
+      if (newPassword.length < 6) {
+        setUpdateStatus({ success: false, error: 'Password must be at least 6 characters long.' });
+        return;
+      }
+      if (newPassword !== confirmPassword) {
+        setUpdateStatus({ success: false, error: 'Passwords do not match. Please re-enter.' });
+        return;
+      }
+
+      setIsUpdatingPassword(true);
+      setUpdateStatus(null);
+      const res = await updatePassword(newPassword);
+      setIsUpdatingPassword(false);
+      if (res.success) {
+        setUpdateStatus({ success: true, message: res.message || 'Password updated successfully!' });
+      } else {
+        setUpdateStatus({ success: false, error: res.error || 'Password update failed.' });
+      }
+    };
+
+    return (
+      <div className="login-screen-wrapper">
+        <div className="login-glass-card" style={{ maxWidth: '460px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+            <div
+              style={{
+                width: '56px',
+                height: '56px',
+                borderRadius: '50%',
+                background: '#e0f2fe',
+                color: '#0284c7',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 16px auto',
+              }}
+            >
+              <KeyRound size={28} />
+            </div>
+            <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', margin: '0 0 6px 0' }}>
+              Set New Corporate Password
+            </h2>
+            <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
+              Authenticated via password recovery session for: <strong>{authUser?.email || 'Corporate User Account'}</strong>
+            </p>
+          </div>
+
+          {updateStatus?.success ? (
+            <div style={{ textAlign: 'center', padding: '10px 0' }}>
+              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#15803d', padding: '14px', borderRadius: '8px', fontSize: '13px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <CheckCircle2 size={18} style={{ flexShrink: 0 }} />
+                <span>{updateStatus.message}</span>
+              </div>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ width: '100%', padding: '10px' }}
+                onClick={() => {
+                  window.location.href = window.location.origin;
+                }}
+              >
+                Proceed to CRM Dashboard
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleUpdatePasswordSubmit} className="login-form-body">
+              {updateStatus?.error && (
+                <div className="login-error-alert" style={{ marginBottom: '16px' }}>
+                  <AlertTriangle size={15} style={{ flexShrink: 0 }} />
+                  <span>{updateStatus.error}</span>
+                </div>
+              )}
+
+              <div className="login-field-group">
+                <label>New Corporate Password</label>
+                <div className="login-input-wrapper">
+                  <Lock size={16} className="login-input-icon" />
+                  <input
+                    type="password"
+                    placeholder="Enter new password (min 6 chars)"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    required
+                    autoComplete="new-password"
+                  />
+                </div>
+              </div>
+
+              <div className="login-field-group">
+                <label>Confirm New Password</label>
+                <div className="login-input-wrapper">
+                  <Lock size={16} className="login-input-icon" />
+                  <input
+                    type="password"
+                    placeholder="Re-enter new password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    autoComplete="new-password"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="login-submit-btn"
+                disabled={isUpdatingPassword}
+              >
+                {isUpdatingPassword ? (
+                  <>
+                    <RefreshCw size={16} className="animate-spin" />
+                    <span>Updating Password...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 size={16} />
+                    <span>Update Corporate Password</span>
+                  </>
+                )}
+              </button>
+            </form>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   // ─── Screen: Access Not Provisioned / Account Suspended Guard ───────────────
   if (authState === 'PROFILE_NOT_FOUND' || authState === 'ACCOUNT_SUSPENDED') {
