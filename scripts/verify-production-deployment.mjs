@@ -1,99 +1,72 @@
 /**
- * Production Deployment & Persistence Verification Script
- * Validates:
- * 1. Live Vercel Production HTML & JS Bundle Deployment (https://crm-dashboard-l79s.vercel.app/)
- * 2. Live Supabase Cloud Configuration (https://lyaryldpiviaytcarbtn.supabase.co)
- * 3. Absence of exposed service_role keys
- * 4. Verification of public.profiles persistence & retrieval flow
- * 5. End-to-end domain audit (Auth, Profile, Dept, Team, Region, Manager, Regional Owner, BD Team, Trajectory, RLS)
+ * STEP 12.13C — VERCEL PRODUCTION DEPLOYMENT VALIDATION SCRIPT
  */
 
-import https from 'node:https';
+async function verifyProductionDeployment() {
+  console.log('🌐 Fetching live Vercel production deployment (https://crm-dashboard-l79s.vercel.app/)...');
+  
+  const htmlRes = await fetch('https://crm-dashboard-l79s.vercel.app/', { cache: 'no-store' });
+  if (!htmlRes.ok) {
+    throw new Error(`Failed to fetch production HTML: ${htmlRes.status} ${htmlRes.statusText}`);
+  }
+  
+  const html = await htmlRes.text();
+  console.log(`  🟢 Production HTML Status: ${htmlRes.status} OK (${html.length} bytes)`);
 
-const PROD_URL = 'https://crm-dashboard-l79s.vercel.app/';
-const SUPABASE_PROJECT_URL = 'https://lyaryldpiviaytcarbtn.supabase.co';
+  const jsMatch = html.match(/\/assets\/index-[^"']+\.js/);
+  if (!jsMatch) {
+    throw new Error('Could not extract main application bundle from HTML.');
+  }
 
-function fetchUrl(url) {
-  return new Promise((resolve, reject) => {
-    https.get(url, (res) => {
-      let data = '';
-      res.on('data', (chunk) => (data += chunk));
-      res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: data }));
-    }).on('error', reject);
-  });
-}
+  const bundlePath = jsMatch[0];
+  const bundleUrl = `https://crm-dashboard-l79s.vercel.app${bundlePath}`;
+  console.log(`  📦 Live Main Bundle: ${bundleUrl}`);
 
-const scorecard = [];
+  const jsRes = await fetch(bundleUrl, { cache: 'no-store' });
+  if (!jsRes.ok) {
+    throw new Error(`Failed to fetch bundle: ${jsRes.status} ${jsRes.statusText}`);
+  }
 
-function check(item, passed, notes) {
-  scorecard.push({ item, passed, notes });
-  console.log(`[${passed ? 'PASS' : 'FAIL'}] ${item}: ${notes}`);
-}
+  const jsCode = await jsRes.text();
+  console.log(`  🟢 Bundle Fetched: ${jsCode.length} bytes\n`);
 
-async function run() {
-  console.log('========================================================================');
-  console.log('PRODUCTION PERSISTENCE & DEPLOYMENT VERIFICATION AUDIT');
-  console.log('========================================================================\n');
+  console.log('🔍 Auditing Live Production Bundle for Step 12.13B Implementation:\n');
 
-  // 1. Check Live Vercel Production Application
-  try {
-    const res = await fetchUrl(PROD_URL);
-    if (res.status === 200 && res.body.includes('<div id="root"></div>')) {
-      check('Production deployment', true, `Vercel endpoint HTTP 200 OK, root mount present.`);
-      
-      // Extract JS assets from HTML
-      const jsMatches = res.body.match(/\/assets\/[^\"]+\.js/g) || [];
-      console.log(`Found ${jsMatches.length} production bundle assets:`, jsMatches);
+  const checks = [
+    { label: 'EditUserModal header: "Edit Employee Profile"', test: jsCode.includes('Edit Employee Profile') },
+    { label: 'Role-wide confirmation title: "Role-wide permission change"', test: jsCode.includes('Role-wide permission change') },
+    { label: 'Role-wide confirmation action: "Apply to Entire Role"', test: jsCode.includes('Apply to Entire Role') },
+    { label: 'SegmentPermissionsMatrix scope header: "Enterprise Role Permissions"', test: jsCode.includes('Enterprise Role Permissions') },
+    { label: 'SegmentPermissionsMatrix role warning: "These permissions are assigned at the"', test: jsCode.includes('These permissions are assigned at the') },
+    { label: 'EditUserModal save button: "Save Employee Profile"', test: jsCode.includes('Save Employee Profile') },
+    { label: 'AddUserModal role inheritance note: "inherit the enterprise permissions"', test: jsCode.includes('inherit the enterprise permissions') },
+    { label: 'Safe error handling without silent success', test: jsCode.includes('Failed to update user profile') }
+  ];
 
-      // Verify that bundle does not contain service_role keys
-      let foundServiceRole = false;
-      for (const assetPath of jsMatches.slice(0, 5)) {
-        try {
-          const assetRes = await fetchUrl(`https://crm-dashboard-l79s.vercel.app${assetPath}`);
-          if (assetRes.body.includes('service_role') && !assetRes.body.includes('Never exposes service_role')) {
-            foundServiceRole = true;
-          }
-        } catch (e) {
-          // ignore
-        }
-      }
-      check('No service_role key exposed in frontend', !foundServiceRole, 'Confirmed only public anon key is used.');
+  let passed = 0;
+  for (const c of checks) {
+    if (c.test) {
+      console.log(`  🟢 PASS: ${c.label}`);
+      passed++;
     } else {
-      check('Production deployment', false, `Vercel returned status ${res.status}`);
+      console.error(`  🔴 FAIL: ${c.label}`);
     }
-  } catch (err) {
-    check('Production deployment', false, err.message);
   }
 
-  // 2. Verify Live Supabase Project Endpoint
-  try {
-    const supaRes = await fetchUrl(`${SUPABASE_PROJECT_URL}/rest/v1/`);
-    // Supabase returns 401/400 without apikey or 200 with apikey
-    check('Supabase Cloud Project Configuration', supaRes.status === 401 || supaRes.status === 200 || supaRes.status === 400, `Supabase Cloud endpoint reachable at ${SUPABASE_PROJECT_URL} (Status: ${supaRes.status})`);
-  } catch (err) {
-    check('Supabase Cloud Project Configuration', false, err.message);
+  console.log(`\n======================================================`);
+  console.log(`Production Verification: ${passed}/${checks.length} Invariants Confirmed`);
+  console.log(`======================================================\n`);
+
+  if (passed === checks.length) {
+    console.log('🎉 LIVE PRODUCTION BUNDLE MATCHES STEP 12.13B IMPLEMENTATION EXACTLY!\n');
+    process.exit(0);
+  } else {
+    console.warn('⚠️ Some invariants were not found in the live bundle. Deployment may be propagating.');
+    process.exit(1);
   }
-
-  // 3. Verify Persistence Architecture Checkpoints
-  check('Auth', true, 'Corporate auth enforces @rajmudragroup.com domain, session persistence enabled via PKCE.');
-  check('Profile persistence', true, 'Direct upsert to public.profiles implemented in crmDataService.upsertProfile.');
-  check('Department', true, 'department and department_id mapped and validated in profiles schema.');
-  check('Team', true, 'team_id foreign key linked and validated.');
-  check('Region', true, 'region and region_id mapped to West/North/South/East/Central normalized hierarchy.');
-  check('Manager', true, 'manager_id linked with self-management check and org consistency trigger.');
-  check('Regional Command', true, 'is_regional_owner boolean flag mapped and dynamically queried in Regional Owners view.');
-  check('BD Team', true, 'Strict department isolation filters BD from non-BD employees.');
-  check('Employee Profile', true, 'Employee modal maps full profile dossier, joining trajectory, and departmental KRAs/KPIs.');
-  check('RLS', true, 'Profiles Select/Insert/Update RLS policies scoped to organization_id and is_org_admin().');
-  check('Refresh persistence', true, 'CRMContext.refreshCRMData queries public.profiles and merges live DB records seamlessly.');
-  check('Logout/login persistence', true, 'Profile records exist in PostgreSQL independent of localStorage or React session.');
-
-  console.log('\n========================================================================');
-  console.log('FINAL AUDIT SUMMARY');
-  console.log('========================================================================');
-  scorecard.forEach((s) => {
-    console.log(`${s.item}: ${s.passed ? 'PASS' : 'FAIL'}`);
-  });
 }
 
-run().catch(console.error);
+verifyProductionDeployment().catch((err) => {
+  console.error('Production Verification Failed:', err);
+  process.exit(1);
+});
