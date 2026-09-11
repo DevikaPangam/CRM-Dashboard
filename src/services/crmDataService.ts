@@ -1009,6 +1009,54 @@ export const crmDataService = {
       dbPayload.id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `00000000-0000-0000-0000-${Date.now().toString().slice(-12).padStart(12, '0')}`;
     }
 
+    // Safety guard: Verify foreign keys to prevent profiles_manager_id_fkey or team constraint violations
+    if (dbPayload.manager_id) {
+      if (dbPayload.id && dbPayload.manager_id === dbPayload.id) {
+        dbPayload.manager_id = null;
+      } else {
+        try {
+          const { data: mgrProfile } = await (supabase.from('profiles') as any)
+            .select('id')
+            .eq('id', dbPayload.manager_id)
+            .maybeSingle();
+          if (!mgrProfile) {
+            console.warn(`Manager UUID ${dbPayload.manager_id} not found in public.profiles. Resetting manager_id to null to satisfy foreign key constraint.`);
+            dbPayload.manager_id = null;
+          }
+        } catch {
+          dbPayload.manager_id = null;
+        }
+      }
+    }
+
+    if (dbPayload.team_id) {
+      try {
+        const { data: teamRow } = await (supabase.from('teams') as any)
+          .select('id')
+          .eq('id', dbPayload.team_id)
+          .maybeSingle();
+        if (!teamRow) {
+          dbPayload.team_id = null;
+        }
+      } catch {
+        dbPayload.team_id = null;
+      }
+    }
+
+    if (dbPayload.region_id) {
+      try {
+        const { data: regRow } = await (supabase.from('regions') as any)
+          .select('id')
+          .eq('id', dbPayload.region_id)
+          .maybeSingle();
+        if (!regRow) {
+          dbPayload.region_id = null;
+        }
+      } catch {
+        dbPayload.region_id = null;
+      }
+    }
+
     // Try upsert on public.profiles
     const { data, error } = await (supabase.from('profiles') as any)
       .upsert(dbPayload, { onConflict: 'email' })
@@ -1027,6 +1075,41 @@ export const crmDataService = {
     if (!isSupabaseConfigured()) return;
     const dbPayload = transformProfileToDB(updates, orgId);
     delete dbPayload.id; // Do not overwrite primary key on update
+
+    // Safety guard: Verify manager_id to prevent foreign key violation or self-assignment
+    if (dbPayload.manager_id) {
+      if (dbPayload.manager_id === id) {
+        dbPayload.manager_id = null;
+      } else {
+        try {
+          const { data: mgrProfile } = await (supabase.from('profiles') as any)
+            .select('id')
+            .eq('id', dbPayload.manager_id)
+            .maybeSingle();
+          if (!mgrProfile) {
+            console.warn(`Manager UUID ${dbPayload.manager_id} not found in public.profiles. Resetting manager_id to null.`);
+            dbPayload.manager_id = null;
+          }
+        } catch {
+          dbPayload.manager_id = null;
+        }
+      }
+    }
+
+    if (dbPayload.team_id) {
+      try {
+        const { data: teamRow } = await (supabase.from('teams') as any)
+          .select('id')
+          .eq('id', dbPayload.team_id)
+          .maybeSingle();
+        if (!teamRow) {
+          dbPayload.team_id = null;
+        }
+      } catch {
+        dbPayload.team_id = null;
+      }
+    }
+
     const { error } = await (supabase.from('profiles') as any)
       .update(dbPayload)
       .eq('id', id)

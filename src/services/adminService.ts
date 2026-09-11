@@ -129,6 +129,46 @@ export async function getHierarchyOptions(includeInactiveDepts: boolean = false)
     console.warn('Could not fetch hierarchy options from server, attempting client fallback:', err);
   }
 
+  // Live Supabase Client Fallback for Managers & Teams
+  if (isSupabaseConfigured()) {
+    try {
+      const { data: dbProfiles } = await (supabase.from('profiles') as any)
+        .select('id, full_name, email, role, designation, department, region')
+        .eq('status', 'active');
+
+      if (dbProfiles && dbProfiles.length > 0) {
+        return {
+          organizations: [{ id: '00000000-0000-0000-0000-000000000001', name: 'Rajmudra Group', slug: 'rajmudra-group' }],
+          departments,
+          regions: [
+            { id: '20000000-0000-0000-0000-000000000001', name: 'West Region', code: 'REG-WEST', description: 'Maharashtra, Gujarat & Goa (Corporate HQ & Core Fleet Operations)' },
+            { id: '20000000-0000-0000-0000-000000000002', name: 'North Region', code: 'REG-NORTH', description: 'Delhi NCR, Haryana, Punjab, Rajasthan & UP Hub' },
+            { id: '20000000-0000-0000-0000-000000000003', name: 'South Region', code: 'REG-SOUTH', description: 'Karnataka, Tamil Nadu, Telangana & Kerala Corridor' },
+            { id: '20000000-0000-0000-0000-000000000004', name: 'East Region', code: 'REG-EAST', description: 'West Bengal, Odisha, Bihar & Port Logistics Corridor' },
+            { id: '20000000-0000-0000-0000-000000000005', name: 'Central Region', code: 'REG-CENTRAL', description: 'Madhya Pradesh & Chhattisgarh Multi-Modal Hub' },
+          ],
+          teams: [
+            { id: '00000000-0000-0000-0001-000000000001', name: 'Enterprise BD West', code: 'TEAM-BD-WEST', region_id: '20000000-0000-0000-0000-000000000001', region: 'West Region', department: 'Business Development', department_id: '30000000-0000-0000-0000-000000000001', department_code: 'BD', is_active: true },
+            { id: '00000000-0000-0000-0001-000000000002', name: 'Fleet Operations & Dispatch', code: 'TEAM-OPS-FLEET', region_id: '20000000-0000-0000-0000-000000000001', region: 'West Region', department: 'Operations', department_id: '30000000-0000-0000-0000-000000000002', department_code: 'OPS', is_active: true },
+            { id: '00000000-0000-0000-0001-000000000003', name: 'Commercials, Pricing & Proposals', code: 'TEAM-PRICING', region_id: '20000000-0000-0000-0000-000000000005', region: 'Central Region', department: 'Finance', department_id: '30000000-0000-0000-0000-000000000005', department_code: 'FIN', is_active: true },
+            { id: '00000000-0000-0000-0001-000000000004', name: 'Legal & Contract Compliance', code: 'TEAM-LEGAL', region_id: '20000000-0000-0000-0000-000000000005', region: 'Central Region', department: 'Legal', department_id: '30000000-0000-0000-0000-000000000006', department_code: 'LEG', is_active: true },
+          ],
+          managers: dbProfiles.map((m: any) => ({
+            id: m.id,
+            full_name: m.full_name || m.email,
+            email: m.email,
+            role: m.role,
+            designation: m.designation || m.role,
+            department: m.department,
+            region: m.region,
+          })),
+        };
+      }
+    } catch (dbErr) {
+      console.warn('Could not fetch live managers from Supabase:', dbErr);
+    }
+  }
+
   // Fallback defaults for offline / initial development
   return {
     organizations: [{ id: '00000000-0000-0000-0000-000000000001', name: 'Rajmudra Group', slug: 'rajmudra-group' }],
