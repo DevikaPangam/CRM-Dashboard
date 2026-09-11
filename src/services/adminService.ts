@@ -303,9 +303,7 @@ export async function getHierarchyOptions(includeInactiveDepts: boolean = false)
         is_active: true,
       },
     ],
-    managers: [
-      { id: '567db42c-c0bf-4286-8dcc-ce2cf196865b', full_name: 'Devika Pangam', role: 'super_admin', designation: 'Managing Director / System Administrator', department: 'Executive Management & Administration' },
-    ],
+    managers: [],
   };
 }
 

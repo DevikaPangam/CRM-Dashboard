@@ -67,26 +67,32 @@ export const AddUserModal: React.FC = () => {
   const [permissions, setPermissions] = useState<SegmentPermission[]>(() => getDefaultPermissionsForRole('bd_exec'));
 
   const [loading, setLoading] = useState(false);
+  const [isHierarchyLoading, setIsHierarchyLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
-    getHierarchyOptions().then((opts) => {
-      if (isMounted) {
-        setHierarchy(opts);
-        if (opts.regions.length > 0 && !formData.regionId) {
-          setFormData((prev) => ({
-            ...prev,
-            regionId: opts.regions[0].id,
-            region: opts.regions[0].name,
-          }));
+    setIsHierarchyLoading(true);
+    getHierarchyOptions()
+      .then((opts) => {
+        if (isMounted) {
+          setHierarchy(opts);
+          if (opts.regions.length > 0 && !formData.regionId) {
+            setFormData((prev) => ({
+              ...prev,
+              regionId: opts.regions[0].id,
+              region: opts.regions[0].name,
+            }));
+          }
+          if (opts.teams.length > 0 && !formData.teamId) {
+            setFormData((prev) => ({ ...prev, teamId: opts.teams[0].id }));
+          }
         }
-        if (opts.teams.length > 0 && !formData.teamId) {
-          setFormData((prev) => ({ ...prev, teamId: opts.teams[0].id }));
-        }
-      }
-    });
+      })
+      .finally(() => {
+        if (isMounted) setIsHierarchyLoading(false);
+      });
     return () => {
       isMounted = false;
     };
@@ -510,14 +516,21 @@ export const AddUserModal: React.FC = () => {
                   <select
                     className="form-control"
                     value={formData.managerId}
+                    disabled={isHierarchyLoading}
                     onChange={(e) => setFormData({ ...formData, managerId: e.target.value })}
                   >
-                    <option value="">-- No Direct Manager (Top Level) --</option>
-                    {hierarchy.managers.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.full_name} ({m.designation || m.role})
-                      </option>
-                    ))}
+                    {isHierarchyLoading ? (
+                      <option value="">Loading active reporting managers…</option>
+                    ) : (
+                      <>
+                        <option value="">-- No Direct Manager (Top Level) --</option>
+                        {hierarchy.managers.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.full_name} ({m.designation || m.role})
+                          </option>
+                        ))}
+                      </>
+                    )}
                   </select>
                 </div>
               </div>

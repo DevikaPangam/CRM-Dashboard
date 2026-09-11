@@ -85,15 +85,21 @@ export const EditUserModal: React.FC = () => {
   );
 
   const [loading, setLoading] = useState(false);
+  const [isHierarchyLoading, setIsHierarchyLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
-    getHierarchyOptions(true).then((opts) => {
-      if (isMounted) setHierarchy(opts);
-    });
+    setIsHierarchyLoading(true);
+    getHierarchyOptions(true)
+      .then((opts) => {
+        if (isMounted) setHierarchy(opts);
+      })
+      .finally(() => {
+        if (isMounted) setIsHierarchyLoading(false);
+      });
     return () => {
       isMounted = false;
     };
@@ -580,16 +586,23 @@ export const EditUserModal: React.FC = () => {
                   <select
                     className="form-control"
                     value={formData.managerId}
+                    disabled={isHierarchyLoading}
                     onChange={(e) => setFormData({ ...formData, managerId: e.target.value })}
                   >
-                    <option value="">-- No Direct Manager (Top Level) --</option>
-                    {hierarchy.managers
-                      .filter((m) => m.id !== userToEdit.id)
-                      .map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.full_name} ({m.designation || m.role})
-                        </option>
-                      ))}
+                    {isHierarchyLoading ? (
+                      <option value="">Loading active reporting managers…</option>
+                    ) : (
+                      <>
+                        <option value="">-- No Direct Manager (Top Level) --</option>
+                        {hierarchy.managers
+                          .filter((m) => m.id !== userToEdit.id)
+                          .map((m) => (
+                            <option key={m.id} value={m.id}>
+                              {m.full_name} ({m.designation || m.role})
+                            </option>
+                          ))}
+                      </>
+                    )}
                   </select>
                 </div>
               </div>

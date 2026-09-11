@@ -440,13 +440,13 @@ export function transformProfileToDB(user: Partial<User>, orgId: string) {
   if (user.employee_id) payload.employee_id = user.employee_id;
   if (user.phone !== undefined) payload.phone = user.phone;
   if (user.region) payload.region = user.region;
-  payload.region_id = isValidUUID(user.region_id) ? user.region_id : null;
+  if (user.region_id !== undefined) payload.region_id = user.region_id && String(user.region_id).trim() ? user.region_id : null;
   if (user.location) payload.location = user.location;
   if (user.joining_date) payload.joining_date = user.joining_date;
   if (user.employment_type) payload.employment_type = user.employment_type;
   if (user.is_regional_owner !== undefined) payload.is_regional_owner = Boolean(user.is_regional_owner);
-  payload.team_id = isValidUUID(user.team_id) ? user.team_id : null;
-  payload.manager_id = isValidUUID(user.manager_id) ? user.manager_id : null;
+  if (user.team_id !== undefined) payload.team_id = user.team_id && String(user.team_id).trim() ? user.team_id : null;
+  if (user.manager_id !== undefined) payload.manager_id = user.manager_id && String(user.manager_id).trim() ? user.manager_id : null;
   if (user.annual_target_inr !== undefined) payload.annual_target_inr = Number(user.annual_target_inr) || 0;
   if (user.status) {
     const s = String(user.status).toLowerCase();
@@ -998,6 +998,99 @@ export const crmDataService = {
     }
   },
 
+export async function validateProfileForeignKeys(
+  dbPayload: Record<string, any>,
+  orgId: string,
+  targetProfileId?: string
+): Promise<void> {
+  if (!isSupabaseConfigured()) return;
+
+  const profileId = targetProfileId || dbPayload.id;
+
+  // 1. Manager Validation (Fail-Closed)
+  if (dbPayload.manager_id) {
+    if (!isValidUUID(dbPayload.manager_id)) {
+      throw new Error('Selected reporting manager ID is invalid. Please select a valid active manager.');
+    }
+
+    if (profileId && dbPayload.manager_id === profileId) {
+      throw new Error('Hierarchy Integrity Violation: An employee cannot be assigned as their own reporting manager.');
+    }
+
+    const { data: mgrProfile, error: mgrErr } = await (supabase.from('profiles') as any)
+      .select('id, status, organization_id, full_name')
+      .eq('id', dbPayload.manager_id)
+      .maybeSingle();
+
+    if (mgrErr) {
+      console.error('Error verifying manager profile in database:', mgrErr);
+      throw new Error(`Failed to verify reporting manager: ${mgrErr.message}`);
+    }
+
+    if (!mgrProfile) {
+      throw new Error('Selected reporting manager is no longer available. Please refresh the manager list and select an active manager.');
+    }
+
+    if (mgrProfile.status !== 'active') {
+      throw new Error(`Selected reporting manager (${mgrProfile.full_name || 'User'}) is inactive. Please select an active manager.`);
+    }
+
+    if (mgrProfile.organization_id && mgrProfile.organization_id !== orgId) {
+      throw new Error('Cross-Organization Violation: Selected reporting manager belongs to a different organization workspace.');
+    }
+  }
+
+  // 2. Team Validation (Fail-Closed)
+  if (dbPayload.team_id) {
+    if (!isValidUUID(dbPayload.team_id)) {
+      throw new Error('Selected team ID is invalid. Please select a valid team.');
+    }
+
+    const { data: teamRow, error: teamErr } = await (supabase.from('teams') as any)
+      .select('id, organization_id, is_active')
+      .eq('id', dbPayload.team_id)
+      .maybeSingle();
+
+    if (teamErr) {
+      console.error('Error verifying team in database:', teamErr);
+      throw new Error(`Failed to verify team assignment: ${teamErr.message}`);
+    }
+
+    if (!teamRow) {
+      throw new Error('Selected team does not exist. Please refresh and select a valid team.');
+    }
+
+    if (teamRow.organization_id && teamRow.organization_id !== orgId) {
+      throw new Error('Cross-Organization Violation: Selected team belongs to a different organization workspace.');
+    }
+  }
+
+  // 3. Region Validation (Fail-Closed)
+  if (dbPayload.region_id) {
+    if (!isValidUUID(dbPayload.region_id)) {
+      throw new Error('Selected region ID is invalid. Please select a valid region.');
+    }
+
+    const { data: regRow, error: regErr } = await (supabase.from('regions') as any)
+      .select('id, organization_id')
+      .eq('id', dbPayload.region_id)
+      .maybeSingle();
+
+    if (regErr) {
+      console.error('Error verifying region in database:', regErr);
+      throw new Error(`Failed to verify region assignment: ${regErr.message}`);
+    }
+
+    if (!regRow) {
+      throw new Error('Selected region does not exist. Please refresh and select a valid region.');
+    }
+
+    if (regRow.organization_id && regRow.organization_id !== orgId) {
+      throw new Error('Cross-Organization Violation: Selected region belongs to a different organization workspace.');
+    }
+  }
+}
+
   async upsertProfile(user: Partial<User>, orgId: string): Promise<User> {
     if (!isSupabaseConfigured()) {
       const id = user.id || `USR-${Date.now()}`;
@@ -1009,53 +1102,8 @@ export const crmDataService = {
       dbPayload.id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `00000000-0000-0000-0000-${Date.now().toString().slice(-12).padStart(12, '0')}`;
     }
 
-    // Safety guard: Verify foreign keys to prevent profiles_manager_id_fkey or team constraint violations
-    if (dbPayload.manager_id) {
-      if (dbPayload.id && dbPayload.manager_id === dbPayload.id) {
-        dbPayload.manager_id = null;
-      } else {
-        try {
-          const { data: mgrProfile } = await (supabase.from('profiles') as any)
-            .select('id')
-            .eq('id', dbPayload.manager_id)
-            .maybeSingle();
-          if (!mgrProfile) {
-            console.warn(`Manager UUID ${dbPayload.manager_id} not found in public.profiles. Resetting manager_id to null to satisfy foreign key constraint.`);
-            dbPayload.manager_id = null;
-          }
-        } catch {
-          dbPayload.manager_id = null;
-        }
-      }
-    }
-
-    if (dbPayload.team_id) {
-      try {
-        const { data: teamRow } = await (supabase.from('teams') as any)
-          .select('id')
-          .eq('id', dbPayload.team_id)
-          .maybeSingle();
-        if (!teamRow) {
-          dbPayload.team_id = null;
-        }
-      } catch {
-        dbPayload.team_id = null;
-      }
-    }
-
-    if (dbPayload.region_id) {
-      try {
-        const { data: regRow } = await (supabase.from('regions') as any)
-          .select('id')
-          .eq('id', dbPayload.region_id)
-          .maybeSingle();
-        if (!regRow) {
-          dbPayload.region_id = null;
-        }
-      } catch {
-        dbPayload.region_id = null;
-      }
-    }
+    // Fail-Closed Validation: Verify foreign keys strictly before attempting database upsert
+    await validateProfileForeignKeys(dbPayload, orgId);
 
     // Try upsert on public.profiles
     const { data, error } = await (supabase.from('profiles') as any)
@@ -1076,39 +1124,8 @@ export const crmDataService = {
     const dbPayload = transformProfileToDB(updates, orgId);
     delete dbPayload.id; // Do not overwrite primary key on update
 
-    // Safety guard: Verify manager_id to prevent foreign key violation or self-assignment
-    if (dbPayload.manager_id) {
-      if (dbPayload.manager_id === id) {
-        dbPayload.manager_id = null;
-      } else {
-        try {
-          const { data: mgrProfile } = await (supabase.from('profiles') as any)
-            .select('id')
-            .eq('id', dbPayload.manager_id)
-            .maybeSingle();
-          if (!mgrProfile) {
-            console.warn(`Manager UUID ${dbPayload.manager_id} not found in public.profiles. Resetting manager_id to null.`);
-            dbPayload.manager_id = null;
-          }
-        } catch {
-          dbPayload.manager_id = null;
-        }
-      }
-    }
-
-    if (dbPayload.team_id) {
-      try {
-        const { data: teamRow } = await (supabase.from('teams') as any)
-          .select('id')
-          .eq('id', dbPayload.team_id)
-          .maybeSingle();
-        if (!teamRow) {
-          dbPayload.team_id = null;
-        }
-      } catch {
-        dbPayload.team_id = null;
-      }
-    }
+    // Fail-Closed Validation: Verify foreign keys strictly before attempting database update
+    await validateProfileForeignKeys(dbPayload, orgId, id);
 
     const { error } = await (supabase.from('profiles') as any)
       .update(dbPayload)
