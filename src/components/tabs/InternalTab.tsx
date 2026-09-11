@@ -1,19 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Workflow, Plus, CheckCircle, XCircle, Clock, Trash2, Search
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
+import { useRBAC } from '../../context/RBACContext';
 import { formatDate, getPriorityBadgeClass } from '../../utils/formatters';
 import { DEPARTMENTS } from '../../utils/seedData';
+import { scopeRecordsByUserRole } from '../../utils/rbacPermissions';
 
 export const InternalTab: React.FC = () => {
-  const { internalTasks, updateTaskStatus, deleteInternalTask, openModal } = useCRM();
+  const { internalTasks, updateTaskStatus, deleteInternalTask, openModal, currentUser } = useCRM();
+  const { currentRole } = useRBAC();
 
   const [deptFilter, setDeptFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
   const [localSearch, setLocalSearch] = useState('');
 
-  const filteredTasks = internalTasks.filter((t) => {
+  const scopedTasks = useMemo(() => {
+    return scopeRecordsByUserRole(internalTasks, currentUser, currentRole, 'assignedTo');
+  }, [internalTasks, currentUser, currentRole]);
+
+  const filteredTasks = scopedTasks.filter((t) => {
     if (deptFilter !== 'All' && t.department !== deptFilter) return false;
     if (statusFilter !== 'All' && t.status !== statusFilter) return false;
     if (localSearch) {

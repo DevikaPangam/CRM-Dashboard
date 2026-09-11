@@ -296,12 +296,13 @@ export function scopeRecordsByUserRole<T extends Record<string, any>>(
   if (isManager) {
     return records.filter((r) => {
       const val = String(r[ownerKey] || r.accountOwner || r.user || r.assigned_to || r.owner || '').toLowerCase();
-      if (!val) return true;
-      if (userName && val.includes(userName)) return true;
-      if (userEmail && val.includes(userEmail)) return true;
-      if (userEmpId && val.includes(userEmpId)) return true;
-      if (r.region && currentUser.region && String(r.region).toLowerCase() === String(currentUser.region).toLowerCase()) return true;
-      return true;
+      const matchName = Boolean(userName && val.includes(userName));
+      const matchEmail = Boolean(userEmail && val.includes(userEmail));
+      const matchEmp = Boolean(userEmpId && val.includes(userEmpId));
+      const matchRegion = Boolean(r.region && currentUser.region && String(r.region).toLowerCase() === String(currentUser.region).toLowerCase());
+      const matchTeam = Boolean(r.team_id && currentUser.team_id && r.team_id === currentUser.team_id);
+
+      return matchName || matchEmail || matchEmp || matchRegion || matchTeam;
     });
   }
 

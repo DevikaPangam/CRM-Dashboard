@@ -1,17 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Clock, CheckCircle2, AlertTriangle, Search, Trash2, Calendar
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
+import { useRBAC } from '../../context/RBACContext';
 import { formatDate, getPriorityBadgeClass } from '../../utils/formatters';
+import { scopeRecordsByUserRole } from '../../utils/rbacPermissions';
 
 export const FollowupsTab: React.FC = () => {
-  const { followups, completeFollowup, deleteFollowup, openModal } = useCRM();
+  const { followups, completeFollowup, deleteFollowup, openModal, currentUser } = useCRM();
+  const { currentRole } = useRBAC();
 
   const [statusFilter, setStatusFilter] = useState('All');
   const [localSearch, setLocalSearch] = useState('');
 
   const today = new Date().setHours(0, 0, 0, 0);
+
+  const scopedFollowups = useMemo(() => {
+    return scopeRecordsByUserRole(followups, currentUser, currentRole, 'assignedTo');
+  }, [followups, currentUser, currentRole]);
 
   const getComputedStatus = (f: any) => {
     if (f.status === 'Completed') return 'Completed';
@@ -20,7 +27,7 @@ export const FollowupsTab: React.FC = () => {
     return 'Pending';
   };
 
-  const filteredFollowups = followups.filter((f) => {
+  const filteredFollowups = scopedFollowups.filter((f) => {
     const compStatus = getComputedStatus(f);
     if (statusFilter === 'Pending' && compStatus !== 'Pending') return false;
     if (statusFilter === 'Overdue' && compStatus !== 'Overdue') return false;
@@ -35,7 +42,7 @@ export const FollowupsTab: React.FC = () => {
     return true;
   });
 
-  const overdueCount = followups.filter((f) => getComputedStatus(f) === 'Overdue').length;
+  const overdueCount = scopedFollowups.filter((f) => getComputedStatus(f) === 'Overdue').length;
 
   return (
     <section>

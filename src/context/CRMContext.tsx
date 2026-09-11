@@ -17,6 +17,7 @@ import {
   createCanonicalJoiningEvent, loadStoredHistory, fetchAllOrgHistory
 } from '../services/careerHistoryService';
 import { generateDefaultKRAsForDepartment } from '../services/kraKpiService';
+import { scopeRecordsByUserRole } from '../utils/rbacPermissions';
 
 interface ModalState {
   type: string | null;
@@ -840,35 +841,46 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const exportOpportunities = () => {
-    logExportEvent('DATA_EXPORT_CSV', 'opportunities', opportunities.length, {
+    const userRole = profile?.role || currentUser.role_name || 'bd_exec';
+    const scopedOpps = scopeRecordsByUserRole(opportunities, currentUser, userRole, 'owner');
+    logExportEvent('DATA_EXPORT_CSV', 'opportunities', scopedOpps.length, {
       id: profile?.id,
       name: profile?.full_name || currentUser.name,
       organizationId: profile?.organization_id,
     });
-    exportOpportunitiesToCSV(opportunities);
+    exportOpportunitiesToCSV(scopedOpps);
   };
 
   const exportClients = () => {
-    logExportEvent('DATA_EXPORT_CSV', 'clients', clients.length, {
+    const userRole = profile?.role || currentUser.role_name || 'bd_exec';
+    const scopedClis = scopeRecordsByUserRole(clients, currentUser, userRole, 'accountOwner');
+    logExportEvent('DATA_EXPORT_CSV', 'clients', scopedClis.length, {
       id: profile?.id,
       name: profile?.full_name || currentUser.name,
       organizationId: profile?.organization_id,
     });
-    exportClientsToCSV(clients);
+    exportClientsToCSV(scopedClis);
   };
 
   const exportBackup = () => {
-    logExportEvent('DATA_EXPORT_JSON', 'full_crm_backup', clients.length + opportunities.length, {
+    const userRole = profile?.role || currentUser.role_name || 'bd_exec';
+    const scopedClis = scopeRecordsByUserRole(clients, currentUser, userRole, 'accountOwner');
+    const scopedOpps = scopeRecordsByUserRole(opportunities, currentUser, userRole, 'owner');
+    const scopedActs = scopeRecordsByUserRole(activities, currentUser, userRole, 'conductedBy');
+    const scopedFolls = scopeRecordsByUserRole(followups, currentUser, userRole, 'assignedTo');
+    const scopedTasks = scopeRecordsByUserRole(internalTasks, currentUser, userRole, 'assignedTo');
+
+    logExportEvent('DATA_EXPORT_JSON', 'full_crm_backup', scopedClis.length + scopedOpps.length, {
       id: profile?.id,
       name: profile?.full_name || currentUser.name,
       organizationId: profile?.organization_id,
     });
     exportFullJSONBackup({
-      clients,
-      opportunities,
-      activities,
-      followups,
-      internalTasks,
+      clients: scopedClis,
+      opportunities: scopedOpps,
+      activities: scopedActs,
+      followups: scopedFolls,
+      internalTasks: scopedTasks,
       teamMembers,
       segments,
       users,

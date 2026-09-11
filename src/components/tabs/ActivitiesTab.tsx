@@ -1,19 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Calendar, Plus, Search, MapPin, Trash2, Clock, Users, Building
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
+import { useRBAC } from '../../context/RBACContext';
 import { formatDate } from '../../utils/formatters';
+import { scopeRecordsByUserRole } from '../../utils/rbacPermissions';
 
 export const ActivitiesTab: React.FC = () => {
-  const { activities, deleteActivity, openModal, teamMembers, clients, opportunities } = useCRM();
+  const { activities, deleteActivity, openModal, teamMembers, clients, opportunities, currentUser } = useCRM();
+  const { currentRole } = useRBAC();
 
   const [clientTypeFilter, setClientTypeFilter] = useState('All');
   const [typeFilter, setTypeFilter] = useState('All');
   const [repFilter, setRepFilter] = useState('All');
   const [localSearch, setLocalSearch] = useState('');
 
-  const filteredActivities = activities.filter((act) => {
+  const scopedActivities = useMemo(() => {
+    return scopeRecordsByUserRole(activities, currentUser, currentRole, 'conductedBy');
+  }, [activities, currentUser, currentRole]);
+
+  const filteredActivities = scopedActivities.filter((act) => {
     // Resolve client type from activity or from client master
     const matchedClient = clients.find((c) => c.id === act.clientId || c.name === act.clientName);
     const resolvedClientType = act.clientType || matchedClient?.clientType || 'Existing Client';
