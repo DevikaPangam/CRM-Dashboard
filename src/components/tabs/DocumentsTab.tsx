@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
+import { useRBAC } from '../../context/RBACContext';
 import { formatDate } from '../../utils/formatters';
 import { PIPELINE_STAGES, DOCUMENT_TYPES } from '../../utils/seedData';
 import { storageService } from '../../services/storageService';
@@ -12,6 +13,7 @@ import { logAuditEvent } from '../../services/auditService';
 export const DocumentsTab: React.FC = () => {
   const { documents, deleteDocument, openModal, currentUser } = useCRM();
   const { profile, authUser } = useAuth();
+  const { canCreate, canEdit, canDelete, canExport } = useRBAC();
 
   const [stageFilter, setStageFilter] = useState('All');
   const [typeFilter, setTypeFilter] = useState('All');
@@ -61,6 +63,11 @@ export const DocumentsTab: React.FC = () => {
   };
 
   const handleDownload = async (doc: any) => {
+    if (!canExport('documents')) {
+      alert('Security Policy Violation: You do not have permission to download document files.');
+      return;
+    }
+
     await logAuditEvent({
       organizationId: orgId,
       userId: authUser?.id,
@@ -100,6 +107,16 @@ export const DocumentsTab: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
+  const handleDelete = (doc: any) => {
+    if (!canDelete('documents')) {
+      alert('Security Policy Violation: You do not have permission to delete documents.');
+      return;
+    }
+    if (window.confirm(`Delete document "${doc.name}"?`)) {
+      deleteDocument(doc.id);
+    }
+  };
+
   return (
     <section>
       {/* Top Header */}
@@ -122,10 +139,12 @@ export const DocumentsTab: React.FC = () => {
           </p>
         </div>
 
-        <button className="btn btn-primary" onClick={() => openModal('uploadDoc')}>
-          <Upload size={15} />
-          <span>+ Upload &amp; Tag Document</span>
-        </button>
+        {canCreate('documents') && (
+          <button className="btn btn-primary" onClick={() => openModal('uploadDoc')}>
+            <Upload size={15} />
+            <span>+ Upload &amp; Tag Document</span>
+          </button>
+        )}
       </div>
 
       {/* Filter Toolbar */}
@@ -268,33 +287,35 @@ export const DocumentsTab: React.FC = () => {
                           <Eye size={12} style={{ color: '#0284c7' }} />
                           <span>View</span>
                         </button>
-                        <button
-                          className="btn btn-secondary btn-xs"
-                          onClick={() => openModal('editDoc', doc)}
-                          title="Edit File Name & Stage"
-                        >
-                          <Edit2 size={12} style={{ color: '#64748b' }} />
-                          <span>Edit</span>
-                        </button>
-                        <button
-                          className="btn btn-secondary btn-xs"
-                          onClick={() => handleDownload(doc)}
-                          title="Download File"
-                        >
-                          <Download size={12} style={{ color: '#16a34a' }} />
-                        </button>
-                        <button
-                          className="btn btn-secondary btn-xs"
-                          style={{ color: '#dc2626' }}
-                          onClick={() => {
-                            if (window.confirm(`Delete document "${doc.name}"?`)) {
-                              deleteDocument(doc.id);
-                            }
-                          }}
-                          title="Delete Document"
-                        >
-                          <Trash2 size={12} />
-                        </button>
+                        {canEdit('documents') && (
+                          <button
+                            className="btn btn-secondary btn-xs"
+                            onClick={() => openModal('editDoc', doc)}
+                            title="Edit File Name & Stage"
+                          >
+                            <Edit2 size={12} style={{ color: '#64748b' }} />
+                            <span>Edit</span>
+                          </button>
+                        )}
+                        {canExport('documents') && (
+                          <button
+                            className="btn btn-secondary btn-xs"
+                            onClick={() => handleDownload(doc)}
+                            title="Download File"
+                          >
+                            <Download size={12} style={{ color: '#16a34a' }} />
+                          </button>
+                        )}
+                        {canDelete('documents') && (
+                          <button
+                            className="btn btn-secondary btn-xs"
+                            style={{ color: '#dc2626' }}
+                            onClick={() => handleDelete(doc)}
+                            title="Delete Document"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
