@@ -122,3 +122,12 @@
 - [x] Step 8 Operational Readiness & Runbook established.
 - [x] Zero `service_role` keys in client bundle.
 - [x] Production build passes cleanly with 0 TypeScript/Vite errors.
+
+---
+
+## 6. Verified Production Manual Checks
+
+- [x] **Supabase Plan & Quotas:** Free Tier confirmed (500 MB DB limit, 1 GB Storage limit, Daily backups/PITR add-ons disabled on Free tier).
+- [x] **Vercel Production Deployment:** Verified healthy at `https://crm-dashboard-l79s.vercel.app/` (Production branch `main`, commit `29bba05`).
+- [x] **Zoho SMTP Relay:** Mailbox & Sender Email verified (`devika.p@rajmudragroup.com`).
+- [x] **Auth & Security Verification:** Corporate authentication test reached "Access Not Provisioned" screen, confirming active PKCE auth flow & fail-closed access control when no CRM profile exists.
