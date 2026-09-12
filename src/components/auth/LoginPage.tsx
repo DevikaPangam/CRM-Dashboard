@@ -106,7 +106,7 @@ export const LoginPage: React.FC = () => {
   const handleVerifyOtpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!otpToken.trim() || otpToken.trim().length < 6) {
-      setResetStatus({ success: false, message: 'Please enter the complete 6-digit verification code.' });
+      setResetStatus({ success: false, message: 'Please enter the complete verification code.' });
       return;
     }
 
@@ -120,7 +120,7 @@ export const LoginPage: React.FC = () => {
       setOtpToken('');
       setRecoveryStep('EMAIL');
     } else {
-      setResetStatus({ success: false, message: result.error || 'Invalid or expired verification code. Please try again.' });
+      setResetStatus({ success: false, message: result.error || 'Verification code is invalid or has expired. Please request a new code.' });
     }
   };
 
@@ -544,7 +544,7 @@ export const LoginPage: React.FC = () => {
                 /* Step 1: Work Email Request */
                 <form onSubmit={handleResetSubmit}>
                   <p style={{ fontSize: '12.5px', color: '#64748b', margin: '0 0 14px 0' }}>
-                    Enter your registered corporate email address. If an account exists, a 6-digit verification code will be sent to your corporate inbox.
+                    Enter your registered corporate email address. If an account exists, a verification code will be sent to your corporate inbox.
                   </p>
 
                   <div style={{ marginBottom: '16px' }}>
@@ -589,15 +589,15 @@ export const LoginPage: React.FC = () => {
                   </div>
                 </form>
               ) : (
-                /* Step 2: 6-Digit OTP Verification Entry */
+                /* Step 2: Verification Code Entry */
                 <form onSubmit={handleVerifyOtpSubmit}>
                   <p style={{ fontSize: '12.5px', color: '#64748b', margin: '0 0 14px 0', lineHeight: 1.5 }}>
-                    Enter the 6-digit verification code sent to: <strong style={{ color: '#0f172a' }}>{resetEmail}</strong>
+                    Enter the verification code sent to: <strong style={{ color: '#0f172a' }}>{resetEmail}</strong>
                   </p>
 
                   <div style={{ marginBottom: '18px' }}>
                     <label style={{ fontSize: '12px', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '6px' }}>
-                      6-Digit OTP Verification Code
+                      Verification Code
                     </label>
                     <div className="login-input-wrapper">
                       <ShieldCheck size={16} className="login-input-icon" style={{ color: '#0284c7' }} />
@@ -605,13 +605,13 @@ export const LoginPage: React.FC = () => {
                         type="text"
                         inputMode="numeric"
                         pattern="[0-9]*"
-                        maxLength={6}
+                        maxLength={10}
                         value={otpToken}
                         onChange={(e) => {
-                          const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 10);
                           setOtpToken(val);
                         }}
-                        placeholder="123456"
+                        placeholder="e.g. 12345678"
                         style={{ letterSpacing: '4px', fontSize: '16px', fontWeight: 700, fontFamily: 'monospace' }}
                         required
                         autoFocus
@@ -631,7 +631,7 @@ export const LoginPage: React.FC = () => {
                           setIsResetting(false);
                           if (res.success) {
                             setResendCooldown(60);
-                            setResetStatus({ success: true, message: 'A new 6-digit verification code has been sent.' });
+                            setResetStatus({ success: true, message: 'A new verification code has been sent.' });
                           } else {
                             setResetStatus({ success: false, message: res.error });
                           }
@@ -655,7 +655,7 @@ export const LoginPage: React.FC = () => {
                     <button
                       type="submit"
                       className="btn btn-primary"
-                      disabled={isVerifyingOtp || otpToken.length < 6}
+                      disabled={isVerifyingOtp || otpToken.trim().length < 6}
                     >
                       {isVerifyingOtp ? (
                         <>

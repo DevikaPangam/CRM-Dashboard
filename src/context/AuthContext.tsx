@@ -484,14 +484,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       return {
         success: true,
-        message: `If an account exists, a 6-digit verification code has been sent to your corporate email (${rawEmail}).`
+        message: `If an account exists, a verification code has been sent to your corporate email (${rawEmail}).`
       };
     } catch (err: any) {
       return { success: false, error: err.message || 'Failed to dispatch verification code.' };
     }
   };
 
-  // Verifies 6-digit numeric OTP code for recovery via Supabase Auth
+  // Verifies numeric OTP code for recovery via Supabase Auth
   const verifyRecoveryOtp = async (email: string, token: string): Promise<{ success: boolean; error?: string }> => {
     let rawEmail = email ? email.trim().toLowerCase() : '';
     if (rawEmail && !rawEmail.includes('@')) {
@@ -505,7 +505,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const cleanToken = token ? token.trim() : '';
     if (!cleanToken || cleanToken.length < 6) {
-      return { success: false, error: 'Please enter a valid 6-digit verification code.' };
+      return { success: false, error: 'Verification code is invalid or has expired. Please request a new code.' };
     }
 
     try {
@@ -516,8 +516,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (error) {
-        logAuthEvent('PASSWORD_RESET_INITIATED', rawEmail, { channel: 'supabase_otp', status: 'failure', reason: error.message });
-        return { success: false, error: error.message || 'Invalid or expired verification code. Please check your email and try again.' };
+        logAuthEvent('PASSWORD_RESET_INITIATED', rawEmail, { channel: 'supabase_otp', status: 'failure' });
+        return { success: false, error: 'Verification code is invalid or has expired. Please request a new code.' };
       }
 
       if (data?.session && data?.user) {
@@ -529,9 +529,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: true };
       }
 
-      return { success: false, error: 'OTP verification did not return an active recovery session.' };
+      return { success: false, error: 'Verification code is invalid or has expired. Please request a new code.' };
     } catch (err: any) {
-      return { success: false, error: err?.message || 'An error occurred during OTP verification.' };
+      return { success: false, error: 'An error occurred during OTP verification.' };
     }
   };
 
