@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Briefcase, Mail, Lock, LogIn, KeyRound, AlertTriangle,
-  CheckCircle2, ShieldAlert, Sparkles, Building, ArrowRight, RefreshCw
+  CheckCircle2, ShieldAlert, Sparkles, Building, ArrowRight, RefreshCw, ShieldCheck, ArrowLeft
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -10,6 +10,7 @@ export const LoginPage: React.FC = () => {
     signIn,
     signUp,
     resetPassword,
+    verifyRecoveryOtp,
     updatePassword,
     authUser,
     authState,
@@ -28,11 +29,24 @@ export const LoginPage: React.FC = () => {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Forgot Password modal state
+  // Forgot Password modal state (Native OTP Recovery Stepper)
   const [forgotModalOpen, setForgotModalOpen] = useState(false);
+  const [recoveryStep, setRecoveryStep] = useState<'EMAIL' | 'OTP'>('EMAIL');
   const [resetEmail, setResetEmail] = useState('');
+  const [otpToken, setOtpToken] = useState('');
   const [resetStatus, setResetStatus] = useState<{ success?: boolean; message?: string } | null>(null);
   const [isResetting, setIsResetting] = useState(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  // Cooldown countdown timer for OTP resend
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
 
   // Password Recovery screen state
   const [newPassword, setNewPassword] = useState('');
@@ -81,8 +95,32 @@ export const LoginPage: React.FC = () => {
 
     if (result.success) {
       setResetStatus({ success: true, message: result.message });
+      setRecoveryStep('OTP');
+      setResendCooldown(60);
+      setOtpToken('');
     } else {
       setResetStatus({ success: false, message: result.error });
+    }
+  };
+
+  const handleVerifyOtpSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!otpToken.trim() || otpToken.trim().length < 6) {
+      setResetStatus({ success: false, message: 'Please enter the complete 6-digit verification code.' });
+      return;
+    }
+
+    setIsVerifyingOtp(true);
+    setResetStatus(null);
+    const result = await verifyRecoveryOtp(resetEmail, otpToken);
+    setIsVerifyingOtp(false);
+
+    if (result.success) {
+      setForgotModalOpen(false);
+      setOtpToken('');
+      setRecoveryStep('EMAIL');
+    } else {
+      setResetStatus({ success: false, message: result.error || 'Invalid or expired verification code. Please try again.' });
     }
   };
 
@@ -458,29 +496,30 @@ export const LoginPage: React.FC = () => {
         </div>
       </div>
 
-      {/* ─── Forgot Password Modal ────────────────────────────────────────────── */}
+      {/* ─── Native Supabase OTP Password Recovery Modal ────────────────────── */}
       {forgotModalOpen && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '420px' }}>
+          <div className="modal-content" style={{ maxWidth: '440px' }}>
             <div className="modal-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <KeyRound size={18} style={{ color: '#0284c7' }} />
-                <h3>Reset Corporate Password</h3>
+                <h3>{recoveryStep === 'OTP' ? 'Enter Verification Code' : 'Reset Corporate Password'}</h3>
               </div>
               <button
                 type="button"
                 className="modal-close-btn"
-                onClick={() => setForgotModalOpen(false)}
+                onClick={() => {
+                  setForgotModalOpen(false);
+                  setRecoveryStep('EMAIL');
+                  setResetStatus(null);
+                  setOtpToken('');
+                }}
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleResetSubmit} style={{ padding: '16px 20px 20px 20px' }}>
-              <p style={{ fontSize: '12.5px', color: '#64748b', margin: '0 0 14px 0' }}>
-                Enter your registered corporate email to receive a secure password recovery link.
-              </p>
-
+            <div style={{ padding: '16px 20px 20px 20px' }}>
               {resetStatus && (
                 <div
                   style={{
@@ -501,39 +540,136 @@ export const LoginPage: React.FC = () => {
                 </div>
               )}
 
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ fontSize: '12px', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '6px' }}>
-                  Work Email
-                </label>
-                <div className="login-input-wrapper">
-                  <Mail size={15} className="login-input-icon" />
-                  <input
-                    type="email"
-                    value={resetEmail}
-                    onChange={(e) => setResetEmail(e.target.value)}
-                    placeholder="name@rajmudragroup.com"
-                    required
-                  />
-                </div>
-              </div>
+              {recoveryStep === 'EMAIL' ? (
+                /* Step 1: Work Email Request */
+                <form onSubmit={handleResetSubmit}>
+                  <p style={{ fontSize: '12.5px', color: '#64748b', margin: '0 0 14px 0' }}>
+                    Enter your registered corporate email address. If an account exists, a 6-digit verification code will be sent to your corporate inbox.
+                  </p>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setForgotModalOpen(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={isResetting}
-                >
-                  {isResetting ? 'Sending Link...' : 'Dispatch Reset Email'}
-                </button>
-              </div>
-            </form>
+                  <div style={{ marginBottom: '16px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '6px' }}>
+                      Work Email
+                    </label>
+                    <div className="login-input-wrapper">
+                      <Mail size={15} className="login-input-icon" />
+                      <input
+                        type="email"
+                        value={resetEmail}
+                        onChange={(e) => setResetEmail(e.target.value)}
+                        placeholder="name@rajmudragroup.com"
+                        required
+                        autoFocus
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => setForgotModalOpen(false)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="btn btn-primary"
+                      disabled={isResetting}
+                    >
+                      {isResetting ? (
+                        <>
+                          <RefreshCw size={14} className="animate-spin" />
+                          <span>Sending Code...</span>
+                        </>
+                      ) : (
+                        'Dispatch Verification Code'
+                      )}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                /* Step 2: 6-Digit OTP Verification Entry */
+                <form onSubmit={handleVerifyOtpSubmit}>
+                  <p style={{ fontSize: '12.5px', color: '#64748b', margin: '0 0 14px 0', lineHeight: 1.5 }}>
+                    Enter the 6-digit verification code sent to: <strong style={{ color: '#0f172a' }}>{resetEmail}</strong>
+                  </p>
+
+                  <div style={{ marginBottom: '18px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '6px' }}>
+                      6-Digit OTP Verification Code
+                    </label>
+                    <div className="login-input-wrapper">
+                      <ShieldCheck size={16} className="login-input-icon" style={{ color: '#0284c7' }} />
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={6}
+                        value={otpToken}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+                          setOtpToken(val);
+                        }}
+                        placeholder="123456"
+                        style={{ letterSpacing: '4px', fontSize: '16px', fontWeight: 700, fontFamily: 'monospace' }}
+                        required
+                        autoFocus
+                        autoComplete="one-time-code"
+                      />
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#64748b', marginTop: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>Check your corporate email inbox</span>
+                      <button
+                        type="button"
+                        style={{ border: 'none', background: 'none', color: resendCooldown > 0 ? '#94a3b8' : '#0284c7', fontSize: '11px', fontWeight: 600, cursor: resendCooldown > 0 ? 'not-allowed' : 'pointer', padding: 0 }}
+                        disabled={resendCooldown > 0 || isResetting}
+                        onClick={async () => {
+                          setIsResetting(true);
+                          setResetStatus(null);
+                          const res = await resetPassword(resetEmail);
+                          setIsResetting(false);
+                          if (res.success) {
+                            setResendCooldown(60);
+                            setResetStatus({ success: true, message: 'A new 6-digit verification code has been sent.' });
+                          } else {
+                            setResetStatus({ success: false, message: res.error });
+                          }
+                        }}
+                      >
+                        {resendCooldown > 0 ? `Resend Code (${resendCooldown}s)` : 'Resend Code'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
+                      onClick={() => setRecoveryStep('EMAIL')}
+                    >
+                      <ArrowLeft size={13} />
+                      <span>Back</span>
+                    </button>
+                    <button
+                      type="submit"
+                      className="btn btn-primary"
+                      disabled={isVerifyingOtp || otpToken.length < 6}
+                    >
+                      {isVerifyingOtp ? (
+                        <>
+                          <RefreshCw size={14} className="animate-spin" />
+                          <span>Verifying...</span>
+                        </>
+                      ) : (
+                        'Verify Code & Continue'
+                      )}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
           </div>
         </div>
       )}

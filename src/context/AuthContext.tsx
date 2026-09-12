@@ -40,6 +40,7 @@ export interface AuthContextType {
   signUp: (email: string, password: string) => Promise<{ success: boolean; message?: string; error?: string }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ success: boolean; error?: string; message?: string }>;
+  verifyRecoveryOtp: (email: string, token: string) => Promise<{ success: boolean; error?: string }>;
   updatePassword: (newPassword: string) => Promise<{ success: boolean; error?: string; message?: string }>;
   refreshProfile: () => Promise<void>;
   clearAccessDenied: () => void;
@@ -455,7 +456,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAccessDeniedReason(null);
   };
 
-  // Password Reset Request (Dispatches secure reset email via Supabase Auth)
+  // Password Reset Request (Dispatches 6-digit OTP verification code via Supabase Auth)
   const resetPassword = async (email: string): Promise<{ success: boolean; error?: string; message?: string }> => {
     let rawEmail = email ? email.trim().toLowerCase() : '';
     if (rawEmail && !rawEmail.includes('@')) {
@@ -467,10 +468,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: false, error: domainValidation.error };
     }
 
-    logAuthEvent('PASSWORD_RESET_INITIATED', rawEmail, { channel: 'supabase_auth' });
+    logAuthEvent('PASSWORD_RESET_INITIATED', rawEmail, { channel: 'supabase_auth_otp' });
 
     try {
-      // Use standards-based URL instance to ensure exactly one '?' query separator
       const redirectUrl = new URL(`${window.location.origin}/index.html`);
       redirectUrl.searchParams.set('type', 'recovery');
 
@@ -482,12 +482,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: error.message };
       }
 
-      return { 
-        success: true, 
-        message: `A secure password reset link has been dispatched to your corporate inbox (${rawEmail}). Please check your corporate email.` 
+      return {
+        success: true,
+        message: `If an account exists, a 6-digit verification code has been sent to your corporate email (${rawEmail}).`
       };
     } catch (err: any) {
-      return { success: false, error: err.message || 'Failed to dispatch reset email.' };
+      return { success: false, error: err.message || 'Failed to dispatch verification code.' };
+    }
+  };
+
+  // Verifies 6-digit numeric OTP code for recovery via Supabase Auth
+  const verifyRecoveryOtp = async (email: string, token: string): Promise<{ success: boolean; error?: string }> => {
+    let rawEmail = email ? email.trim().toLowerCase() : '';
+    if (rawEmail && !rawEmail.includes('@')) {
+      rawEmail = `${rawEmail}@rajmudragroup.com`;
+    }
+
+    const domainValidation = validateCorporateEmail(rawEmail);
+    if (!domainValidation.isValid) {
+      return { success: false, error: domainValidation.error };
+    }
+
+    const cleanToken = token ? token.trim() : '';
+    if (!cleanToken || cleanToken.length < 6) {
+      return { success: false, error: 'Please enter a valid 6-digit verification code.' };
+    }
+
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        email: rawEmail,
+        token: cleanToken,
+        type: 'recovery',
+      });
+
+      if (error) {
+        logAuthEvent('PASSWORD_RESET_INITIATED', rawEmail, { channel: 'supabase_otp', status: 'failure', reason: error.message });
+        return { success: false, error: error.message || 'Invalid or expired verification code. Please check your email and try again.' };
+      }
+
+      if (data?.session && data?.user) {
+        setSession(data.session);
+        setAuthUser(data.user);
+        setIsPasswordRecoveryMode(true);
+        setAuthState('PASSWORD_RECOVERY');
+        logAuthEvent('PASSWORD_RESET_INITIATED', rawEmail, { channel: 'supabase_otp', status: 'verified' });
+        return { success: true };
+      }
+
+      return { success: false, error: 'OTP verification did not return an active recovery session.' };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'An error occurred during OTP verification.' };
     }
   };
 
@@ -548,6 +592,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signUp,
         signOut,
         resetPassword,
+        verifyRecoveryOtp,
         updatePassword,
         refreshProfile,
         clearAccessDenied,
