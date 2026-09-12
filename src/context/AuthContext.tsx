@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { Session, User as SupabaseAuthUser } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from '../utils/supabaseClient';
 import { Database } from '../types/database.types';
@@ -61,6 +61,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [authState, setAuthState] = useState<AuthStateStatus>('LOADING');
   const [accessDeniedReason, setAccessDeniedReason] = useState<string | null>(null);
   const [isPasswordRecoveryMode, setIsPasswordRecoveryMode] = useState<boolean>(false);
+  const recoveryFlowActiveRef = useRef<boolean>(false);
 
   const isCloudConnected = isSupabaseConfigured();
 
@@ -200,6 +201,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const isRecoveryUrl = window.location.search.includes('type=recovery') || window.location.hash.includes('type=recovery');
 
     if (isRecoveryUrl) {
+      recoveryFlowActiveRef.current = true;
       setIsPasswordRecoveryMode(true);
       setAuthState('PASSWORD_RECOVERY');
     }
@@ -208,7 +210,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       if (!isMounted) return;
 
-      if (event === 'PASSWORD_RECOVERY' || (isRecoveryUrl && newSession?.user)) {
+      if (
+        event === 'PASSWORD_RECOVERY' ||
+        isRecoveryUrl ||
+        recoveryFlowActiveRef.current ||
+        isPasswordRecoveryMode
+      ) {
         setSession(newSession);
         setAuthUser(newSession?.user || null);
         setIsPasswordRecoveryMode(true);
@@ -230,7 +237,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setTeam(null);
         setManager(null);
         setPermissions([]);
-        if (!isPasswordRecoveryMode) {
+        if (!isPasswordRecoveryMode && !recoveryFlowActiveRef.current) {
           setAuthState('UNAUTHENTICATED');
         }
         setAccessDeniedReason(null);
@@ -240,26 +247,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // 2. Initial Session Recovery (Only when not processing a recovery callback URL)
     if (!isRecoveryUrl) {
-      supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
-        if (!isMounted) return;
+      if (!recoveryFlowActiveRef.current && !isPasswordRecoveryMode) {
+        supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
+          if (!isMounted) return;
+          if (recoveryFlowActiveRef.current || isPasswordRecoveryMode) return;
 
-        if (initialSession?.user) {
-          setSession(initialSession);
-          setAuthUser(initialSession.user);
-          loadCRMProfile(initialSession.user.id).finally(() => {
-            if (isMounted) setIsLoading(false);
-          });
-        } else {
-          setAuthState('UNAUTHENTICATED');
-          setIsLoading(false);
-        }
-      }).catch((err) => {
-        console.warn('Session recovery notice:', err);
-        if (isMounted) {
-          setAuthState('UNAUTHENTICATED');
-          setIsLoading(false);
-        }
-      });
+          if (initialSession?.user) {
+            setSession(initialSession);
+            setAuthUser(initialSession.user);
+            loadCRMProfile(initialSession.user.id).finally(() => {
+              if (isMounted) setIsLoading(false);
+            });
+          } else {
+            setAuthState('UNAUTHENTICATED');
+            setIsLoading(false);
+          }
+        }).catch((err) => {
+          console.warn('Session recovery notice:', err);
+          if (isMounted) {
+            setAuthState('UNAUTHENTICATED');
+            setIsLoading(false);
+          }
+        });
+      }
     }
 
     return () => {
@@ -431,6 +441,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Sign Out Action
   const signOut = async () => {
+    recoveryFlowActiveRef.current = false;
+    setIsPasswordRecoveryMode(false);
+
     if (profile) {
       logAuthEvent('LOGOUT', profile.email, {}, {
         id: profile.id,
@@ -521,6 +534,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (data?.session && data?.user) {
+        recoveryFlowActiveRef.current = true;
         setSession(data.session);
         setAuthUser(data.user);
         setIsPasswordRecoveryMode(true);
@@ -546,6 +560,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: error.message };
       }
 
+      recoveryFlowActiveRef.current = false;
       setIsPasswordRecoveryMode(false);
       if (authUser) {
         const profileLoaded = await loadCRMProfile(authUser.id);
@@ -569,6 +584,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const clearAccessDenied = () => {
+    recoveryFlowActiveRef.current = false;
+    setIsPasswordRecoveryMode(false);
     setAccessDeniedReason(null);
     setAuthState('UNAUTHENTICATED');
   };
