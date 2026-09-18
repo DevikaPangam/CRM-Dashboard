@@ -319,7 +319,7 @@ INSERT INTO public.profiles (
   is_regional_owner,
   status
 ) VALUES (
-  '00000000-0000-0000-0000-000000000001',
+  '567db42c-c0bf-4286-8dcc-ce2cf196865b',
   '00000000-0000-0000-0000-000000000001',
   'Devika Pangam',
   'devika.p@rajmudragroup.com',
