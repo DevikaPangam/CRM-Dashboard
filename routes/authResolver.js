@@ -69,6 +69,27 @@ async function resolveProfile(supabaseAdmin, loginIdInput) {
     return foundProfile;
   }
 
+  // 3. Ultra Fallback for DEVIKA: match any super_admin profile if email/ID query returned zero rows
+  if (normalized.toUpperCase() === 'DEVIKA') {
+    const { data: adminProfiles } = await supabaseAdmin
+      .from('profiles')
+      .select('id, login_id, email, status, role')
+      .eq('role', 'super_admin')
+      .limit(1);
+
+    if (adminProfiles && adminProfiles.length > 0) {
+      const adminProfile = adminProfiles[0];
+      if (!adminProfile.login_id) {
+        await supabaseAdmin
+          .from('profiles')
+          .update({ login_id: 'DEVIKA' })
+          .eq('id', adminProfile.id);
+        adminProfile.login_id = 'DEVIKA';
+      }
+      return adminProfile;
+    }
+  }
+
   return null;
 }
 
@@ -175,7 +196,7 @@ router.post('/init-admin', async (req, res) => {
     const profile = await resolveProfile(supabaseAdmin, 'DEVIKA');
 
     if (!profile) {
-      return res.status(404).json({ success: false, error: 'Profile not found.' });
+      return res.status(400).json({ success: false, error: 'Directory profile not found for initialization.' });
     }
 
     if (profile.status !== 'active' || profile.role !== 'super_admin') {
