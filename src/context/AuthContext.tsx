@@ -75,11 +75,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      // 1. Fetch Profile from public.profiles by auth userId
+      const currentTenantId = (import.meta as any).env?.VITE_DEFAULT_ORG_ID || '00000000-0000-0000-0000-000000000001';
+      // 1. Fetch Profile from public.profiles by auth userId AND tenant
       let { data: rawProfile, error: profileError } = await (supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
+        .eq('organization_id', currentTenantId)
         .maybeSingle() as any);
 
       let userProfile = rawProfile as ProfileRow | null;

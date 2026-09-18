@@ -37,17 +37,6 @@ router.post('/login', loginLimiter, async (req, res) => {
     }
 
     if (!supabaseAdmin) {
-      // Mock for development fallback
-      if (login_id.toUpperCase() === 'DEVIKA') {
-        return res.json({
-          success: true,
-          session: {
-            access_token: 'mock_token',
-            refresh_token: 'mock_refresh',
-            user: { id: '567db42c-c0bf-4286-8dcc-ce2cf196865b', email: 'devika.p@rajmudragroup.com' }
-          }
-        });
-      }
       return res.status(500).json({ success: false, error: 'ADMIN_API_NOT_CONFIGURED' });
     }
 

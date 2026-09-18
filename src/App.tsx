@@ -25,7 +25,7 @@ import { GlobalModals } from './components/modals/GlobalModals';
 import { RefreshCw } from 'lucide-react';
 
 export const App: React.FC = () => {
-  const { currentTab, setCurrentTab } = useCRM();
+  const { currentTab, setCurrentTab, isLoadingData } = useCRM();
   const { authState, isLoading } = useAuth();
   const { can } = useRBAC();
 
@@ -47,13 +47,13 @@ export const App: React.FC = () => {
   }, [currentTab, can, isLoading, authState, setCurrentTab]);
 
   // 1. Initial Session Loading Screen
-  if (isLoading) {
+  if (isLoading || isLoadingData) {
     return (
       <div className="login-screen-wrapper">
         <div style={{ textAlign: 'center', color: '#0284c7' }}>
           <RefreshCw size={36} className="animate-spin" style={{ margin: '0 auto 12px auto' }} />
           <div style={{ fontSize: '14px', fontWeight: 600, color: '#334155' }}>
-            Initializing Secure CRM Session...
+            {isLoadingData ? 'Loading CRM Business Data...' : 'Initializing Secure CRM Session...'}
           </div>
         </div>
       </div>
