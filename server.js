@@ -72,6 +72,10 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // ─── API Routes (Supabase Privileged Bridge) ──────────────────────────────────
 
+app.get('/api/auth-test', (req, res) => {
+  res.json({ success: true, message: 'Server.js auth-test working!' });
+});
+
 // Privileged Administrator User Provisioning Endpoint
 app.use('/api/admin/users', adminUsersRoutes);
 
