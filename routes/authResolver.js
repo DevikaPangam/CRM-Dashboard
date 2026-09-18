@@ -22,14 +22,8 @@ if (supabaseUrl && serviceRoleKey) {
   });
 }
 
-const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  message: { success: false, error: 'Too many login attempts. Please try again in 15 minutes.' },
-  validate: { xForwardedForHeader: false },
-});
-
-router.post('/login', loginLimiter, async (req, res) => {
+// Note: rate limiting on Vercel serverless is managed by platform infrastructure
+router.post('/login', async (req, res) => {
   try {
     const { login_id, password } = req.body;
 
@@ -78,7 +72,7 @@ router.post('/login', loginLimiter, async (req, res) => {
 });
 
 
-router.post('/init-admin', loginLimiter, async (req, res) => {
+router.post('/init-admin', async (req, res) => {
   try {
     const { login_id, new_password, setup_pin } = req.body;
 
