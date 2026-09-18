@@ -1,6 +1,7 @@
 /**
  * Secure Authentication Resolver
- * Resolves CRM User ID (login_id) to Supabase Auth identity securely.
+ * Resolves CRM User ID (login_id) to Supabase Auth identity strictly read-only.
+ * NO profile mutations, NO self-healing, NO hardcoded privilege manufacturing.
  */
 
 const express = require('express');
@@ -21,167 +22,18 @@ if (supabaseUrl && serviceRoleKey) {
   });
 }
 
-const KNOWN_DEVIKA_UUID = '567db42c-c0bf-4286-8dcc-ce2cf196865b';
-const DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000001';
-
 /**
- * Resolves Devika's existing Supabase Auth identity and enforces profile parity.
- */
-async function resolveDevikaIdentity(supabaseAdmin) {
-  let authUserId = null;
-  let authUserEmail = 'devika.p@rajmudragroup.com';
-  let authUserObj = null;
-
-  // 1. Try known historical Auth UUID
-  try {
-    const { data: userResp } = await supabaseAdmin.auth.admin.getUserById(KNOWN_DEVIKA_UUID);
-    if (userResp?.user) {
-      authUserId = userResp.user.id;
-      authUserEmail = userResp.user.email || authUserEmail;
-      authUserObj = userResp.user;
-    }
-  } catch (e) {}
-
-  // 2. If not found by UUID, try querying public.profiles
-  if (!authUserId) {
-    try {
-      const { data: profiles } = await supabaseAdmin
-        .from('profiles')
-        .select('id, email, status, role')
-        .or(`login_id.ilike.DEVIKA,email.ilike.%devika%,role.eq.super_admin`)
-        .limit(1);
-
-      if (profiles && profiles.length > 0) {
-        authUserId = profiles[0].id;
-        if (profiles[0].email) authUserEmail = profiles[0].email;
-        const { data: uResp } = await supabaseAdmin.auth.admin.getUserById(authUserId);
-        if (uResp?.user) authUserObj = uResp.user;
-      }
-    } catch (e) {}
-  }
-
-  // 3. If still not found, list auth users to locate devika email
-  if (!authUserId) {
-    try {
-      const { data: listResp } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 50 });
-      if (listResp?.users) {
-        const devikaUser = listResp.users.find(u => u.email && u.email.toLowerCase().includes('devika'));
-        if (devikaUser) {
-          authUserId = devikaUser.id;
-          authUserEmail = devikaUser.email;
-          authUserObj = devikaUser;
-        }
-      }
-    } catch (e) {}
-  }
-
-  if (!authUserId || !authUserObj) {
-    return null;
-  }
-
-  // Enforce profile parity (profiles.id === auth.users.id)
-  try {
-    // 1. Check if profile exists with exact authUserId
-    const { data: profileByExactId } = await supabaseAdmin
-      .from('profiles')
-      .select('*')
-      .eq('id', authUserId)
-      .maybeSingle();
-
-    if (profileByExactId) {
-      // Profile exists with exact Auth ID — ensure attributes are active/super_admin/DEVIKA
-      if (
-        profileByExactId.login_id !== 'DEVIKA' ||
-        profileByExactId.role !== 'super_admin' ||
-        profileByExactId.status !== 'active'
-      ) {
-        await supabaseAdmin
-          .from('profiles')
-          .update({
-            login_id: 'DEVIKA',
-            role: 'super_admin',
-            status: 'active',
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', authUserId);
-      }
-    } else {
-      // 2. Check if a profile exists by email or login_id with a mismatched ID
-      const { data: existingProfiles } = await supabaseAdmin
-        .from('profiles')
-        .select('*')
-        .or(`email.ilike.${authUserEmail},login_id.ilike.DEVIKA,role.eq.super_admin`)
-        .limit(1);
-
-      if (existingProfiles && existingProfiles.length > 0) {
-        const oldProfile = existingProfiles[0];
-        // Repair UUID on existing profile row to match auth.users.id
-        const { error: updateIdError } = await supabaseAdmin
-          .from('profiles')
-          .update({
-            id: authUserId,
-            login_id: 'DEVIKA',
-            role: 'super_admin',
-            status: 'active',
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', oldProfile.id);
-
-        if (updateIdError) {
-          console.error('Failed to align profile ID:', updateIdError.message);
-          // Fallback: Delete mismatched duplicate row and insert clean row with authUserId
-          await supabaseAdmin.from('profiles').delete().eq('id', oldProfile.id);
-          await supabaseAdmin.from('profiles').insert({
-            id: authUserId,
-            login_id: 'DEVIKA',
-            email: authUserEmail,
-            full_name: oldProfile.full_name || 'Devika Pangam',
-            role: 'super_admin',
-            status: 'active',
-            organization_id: oldProfile.organization_id || DEFAULT_ORG_ID,
-            updated_at: new Date().toISOString(),
-          });
-        }
-      } else {
-        // 3. No profile exists at all — insert clean profile row with exact authUserId
-        await supabaseAdmin.from('profiles').insert({
-          id: authUserId,
-          login_id: 'DEVIKA',
-          email: authUserEmail,
-          full_name: 'Devika Pangam',
-          role: 'super_admin',
-          status: 'active',
-          organization_id: DEFAULT_ORG_ID,
-          updated_at: new Date().toISOString(),
-        });
-      }
-    }
-  } catch (e) {
-    console.error('Self-healing profile parity error:', e);
-  }
-
-  return {
-    id: authUserId,
-    email: authUserEmail,
-    authUser: authUserObj
-  };
-}
-
-/**
- * General profile resolver for standard non-admin users.
+ * Resolves an existing profile row in public.profiles by CRM User ID (login_id).
+ * Read-only lookup: performs zero mutations.
  */
 async function resolveProfile(supabaseAdmin, loginIdInput) {
   if (!loginIdInput || typeof loginIdInput !== 'string') return null;
   const normalized = loginIdInput.trim();
 
-  if (normalized.toUpperCase() === 'DEVIKA') {
-    return resolveDevikaIdentity(supabaseAdmin);
-  }
-
-  // Exact/ilike login_id lookup
+  // 1. Exact or case-insensitive login_id lookup
   const { data: byLoginId } = await supabaseAdmin
     .from('profiles')
-    .select('id, login_id, email, status, role')
+    .select('id, login_id, email, status, role, organization_id')
     .ilike('login_id', normalized)
     .limit(1);
 
@@ -189,10 +41,10 @@ async function resolveProfile(supabaseAdmin, loginIdInput) {
     return byLoginId[0];
   }
 
-  // Fallback: email lookup
+  // 2. Fallback email lookup for corporate users entering work email as user ID
   const { data: fallbackProfiles } = await supabaseAdmin
     .from('profiles')
-    .select('id, login_id, email, status, role')
+    .select('id, login_id, email, status, role, organization_id')
     .ilike('email', normalized.includes('@') ? normalized : `${normalized}@%`)
     .limit(1);
 
@@ -203,7 +55,7 @@ async function resolveProfile(supabaseAdmin, loginIdInput) {
   return null;
 }
 
-// Note: rate limiting on Vercel serverless is managed by platform infrastructure
+// POST /api/auth/login — Authenticates CRM User ID against Supabase Auth authority
 router.post('/login', async (req, res) => {
   try {
     const { login_id, password } = req.body;
@@ -216,29 +68,18 @@ router.post('/login', async (req, res) => {
       return res.status(500).json({ success: false, error: 'ADMIN_API_NOT_CONFIGURED' });
     }
 
-    const normalizedId = login_id.trim();
-    let profile = null;
-    let targetEmail = null;
-
-    if (normalizedId.toUpperCase() === 'DEVIKA') {
-      const devikaIdentity = await resolveDevikaIdentity(supabaseAdmin);
-      if (!devikaIdentity) {
-        return res.status(401).json({ success: false, error: 'Invalid User ID or Password.' });
-      }
-      profile = { id: devikaIdentity.id, status: 'active', role: 'super_admin' };
-      targetEmail = devikaIdentity.email;
-    } else {
-      profile = await resolveProfile(supabaseAdmin, normalizedId);
-      if (!profile) {
-        return res.status(401).json({ success: false, error: 'Invalid User ID or Password.' });
-      }
-      if (profile.status !== 'active') {
-        return res.status(403).json({ success: false, error: 'Account is suspended or inactive. Please contact your Administrator.' });
-      }
-      targetEmail = profile.email;
+    // 1. Resolve existing CRM profile row from public.profiles
+    const profile = await resolveProfile(supabaseAdmin, login_id);
+    if (!profile) {
+      return res.status(401).json({ success: false, error: 'Invalid User ID or Password.' });
     }
 
-    // Fetch corresponding Auth user by profile.id to guarantee profile.id === auth.users.id
+    // 2. Check profile status
+    if (profile.status !== 'active') {
+      return res.status(403).json({ success: false, error: 'Account is suspended or inactive. Please contact your Administrator.' });
+    }
+
+    // 3. Fetch corresponding Auth user by profile.id to confirm identity parity
     const { data: userResp, error: userErr } = await supabaseAdmin.auth.admin.getUserById(profile.id);
 
     if (userErr || !userResp?.user) {
@@ -248,16 +89,16 @@ router.post('/login', async (req, res) => {
 
     const authUser = userResp.user;
 
-    // Check Auth user ban status
+    // 4. Check Auth user ban status
     if (authUser.banned_until && new Date(authUser.banned_until) > new Date()) {
       return res.status(403).json({ success: false, error: 'Account is suspended or inactive. Please contact your Administrator.' });
     }
 
-    const finalAuthEmail = authUser.email || targetEmail;
+    const authEmail = authUser.email || profile.email;
 
-    // Authenticate against Supabase Auth
+    // 5. Authenticate strictly against Supabase Auth
     const { data: authData, error: authErr } = await supabaseAdmin.auth.signInWithPassword({
-      email: finalAuthEmail,
+      email: authEmail,
       password: password,
     });
 
@@ -280,7 +121,7 @@ router.post('/login', async (req, res) => {
   }
 });
 
-
+// POST /api/auth/init-admin — Secure password setup for existing Super Admin
 router.post('/init-admin', async (req, res) => {
   try {
     const { login_id, new_password, setup_pin } = req.body;
@@ -307,20 +148,26 @@ router.post('/init-admin', async (req, res) => {
       return res.status(500).json({ success: false, error: 'ADMIN_API_NOT_CONFIGURED' });
     }
 
-    // Resolve existing Devika identity directly against Supabase Auth
-    const devikaIdentity = await resolveDevikaIdentity(supabaseAdmin);
+    // Resolve existing Devika profile without modification
+    const profile = await resolveProfile(supabaseAdmin, 'DEVIKA');
 
-    if (!devikaIdentity) {
+    if (!profile) {
+      return res.status(404).json({ success: false, error: 'DEVIKA_PROFILE_NOT_FOUND' });
+    }
+
+    // Verify Auth user exists for profile.id
+    const { data: userResp, error: userErr } = await supabaseAdmin.auth.admin.getUserById(profile.id);
+    if (userErr || !userResp?.user) {
       return res.status(404).json({ success: false, error: 'DEVIKA_AUTH_USER_NOT_FOUND' });
     }
 
-    // Update password for existing Devika Auth user
-    const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(devikaIdentity.id, {
+    // Update password for existing Auth user
+    const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(profile.id, {
       password: new_password,
       user_metadata: {
-        ...devikaIdentity.authUser.user_metadata,
-        password_initialized: true
-      }
+        ...userResp.user.user_metadata,
+        password_initialized: true,
+      },
     });
 
     if (updateErr) {
