@@ -23,6 +23,7 @@ export const LoginPage: React.FC = () => {
   const [authMode, setAuthMode] = useState<'signin' | 'register'>('signin');
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
+  const [setupSecret, setSetupSecret] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -48,12 +49,33 @@ export const LoginPage: React.FC = () => {
     setIsSubmitting(true);
 
     if (authMode === 'register') {
-      const regResult = await signUp(loginId, password);
-      setIsSubmitting(false);
-      if (regResult.success) {
-        setSuccessMsg(regResult.message || 'Account registration successful!');
-      } else {
-        setErrorMsg(regResult.error || 'Registration failed.');
+      if (password !== confirmPassword) {
+        setErrorMsg('Passwords do not match.');
+        setIsSubmitting(false);
+        return;
+      }
+      
+      try {
+        const res = await fetch('/api/auth/first-time-setup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ login_id: loginId, setup_secret: setupSecret, new_password: password })
+        });
+        
+        const data = await res.json();
+        if (data.success) {
+          setSuccessMsg(data.message || 'Password initialized successfully. Switching to Sign In.');
+          setAuthMode('signin');
+          setPassword('');
+          setConfirmPassword('');
+          setSetupSecret('');
+        } else {
+          setErrorMsg(data.error || 'Initialization failed.');
+        }
+      } catch (err: any) {
+        setErrorMsg(err.message || 'An error occurred during initialization.');
+      } finally {
+        setIsSubmitting(false);
       }
     } else {
       const loginResult = await signIn(loginId, password);
@@ -340,7 +362,7 @@ export const LoginPage: React.FC = () => {
               setSuccessMsg(null);
             }}
           >
-            First-Time Setup / Register
+            First-Time Setup
           </button>
         </div>
 
@@ -405,6 +427,40 @@ export const LoginPage: React.FC = () => {
               />
             </div>
           </div>
+          
+          {authMode === 'register' && (
+            <>
+              <div className="login-field-group">
+                <label>Confirm Corporate Password</label>
+                <div className="login-input-wrapper">
+                  <Lock size={16} className="login-input-icon" />
+                  <input
+                    type="password"
+                    placeholder="Re-enter corporate password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    autoComplete="new-password"
+                  />
+                </div>
+              </div>
+
+              <div className="login-field-group">
+                <label>Setup Authorization Secret</label>
+                <div className="login-input-wrapper">
+                  <KeyRound size={16} className="login-input-icon" />
+                  <input
+                    type="password"
+                    placeholder="Enter one-time setup secret"
+                    value={setupSecret}
+                    onChange={(e) => setSetupSecret(e.target.value)}
+                    required
+                    autoComplete="off"
+                  />
+                </div>
+              </div>
+            </>
+          )}
 
           <button
             type="submit"
@@ -414,12 +470,12 @@ export const LoginPage: React.FC = () => {
             {isSubmitting ? (
               <>
                 <RefreshCw size={16} className="animate-spin" />
-                <span>{authMode === 'register' ? 'Registering Account...' : 'Authenticating...'}</span>
+                <span>{authMode === 'register' ? 'Initializing...' : 'Authenticating...'}</span>
               </>
             ) : (
               <>
                 {authMode === 'register' ? <Sparkles size={16} /> : <LogIn size={16} />}
-                <span>{authMode === 'register' ? 'Register Corporate Account' : 'Sign In to CRM Dashboard'}</span>
+                <span>{authMode === 'register' ? 'Initialize Account' : 'Sign In to CRM Dashboard'}</span>
               </>
             )}
           </button>
