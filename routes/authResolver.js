@@ -161,4 +161,30 @@ router.post('/init-admin', loginLimiter, async (req, res) => {
   }
 });
 
+router.get('/diagnostic', async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(500).json({ error: 'ADMIN_API_NOT_CONFIGURED' });
+    }
+
+    const { data: authUser, error: authErr } = await supabaseAdmin.auth.admin.listUsers();
+    const devikaAuth = authUser?.users?.find(u => u.email === 'devika.p@rajmudragroup.com');
+
+    const { data: profile, error: profileErr } = await supabaseAdmin
+      .from('profiles')
+      .select('id, login_id, email, full_name, role, status, organization_id')
+      .ilike('email', 'devika.p@rajmudragroup.com');
+
+    return res.json({
+      success: true,
+      auth_user: devikaAuth ? { id: devikaAuth.id, email: devikaAuth.email } : null,
+      profiles: profile || null,
+      authErr,
+      profileErr
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
