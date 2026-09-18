@@ -26,7 +26,7 @@ const ROLE_OPTIONS: Array<{ value: UserRoleEnum; label: string; description: str
 ];
 
 export const EditUserModal: React.FC = () => {
-  const { closeModal, activeModal, updateUser } = useCRM();
+  const { closeModal, activeModal, updateUser, openModal } = useCRM();
   const { profile, refreshProfile } = useAuth();
   const { canAdmin, canEdit } = useRBAC();
   const userToEdit: any = activeModal.data;
@@ -79,7 +79,7 @@ export const EditUserModal: React.FC = () => {
     status: (userToEdit?.status?.toLowerCase() === 'inactive' || userToEdit?.status?.toLowerCase() === 'suspended' ? 'inactive' : 'active') as UserStatusEnum,
   });
 
-  const [newPassword, setNewPassword] = useState('');
+  const [actionLoading, setActionLoading] = useState<'revoke' | null>(null);
 
   const [permissions, setPermissions] = useState<SegmentPermission[]>(() =>
     getDefaultPermissionsForRole(userToEdit?.role_name || userToEdit?.role || 'bd_exec')
@@ -87,13 +87,13 @@ export const EditUserModal: React.FC = () => {
   const [initialPermissions, setInitialPermissions] = useState<SegmentPermission[]>([]);
   const [isPermissionsDirty, setIsPermissionsDirty] = useState(false);
   const [showRoleConfirmModal, setShowRoleConfirmModal] = useState(false);
+  const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [isHierarchyLoading, setIsHierarchyLoading] = useState(true);
   const [isPermissionsLoading, setIsPermissionsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const arePermissionsEqual = (a: SegmentPermission[], b: SegmentPermission[]): boolean => {
     if (!a || !b || a.length !== b.length) return false;
@@ -339,25 +339,7 @@ export const EditUserModal: React.FC = () => {
     await performSave(false);
   };
 
-  const handleResetPassword = async () => {
-    if (!newPassword || newPassword.length < 8) {
-      setErrorMessage('Please enter a new password of at least 8 characters before resetting.');
-      return;
-    }
-    if (!window.confirm(`Force password reset for ${formData.email}?`)) return;
-    setActionLoading('reset');
-    setErrorMessage(null);
-    setSuccessMessage(null);
-
-    const res = await triggerPasswordReset(userToEdit.id, newPassword);
-    setActionLoading(null);
-    if (res.success) {
-      setSuccessMessage(`Password reset successfully for ${formData.email}.`);
-      setNewPassword('');
-    } else {
-      setErrorMessage(res.error || 'Failed to trigger password reset.');
-    }
-  };
+  // Removed unused reset password logic that was moved to AdminResetPasswordModal
 
   const handleRevokeAccess = async () => {
     if (isEditingSelf) {
@@ -863,25 +845,14 @@ export const EditUserModal: React.FC = () => {
                 Privileged Security Operations
               </strong>
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="New Password (min 8 chars)"
-                    style={{ width: '200px' }}
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                  />
                   <button
                     type="button"
                     className="btn btn-secondary btn-sm"
-                    onClick={handleResetPassword}
-                    disabled={actionLoading !== null}
+                    onClick={() => openModal('adminResetPassword', userToEdit)}
                   >
                     <KeyRound size={14} style={{ color: '#0284c7' }} />
-                    <span>{actionLoading === 'reset' ? 'Resetting...' : 'Admin Reset Password'}</span>
+                    <span>Admin Reset Password</span>
                   </button>
-                </div>
 
                 {!isEditingSelf && (
                   <button

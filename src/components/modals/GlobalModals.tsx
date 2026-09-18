@@ -25,6 +25,7 @@ import { AddKRAModal } from './AddKRAModal';
 import { AddKPIModal } from './AddKPIModal';
 import { KRAHistoryModal } from './KRAHistoryModal';
 import { AddPerformanceReviewModal } from './AddPerformanceReviewModal';
+import { AdminResetPasswordModal } from './AdminResetPasswordModal';
 
 export const GlobalModals: React.FC = () => {
   const { activeModal } = useCRM();
@@ -80,6 +81,8 @@ export const GlobalModals: React.FC = () => {
       return <DelegationMatrixModal />;
     case 'approvalModal':
       return <ApprovalModal />;
+    case 'adminResetPassword':
+      return <AdminResetPasswordModal />;
     case 'dealInception':
       return <DealInceptionModal />;
     default:
