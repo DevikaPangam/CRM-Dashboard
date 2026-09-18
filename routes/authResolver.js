@@ -48,7 +48,7 @@ router.post('/login', loginLimiter, async (req, res) => {
           }
         });
       }
-      return res.status(401).json({ success: false, error: 'Invalid User ID or Password.' });
+      return res.status(500).json({ success: false, error: 'ADMIN_API_NOT_CONFIGURED' });
     }
 
     // 1. Securely resolve login_id to email using service role
@@ -114,7 +114,7 @@ router.post('/init-admin', loginLimiter, async (req, res) => {
     }
 
     if (!supabaseAdmin) {
-      return res.status(500).json({ success: false, error: 'Admin API not configured.' });
+      return res.status(500).json({ success: false, error: 'ADMIN_API_NOT_CONFIGURED' });
     }
 
     // 1. Resolve CRM User ID to Profile

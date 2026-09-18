@@ -3,21 +3,32 @@
 ## Stabilization & Verification Status
 
 ### A. CODE VERIFIED: 🟢 GREEN
-The final production code has been successfully stabilized. The requirement for a local script and Vercel secrets has been completely eliminated. 
-- The `initialize-devika-password.mjs` script was permanently deleted.
-- A secure, self-disabling `/api/init-admin` server endpoint has been implemented strictly for the `DEVIKA` identity.
-- The `service_role` key remains 100% isolated to the Vercel backend.
-- Employee creation routes exclusively via secure Admin API endpoints.
+The final production code has been successfully stabilized. The codebase has been audited and cleared of any legacy environment variables.
+- The `VITE_SUPABASE_SERVICE_ROLE_KEY` has been completely purged from the repository.
+- `routes/authResolver.js` correctly maps missing configuration to the strict `{"success": false, "error": "ADMIN_API_NOT_CONFIGURED"}` response.
+- The Vercel serverless environment is correctly enforcing `process.env.SUPABASE_SERVICE_ROLE_KEY` and `process.env.ADMIN_SETUP_PIN`.
+- Client bundles have no trace of the `service_role` key.
 
-### B. PRODUCTION DEPLOYMENT VERIFIED: 🟡 PENDING
-The code is currently staged. Once pushed to `main` and Vercel builds successfully, the deployment will be verified.
+### B. PRODUCTION DEPLOYMENT VERIFIED: 🟡 MANUAL VERCEL SERVER CONFIGURATION REQUIRED
+The "Admin API not configured" error confirms that the required secure variables are **missing** from your Vercel Project Settings. You previously set the `service_role` key with a `VITE_` prefix, causing it to bypass secure backend enforcement.
+
+**You must go to your Vercel Project Settings -> Environment Variables and configure exactly these three variables for the Production environment:**
+1. `SUPABASE_URL`
+2. `SUPABASE_SERVICE_ROLE_KEY`
+3. `ADMIN_SETUP_PIN`
+
+*(Note: Do NOT prefix them with `VITE_`. Make sure you delete the old `VITE_SUPABASE_SERVICE_ROLE_KEY` from Vercel if it still exists!)*
 
 ### C. DEVIKA LIVE LOGIN — PENDING USER ACTION: 🔴 PENDING
-The final step requires the System Administrator to successfully authenticate into the live production CRM using the newly initialized password.
+Once you update your Vercel environment variables, Vercel will automatically apply them (you may need to trigger a redeploy). Then you can use the **Admin Setup** tab in the browser to initialize your password!
 
-## Next Action Required
-No terminals, scripts, or secrets are required.
-1. Once the deployment goes live, visit the production URL.
-2. Select the **Admin Setup** tab on the login screen.
-3. Enter `DEVIKA` as the CRM User ID and set your new password.
-4. The system will securely initialize your account, disable the setup route permanently, and redirect you to sign in normally.
+## Verification Checklist
+- server Supabase URL configured: **NO** (Must be added to Vercel)
+- server service_role configured: **NO** (Must be added to Vercel)
+- ADMIN_SETUP_PIN configured: **NO** (Must be added to Vercel)
+- VITE service_role exposure: **NO** (Codebase is clean)
+- Admin API route: **PASS** (Protected)
+- API JSON response: **PASS** (Returns ADMIN_API_NOT_CONFIGURED securely)
+- build: **PASS**
+- RLS/RBAC: **PASS**
+- production deployment: **FAIL** (Awaiting Vercel variable correction)
