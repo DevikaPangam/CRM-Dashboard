@@ -119,7 +119,8 @@ router.post('/login', async (req, res) => {
     });
 
     if (authErr || !authData?.session) {
-      return res.status(401).json({ success: false, error: 'Invalid User ID or Password.' });
+      console.error('Supabase Auth signInWithPassword error:', authErr?.message);
+      return res.status(401).json({ success: false, error: authErr?.message || 'Invalid User ID or Password.' });
     }
 
     if (authData.user && authData.user.id !== profile.id) {
@@ -175,9 +176,10 @@ router.post('/init-admin', async (req, res) => {
       return res.status(404).json({ success: false, error: 'DEVIKA_AUTH_USER_NOT_FOUND' });
     }
 
-    // 3. Update password for existing Auth user
+    // 3. Update password for existing Auth user and confirm email
     const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(targetAuthId, {
       password: new_password,
+      email_confirm: true,
       user_metadata: {
         ...userResp.user.user_metadata,
         password_initialized: true,
