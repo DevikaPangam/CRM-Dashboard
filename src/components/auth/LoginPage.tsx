@@ -20,10 +20,8 @@ export const LoginPage: React.FC = () => {
     clearAccessDenied,
   } = useAuth();
 
-  const [authMode, setAuthMode] = useState<'signin' | 'register'>('signin');
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
-  const [setupSecret, setSetupSecret] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -48,62 +46,12 @@ export const LoginPage: React.FC = () => {
 
     setIsSubmitting(true);
 
-    if (authMode === 'register') {
-      if (password !== confirmPassword) {
-        setErrorMsg('Passwords do not match.');
-        setIsSubmitting(false);
-        return;
-      }
-      
-      try {
-        const res = await fetch('/api/auth/first-time-setup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ login_id: loginId, setup_secret: setupSecret, new_password: password })
-        });
-        
-        let data: any = null;
-        const contentType = res.headers.get('content-type');
-        
-        try {
-          if (contentType && contentType.includes('application/json')) {
-            data = await res.json();
-          } else {
-            const text = await res.text();
-            console.error('Non-JSON response:', text.substring(0, 200));
-          }
-        } catch (parseErr) {
-          console.error('Response parsing failed', parseErr);
-        }
-
-        if (!data) {
-          setErrorMsg('First-Time Setup service is temporarily unavailable. Please try again.');
-          setIsSubmitting(false);
-          return;
-        }
-        
-        if (data.success) {
-          setSuccessMsg(data.message || 'Password initialized successfully. Switching to Sign In.');
-          setAuthMode('signin');
-          setPassword('');
-          setConfirmPassword('');
-          setSetupSecret('');
-        } else {
-          setErrorMsg(data.error || 'Initialization failed.');
-        }
-      } catch (err: any) {
-        setErrorMsg('Network error or service unavailable. Please try again later.');
-      } finally {
-        setIsSubmitting(false);
-      }
-    } else {
       const loginResult = await signIn(loginId, password);
       setIsSubmitting(false);
 
       if (!loginResult.success) {
         setErrorMsg(loginResult.error || 'Authentication failed.');
       }
-    }
   };
 
   // Forgot password removed per Phase 9 (OTP removed)
@@ -335,55 +283,7 @@ export const LoginPage: React.FC = () => {
 
 
 
-        {/* Mode Tabs */}
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', background: '#f1f5f9', padding: '4px', borderRadius: '8px' }}>
-          <button
-            type="button"
-            style={{
-              flex: 1,
-              padding: '8px',
-              border: 'none',
-              borderRadius: '6px',
-              fontSize: '13px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              background: authMode === 'signin' ? '#ffffff' : 'transparent',
-              color: authMode === 'signin' ? '#0284c7' : '#64748b',
-              boxShadow: authMode === 'signin' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-              transition: 'all 0.15s ease',
-            }}
-            onClick={() => {
-              setAuthMode('signin');
-              setErrorMsg(null);
-              setSuccessMsg(null);
-            }}
-          >
-            Sign In
-          </button>
-          <button
-            type="button"
-            style={{
-              flex: 1,
-              padding: '8px',
-              border: 'none',
-              borderRadius: '6px',
-              fontSize: '13px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              background: authMode === 'register' ? '#ffffff' : 'transparent',
-              color: authMode === 'register' ? '#0284c7' : '#64748b',
-              boxShadow: authMode === 'register' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-              transition: 'all 0.15s ease',
-            }}
-            onClick={() => {
-              setAuthMode('register');
-              setErrorMsg(null);
-              setSuccessMsg(null);
-            }}
-          >
-            First-Time Setup
-          </button>
-        </div>
+
 
         {/* Success Alert */}
         {successMsg && (
@@ -427,59 +327,25 @@ export const LoginPage: React.FC = () => {
 
           <div className="login-field-group">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <label>{authMode === 'register' ? 'Set Corporate Password' : 'Password'}</label>
-              {authMode === 'signin' && (
-                <div className="login-forgot-link" style={{ cursor: 'default', color: '#94a3b8' }} title="Contact your Administrator to reset your password.">
-                  Forgot Password?
-                </div>
-              )}
+              <label>Password</label>
+              <div className="login-forgot-link" style={{ cursor: 'default', color: '#94a3b8' }} title="Contact your Administrator to reset your password.">
+                Forgot Password?
+              </div>
             </div>
             <div className="login-input-wrapper">
               <Lock size={16} className="login-input-icon" />
               <input
                 type="password"
-                placeholder={authMode === 'register' ? 'Create corporate password (min 6 chars)' : 'Enter your corporate password'}
+                placeholder="Enter your corporate password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                autoComplete={authMode === 'register' ? 'new-password' : 'current-password'}
+                autoComplete="current-password"
               />
             </div>
           </div>
           
-          {authMode === 'register' && (
-            <>
-              <div className="login-field-group">
-                <label>Confirm Corporate Password</label>
-                <div className="login-input-wrapper">
-                  <Lock size={16} className="login-input-icon" />
-                  <input
-                    type="password"
-                    placeholder="Re-enter corporate password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    required
-                    autoComplete="new-password"
-                  />
-                </div>
-              </div>
 
-              <div className="login-field-group">
-                <label>Setup Authorization Secret</label>
-                <div className="login-input-wrapper">
-                  <KeyRound size={16} className="login-input-icon" />
-                  <input
-                    type="password"
-                    placeholder="Enter one-time setup secret"
-                    value={setupSecret}
-                    onChange={(e) => setSetupSecret(e.target.value)}
-                    required
-                    autoComplete="off"
-                  />
-                </div>
-              </div>
-            </>
-          )}
 
           <button
             type="submit"
@@ -489,12 +355,12 @@ export const LoginPage: React.FC = () => {
             {isSubmitting ? (
               <>
                 <RefreshCw size={16} className="animate-spin" />
-                <span>{authMode === 'register' ? 'Initializing...' : 'Authenticating...'}</span>
+                <span>Authenticating...</span>
               </>
             ) : (
               <>
-                {authMode === 'register' ? <Sparkles size={16} /> : <LogIn size={16} />}
-                <span>{authMode === 'register' ? 'Initialize Account' : 'Sign In to CRM Dashboard'}</span>
+                <LogIn size={16} />
+                <span>Sign In to CRM Dashboard</span>
               </>
             )}
           </button>

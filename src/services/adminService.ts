@@ -335,105 +335,11 @@ export async function provisionUser(payload: ProvisionUserPayload): Promise<{ su
     console.warn('API provision notice, utilizing direct Supabase provision:', err.message);
   }
 
-  // Direct Supabase Client Provisioning
-  if (isSupabaseConfigured()) {
-    try {
-      const orgId = payload.organization_id || '00000000-0000-0000-0000-000000000001';
-      let authUserId: string | undefined;
-
-      // 1. Attempt Supabase Auth Sign Up if temporary password provided
-      if (payload.provisioning_method === 'password' && payload.temp_password) {
-        try {
-          const { data: authData, error: authErr } = await supabase.auth.signUp({
-            email: payload.email.trim().toLowerCase(),
-            password: payload.temp_password,
-            options: {
-              data: {
-                full_name: payload.full_name,
-                organization_id: orgId,
-                role: payload.role,
-              },
-            },
-          });
-          if (authData?.user?.id) {
-            authUserId = authData.user.id;
-          } else if (authErr && !authErr.message?.includes('already registered')) {
-            console.warn('Supabase Auth signUp notice:', authErr.message);
-          }
-        } catch (authEx: any) {
-          console.warn('Supabase auth signUp notice:', authEx.message);
-        }
-      }
-
-      // 2. Prioritize exact authUserId (auth.users.id UUID) for public.profiles primary key
-      const { data: existingProfile } = await (supabase.from('profiles') as any)
-        .select('id')
-        .eq('email', payload.email.trim().toLowerCase())
-        .maybeSingle();
-
-      const profileId = authUserId || existingProfile?.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `00000000-0000-0000-0000-${Date.now().toString().slice(-12).padStart(12, '0')}`);
-
-      // 3. Upsert Profile into public.profiles
-      const savedUser = await crmDataService.upsertProfile({
-        id: profileId,
-        name: payload.full_name,
-        email: payload.email,
-        role_name: payload.role,
-        department: payload.department,
-        designation: payload.designation,
-        employee_id: payload.employee_id,
-        region: payload.region,
-        location: payload.location,
-        joining_date: payload.joining_date,
-        employment_type: payload.employment_type,
-        is_regional_owner: payload.is_regional_owner,
-        annual_target_inr: payload.annual_target_inr,
-        phone: payload.phone,
-        team_id: payload.team_id || undefined,
-        manager_id: payload.manager_id || undefined,
-        status: payload.status === 'inactive' || payload.status === 'suspended' ? 'Inactive' : 'Active',
-      }, orgId);
-
-      // 4. Explicit verification of stored record
-      const { data: verified, error: verifyErr } = await (supabase.from('profiles') as any)
-        .select('*')
-        .eq('id', savedUser.id)
-        .single();
-
-      if (verifyErr || !verified) {
-        throw new Error(verifyErr?.message || 'Verification of newly provisioned Supabase profile failed.');
-      }
-
-      // 5. STEP 12.13B: Provisioning MUST NOT automatically write role_permissions in Supabase.
-      // New employees automatically inherit existing role permissions from Supabase via useRBAC().
-
-      return {
-        success: true,
-        message: `Employee ${payload.full_name} (${payload.email}) provisioned and verified in Supabase.`,
-        user: savedUser,
-      };
-    } catch (err: any) {
-      console.error('Supabase provisioning error:', err);
-      return {
-        success: false,
-        error: err.message || 'Failed to provision and persist employee in Supabase.',
-      };
-    }
-  }
-
-  // Graceful client fallback for offline / mock mode
+  // Direct Supabase Client Provisioning fallback removed per Phase 4 requirements.
+  // Employee provisioning MUST be securely executed server-side.
   return {
-    success: true,
-    message: `User ${payload.full_name} (${payload.email}) provisioned in local offline mode.`,
-    user: {
-      id: `USR-${Date.now()}`,
-      full_name: payload.full_name,
-      email: payload.email,
-      role: payload.role,
-      status: payload.status || 'active',
-      department: payload.department,
-      designation: payload.designation,
-    },
+    success: false,
+    error: 'Provisioning failed. Server-side endpoint is unreachable or returned an error.'
   };
 }
 
