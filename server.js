@@ -22,6 +22,7 @@ const adminUsersRoutes = require('./routes/adminUsers');
 const authResolverRoutes = require('./routes/authResolver');
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const isProd = process.env.ENVIRONMENT === 'production' || process.env.NODE_ENV === 'production';
 
