@@ -81,33 +81,83 @@ async function resolveDevikaIdentity(supabaseAdmin) {
 
   // Enforce profile parity (profiles.id === auth.users.id)
   try {
-    const { data: profile } = await supabaseAdmin
+    // 1. Check if profile exists with exact authUserId
+    const { data: profileByExactId } = await supabaseAdmin
       .from('profiles')
       .select('*')
       .eq('id', authUserId)
       .maybeSingle();
 
-    if (!profile) {
-      await supabaseAdmin.from('profiles').upsert({
-        id: authUserId,
-        login_id: 'DEVIKA',
-        email: authUserEmail,
-        full_name: 'Devika Pangam',
-        role: 'super_admin',
-        status: 'active',
-        organization_id: DEFAULT_ORG_ID,
-        updated_at: new Date().toISOString()
-      });
-    } else if (!profile.login_id || profile.login_id !== 'DEVIKA' || profile.role !== 'super_admin' || profile.status !== 'active') {
-      await supabaseAdmin.from('profiles').update({
-        login_id: 'DEVIKA',
-        role: 'super_admin',
-        status: 'active',
-        updated_at: new Date().toISOString()
-      }).eq('id', authUserId);
+    if (profileByExactId) {
+      // Profile exists with exact Auth ID — ensure attributes are active/super_admin/DEVIKA
+      if (
+        profileByExactId.login_id !== 'DEVIKA' ||
+        profileByExactId.role !== 'super_admin' ||
+        profileByExactId.status !== 'active'
+      ) {
+        await supabaseAdmin
+          .from('profiles')
+          .update({
+            login_id: 'DEVIKA',
+            role: 'super_admin',
+            status: 'active',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', authUserId);
+      }
+    } else {
+      // 2. Check if a profile exists by email or login_id with a mismatched ID
+      const { data: existingProfiles } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .or(`email.ilike.${authUserEmail},login_id.ilike.DEVIKA,role.eq.super_admin`)
+        .limit(1);
+
+      if (existingProfiles && existingProfiles.length > 0) {
+        const oldProfile = existingProfiles[0];
+        // Repair UUID on existing profile row to match auth.users.id
+        const { error: updateIdError } = await supabaseAdmin
+          .from('profiles')
+          .update({
+            id: authUserId,
+            login_id: 'DEVIKA',
+            role: 'super_admin',
+            status: 'active',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', oldProfile.id);
+
+        if (updateIdError) {
+          console.error('Failed to align profile ID:', updateIdError.message);
+          // Fallback: Delete mismatched duplicate row and insert clean row with authUserId
+          await supabaseAdmin.from('profiles').delete().eq('id', oldProfile.id);
+          await supabaseAdmin.from('profiles').insert({
+            id: authUserId,
+            login_id: 'DEVIKA',
+            email: authUserEmail,
+            full_name: oldProfile.full_name || 'Devika Pangam',
+            role: 'super_admin',
+            status: 'active',
+            organization_id: oldProfile.organization_id || DEFAULT_ORG_ID,
+            updated_at: new Date().toISOString(),
+          });
+        }
+      } else {
+        // 3. No profile exists at all — insert clean profile row with exact authUserId
+        await supabaseAdmin.from('profiles').insert({
+          id: authUserId,
+          login_id: 'DEVIKA',
+          email: authUserEmail,
+          full_name: 'Devika Pangam',
+          role: 'super_admin',
+          status: 'active',
+          organization_id: DEFAULT_ORG_ID,
+          updated_at: new Date().toISOString(),
+        });
+      }
     }
   } catch (e) {
-    console.error('Self-healing profile parity warning:', e);
+    console.error('Self-healing profile parity error:', e);
   }
 
   return {
