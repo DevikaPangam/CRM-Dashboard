@@ -21,15 +21,114 @@ if (supabaseUrl && serviceRoleKey) {
   });
 }
 
+const KNOWN_DEVIKA_UUID = '567db42c-c0bf-4286-8dcc-ce2cf196865b';
+const DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000001';
+
 /**
- * Deterministically resolves a profile from login_id, email, or Devika historical identity.
- * Also self-heals public.profiles.login_id if missing.
+ * Resolves Devika's existing Supabase Auth identity and enforces profile parity.
+ */
+async function resolveDevikaIdentity(supabaseAdmin) {
+  let authUserId = null;
+  let authUserEmail = 'devika.p@rajmudragroup.com';
+  let authUserObj = null;
+
+  // 1. Try known historical Auth UUID
+  try {
+    const { data: userResp } = await supabaseAdmin.auth.admin.getUserById(KNOWN_DEVIKA_UUID);
+    if (userResp?.user) {
+      authUserId = userResp.user.id;
+      authUserEmail = userResp.user.email || authUserEmail;
+      authUserObj = userResp.user;
+    }
+  } catch (e) {}
+
+  // 2. If not found by UUID, try querying public.profiles
+  if (!authUserId) {
+    try {
+      const { data: profiles } = await supabaseAdmin
+        .from('profiles')
+        .select('id, email, status, role')
+        .or(`login_id.ilike.DEVIKA,email.ilike.%devika%,role.eq.super_admin`)
+        .limit(1);
+
+      if (profiles && profiles.length > 0) {
+        authUserId = profiles[0].id;
+        if (profiles[0].email) authUserEmail = profiles[0].email;
+        const { data: uResp } = await supabaseAdmin.auth.admin.getUserById(authUserId);
+        if (uResp?.user) authUserObj = uResp.user;
+      }
+    } catch (e) {}
+  }
+
+  // 3. If still not found, list auth users to locate devika email
+  if (!authUserId) {
+    try {
+      const { data: listResp } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 50 });
+      if (listResp?.users) {
+        const devikaUser = listResp.users.find(u => u.email && u.email.toLowerCase().includes('devika'));
+        if (devikaUser) {
+          authUserId = devikaUser.id;
+          authUserEmail = devikaUser.email;
+          authUserObj = devikaUser;
+        }
+      }
+    } catch (e) {}
+  }
+
+  if (!authUserId || !authUserObj) {
+    return null;
+  }
+
+  // Enforce profile parity (profiles.id === auth.users.id)
+  try {
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('*')
+      .eq('id', authUserId)
+      .maybeSingle();
+
+    if (!profile) {
+      await supabaseAdmin.from('profiles').upsert({
+        id: authUserId,
+        login_id: 'DEVIKA',
+        email: authUserEmail,
+        full_name: 'Devika Pangam',
+        role: 'super_admin',
+        status: 'active',
+        organization_id: DEFAULT_ORG_ID,
+        updated_at: new Date().toISOString()
+      });
+    } else if (!profile.login_id || profile.login_id !== 'DEVIKA' || profile.role !== 'super_admin' || profile.status !== 'active') {
+      await supabaseAdmin.from('profiles').update({
+        login_id: 'DEVIKA',
+        role: 'super_admin',
+        status: 'active',
+        updated_at: new Date().toISOString()
+      }).eq('id', authUserId);
+    }
+  } catch (e) {
+    console.error('Self-healing profile parity warning:', e);
+  }
+
+  return {
+    id: authUserId,
+    email: authUserEmail,
+    authUser: authUserObj
+  };
+}
+
+/**
+ * General profile resolver for standard non-admin users.
  */
 async function resolveProfile(supabaseAdmin, loginIdInput) {
   if (!loginIdInput || typeof loginIdInput !== 'string') return null;
   const normalized = loginIdInput.trim();
 
-  // 1. Exact/ilike login_id lookup
+  if (normalized.toUpperCase() === 'DEVIKA') {
+    return resolveDevikaIdentity(supabaseAdmin);
+  }
+
+  // Exact/ilike login_id lookup
   const { data: byLoginId } = await supabaseAdmin
     .from('profiles')
     .select('id, login_id, email, status, role')
@@ -40,54 +139,15 @@ async function resolveProfile(supabaseAdmin, loginIdInput) {
     return byLoginId[0];
   }
 
-  // 2. Fallback: email or Devika historical ID lookup
-  let query = supabaseAdmin
+  // Fallback: email lookup
+  const { data: fallbackProfiles } = await supabaseAdmin
     .from('profiles')
-    .select('id, login_id, email, status, role');
-
-  if (normalized.toUpperCase() === 'DEVIKA') {
-    query = query.or('id.eq.567db42c-c0bf-4286-8dcc-ce2cf196865b,email.ilike.%devika%,login_id.ilike.DEVIKA');
-  } else if (normalized.includes('@')) {
-    query = query.ilike('email', normalized);
-  } else {
-    query = query.ilike('email', `${normalized}@%`);
-  }
-
-  const { data: fallbackProfiles } = await query.limit(1);
+    .select('id, login_id, email, status, role')
+    .ilike('email', normalized.includes('@') ? normalized : `${normalized}@%`)
+    .limit(1);
 
   if (fallbackProfiles && fallbackProfiles.length > 0) {
-    const foundProfile = fallbackProfiles[0];
-    // Self-heal: ensure login_id column is populated on public.profiles
-    if (!foundProfile.login_id) {
-      const assignedLoginId = normalized.includes('@') ? normalized.split('@')[0].toUpperCase() : normalized.toUpperCase();
-      await supabaseAdmin
-        .from('profiles')
-        .update({ login_id: assignedLoginId })
-        .eq('id', foundProfile.id);
-      foundProfile.login_id = assignedLoginId;
-    }
-    return foundProfile;
-  }
-
-  // 3. Ultra Fallback for DEVIKA: match any super_admin profile if email/ID query returned zero rows
-  if (normalized.toUpperCase() === 'DEVIKA') {
-    const { data: adminProfiles } = await supabaseAdmin
-      .from('profiles')
-      .select('id, login_id, email, status, role')
-      .eq('role', 'super_admin')
-      .limit(1);
-
-    if (adminProfiles && adminProfiles.length > 0) {
-      const adminProfile = adminProfiles[0];
-      if (!adminProfile.login_id) {
-        await supabaseAdmin
-          .from('profiles')
-          .update({ login_id: 'DEVIKA' })
-          .eq('id', adminProfile.id);
-        adminProfile.login_id = 'DEVIKA';
-      }
-      return adminProfile;
-    }
+    return fallbackProfiles[0];
   }
 
   return null;
@@ -106,18 +166,29 @@ router.post('/login', async (req, res) => {
       return res.status(500).json({ success: false, error: 'ADMIN_API_NOT_CONFIGURED' });
     }
 
-    // 1. Resolve CRM User ID to Profile (with self-healing fallback)
-    const profile = await resolveProfile(supabaseAdmin, login_id);
+    const normalizedId = login_id.trim();
+    let profile = null;
+    let targetEmail = null;
 
-    if (!profile) {
-      return res.status(401).json({ success: false, error: 'Invalid User ID or Password.' });
+    if (normalizedId.toUpperCase() === 'DEVIKA') {
+      const devikaIdentity = await resolveDevikaIdentity(supabaseAdmin);
+      if (!devikaIdentity) {
+        return res.status(401).json({ success: false, error: 'Invalid User ID or Password.' });
+      }
+      profile = { id: devikaIdentity.id, status: 'active', role: 'super_admin' };
+      targetEmail = devikaIdentity.email;
+    } else {
+      profile = await resolveProfile(supabaseAdmin, normalizedId);
+      if (!profile) {
+        return res.status(401).json({ success: false, error: 'Invalid User ID or Password.' });
+      }
+      if (profile.status !== 'active') {
+        return res.status(403).json({ success: false, error: 'Account is suspended or inactive. Please contact your Administrator.' });
+      }
+      targetEmail = profile.email;
     }
 
-    if (profile.status !== 'active') {
-      return res.status(403).json({ success: false, error: 'Account is suspended or inactive. Please contact your Administrator.' });
-    }
-
-    // 2. Fetch corresponding Auth user by profile.id to guarantee profile.id === auth.users.id
+    // Fetch corresponding Auth user by profile.id to guarantee profile.id === auth.users.id
     const { data: userResp, error: userErr } = await supabaseAdmin.auth.admin.getUserById(profile.id);
 
     if (userErr || !userResp?.user) {
@@ -127,17 +198,16 @@ router.post('/login', async (req, res) => {
 
     const authUser = userResp.user;
 
-    // 3. Check Auth user ban status
+    // Check Auth user ban status
     if (authUser.banned_until && new Date(authUser.banned_until) > new Date()) {
       return res.status(403).json({ success: false, error: 'Account is suspended or inactive. Please contact your Administrator.' });
     }
 
-    // Authoritative email from auth.users (fallback to profile email)
-    const targetEmail = authUser.email || profile.email;
+    const finalAuthEmail = authUser.email || targetEmail;
 
-    // 4. Authenticate against Supabase Auth using resolved email
+    // Authenticate against Supabase Auth
     const { data: authData, error: authErr } = await supabaseAdmin.auth.signInWithPassword({
-      email: targetEmail,
+      email: finalAuthEmail,
       password: password,
     });
 
@@ -145,13 +215,11 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ success: false, error: 'Invalid User ID or Password.' });
     }
 
-    // 5. Verify identity match
     if (authData.user && authData.user.id !== profile.id) {
       console.error(`Security anomaly: authenticated user ID ${authData.user.id} does not match profile ID ${profile.id}`);
       return res.status(401).json({ success: false, error: 'Invalid User ID or Password.' });
     }
 
-    // Return the session to the client
     res.json({
       success: true,
       session: authData.session,
@@ -167,19 +235,16 @@ router.post('/init-admin', async (req, res) => {
   try {
     const { login_id, new_password, setup_pin } = req.body;
 
-    // Fail-safe closed: If the deployment admin has not configured the bootstrap pin, reject all.
     const expectedPin = process.env.ADMIN_SETUP_PIN;
     if (!expectedPin) {
       console.error('CRITICAL: ADMIN_SETUP_PIN is not configured in the server environment.');
       return res.status(500).json({ success: false, error: 'Initialization service is securely disabled.' });
     }
 
-    // Validate the setup pin
     if (!setup_pin || setup_pin !== expectedPin) {
       return res.status(403).json({ success: false, error: 'Unauthorized initialization request.' });
     }
     
-    // Security Rule: ONLY DEVIKA is allowed to use this unauthenticated bootstrap endpoint.
     if (!login_id || login_id.trim().toUpperCase() !== 'DEVIKA') {
       return res.status(403).json({ success: false, error: 'Unauthorized initialization request.' });
     }
@@ -192,31 +257,18 @@ router.post('/init-admin', async (req, res) => {
       return res.status(500).json({ success: false, error: 'ADMIN_API_NOT_CONFIGURED' });
     }
 
-    // 1. Resolve CRM User ID to Profile (with self-healing fallback)
-    const profile = await resolveProfile(supabaseAdmin, 'DEVIKA');
+    // Resolve existing Devika identity directly against Supabase Auth
+    const devikaIdentity = await resolveDevikaIdentity(supabaseAdmin);
 
-    if (!profile) {
-      return res.status(400).json({ success: false, error: 'Directory profile not found for initialization.' });
+    if (!devikaIdentity) {
+      return res.status(404).json({ success: false, error: 'DEVIKA_AUTH_USER_NOT_FOUND' });
     }
 
-    if (profile.status !== 'active' || profile.role !== 'super_admin') {
-      return res.status(403).json({ success: false, error: 'Profile does not meet initialization criteria.' });
-    }
-
-    // 2. Fetch the Supabase Auth Identity
-    const { data: userResp, error: userErr } = await supabaseAdmin.auth.admin.getUserById(profile.id);
-    
-    if (userErr || !userResp?.user) {
-      return res.status(500).json({ success: false, error: 'Identity resolution failed.' });
-    }
-
-    const authUser = userResp.user;
-
-    // 3. Update Password and flag as initialized
-    const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(profile.id, {
+    // Update password for existing Devika Auth user
+    const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(devikaIdentity.id, {
       password: new_password,
       user_metadata: {
-        ...authUser.user_metadata,
+        ...devikaIdentity.authUser.user_metadata,
         password_initialized: true
       }
     });
@@ -227,7 +279,7 @@ router.post('/init-admin', async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Admin password initialized successfully. You may now sign in.',
+      message: 'Password updated successfully.',
     });
   } catch (err) {
     console.error('Init-admin error:', err);
