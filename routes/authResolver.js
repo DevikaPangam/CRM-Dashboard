@@ -90,7 +90,19 @@ router.post('/login', loginLimiter, async (req, res) => {
 
 router.post('/init-admin', loginLimiter, async (req, res) => {
   try {
-    const { login_id, new_password } = req.body;
+    const { login_id, new_password, setup_pin } = req.body;
+
+    // Fail-safe closed: If the deployment admin has not configured the bootstrap pin, reject all.
+    const expectedPin = process.env.ADMIN_SETUP_PIN;
+    if (!expectedPin) {
+      console.error('CRITICAL: ADMIN_SETUP_PIN is not configured in the server environment.');
+      return res.status(500).json({ success: false, error: 'Initialization service is securely disabled.' });
+    }
+
+    // Validate the setup pin
+    if (!setup_pin || setup_pin !== expectedPin) {
+      return res.status(403).json({ success: false, error: 'Unauthorized initialization request.' });
+    }
     
     // Security Rule: ONLY DEVIKA is allowed to use this unauthenticated bootstrap endpoint.
     if (!login_id || login_id.trim().toUpperCase() !== 'DEVIKA') {

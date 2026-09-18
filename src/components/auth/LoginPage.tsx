@@ -24,6 +24,7 @@ export const LoginPage: React.FC = () => {
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [setupPin, setSetupPin] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -59,11 +60,17 @@ export const LoginPage: React.FC = () => {
         return;
       }
       
+      if (!setupPin) {
+        setErrorMsg('Setup PIN is required.');
+        setIsSubmitting(false);
+        return;
+      }
+      
       try {
         const res = await fetch('/api/auth/init-admin', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ login_id: loginId, new_password: password })
+          body: JSON.stringify({ login_id: loginId, new_password: password, setup_pin: setupPin })
         });
         
         let data: any = null;
@@ -81,6 +88,7 @@ export const LoginPage: React.FC = () => {
           setAuthMode('signin');
           setPassword('');
           setConfirmPassword('');
+          setSetupPin('');
         } else {
           setErrorMsg(data.error || 'Initialization failed.');
         }
@@ -434,20 +442,36 @@ export const LoginPage: React.FC = () => {
           </div>
           
           {authMode === 'admin_init' && (
-            <div className="login-field-group">
-              <label>Confirm Corporate Password</label>
-              <div className="login-input-wrapper">
-                <Lock size={16} className="login-input-icon" />
-                <input
-                  type="password"
-                  placeholder="Re-enter corporate password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                  autoComplete="new-password"
-                />
+            <>
+              <div className="login-field-group">
+                <label>Confirm Corporate Password</label>
+                <div className="login-input-wrapper">
+                  <Lock size={16} className="login-input-icon" />
+                  <input
+                    type="password"
+                    placeholder="Re-enter corporate password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    autoComplete="new-password"
+                  />
+                </div>
               </div>
-            </div>
+              <div className="login-field-group">
+                <label>Setup PIN (Provided by Administrator)</label>
+                <div className="login-input-wrapper">
+                  <KeyRound size={16} className="login-input-icon" />
+                  <input
+                    type="password"
+                    placeholder="Enter Setup PIN"
+                    value={setupPin}
+                    onChange={(e) => setSetupPin(e.target.value)}
+                    required
+                    autoComplete="off"
+                  />
+                </div>
+              </div>
+            </>
           )}
           
 
