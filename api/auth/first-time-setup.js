@@ -16,7 +16,10 @@ export default async function handler(req, res) {
     }
     
     const configuredSecret = process.env.CRM_FIRST_TIME_SETUP_SECRET;
-    if (!configuredSecret || setup_secret !== configuredSecret) {
+    if (!configuredSecret) {
+      return res.status(500).json({ success: false, error: 'MISSING_SERVER_ENVIRONMENT_VARIABLE: CRM_FIRST_TIME_SETUP_SECRET' });
+    }
+    if (setup_secret !== configuredSecret) {
       return res.status(401).json({ success: false, error: 'UNAUTHORIZED' });
     }
     
@@ -25,10 +28,13 @@ export default async function handler(req, res) {
     }
 
     const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl) {
+      return res.status(500).json({ success: false, error: 'MISSING_SERVER_ENVIRONMENT_VARIABLE: SUPABASE_URL' });
+    }
 
-    if (!supabaseUrl || !serviceRoleKey) {
-      return res.status(500).json({ success: false, error: 'SERVER_CONFIGURATION_ERROR' });
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!serviceRoleKey) {
+      return res.status(500).json({ success: false, error: 'MISSING_SERVER_ENVIRONMENT_VARIABLE: SUPABASE_SERVICE_ROLE_KEY' });
     }
 
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
