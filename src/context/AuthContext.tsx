@@ -14,7 +14,8 @@ export type AuthStateStatus =
   | 'LOADING' 
   | 'AUTHENTICATED' 
   | 'UNAUTHENTICATED' 
-  | 'PROFILE_NOT_FOUND' 
+  | 'PROFILE_NOT_FOUND'
+  | 'PROFILE_QUERY_ERROR' 
   | 'ACCOUNT_SUSPENDED'
   | 'PASSWORD_RECOVERY';
 
@@ -68,7 +69,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
    * Authoritative helper function to resolve the current authenticated user's CRM profile.
    * Resolves strictly via: public.profiles WHERE id = authenticatedUser.id
    */
-  const resolveCurrentUserProfile = useCallback(async (explicitUserId?: string): Promise<ProfileRow | null> => {
+  const resolveCurrentUserProfile = useCallback(async (explicitUserId?: string): Promise<{ profile: ProfileRow | null; error: any | null; authUserId: string | null }> => {
     let targetUserId = explicitUserId;
 
     if (!targetUserId) {
@@ -77,7 +78,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     if (!targetUserId) {
-      return null;
+      return { profile: null, error: null, authUserId: null };
     }
 
     // Strict Lookup: public.profiles WHERE id = targetUserId
@@ -89,14 +90,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (profileError) {
       console.error('Profile query error:', profileError);
-      return null;
+      return { profile: null, error: profileError, authUserId: targetUserId };
     }
 
     if (!rawProfile) {
-      return null;
+      return { profile: null, error: null, authUserId: targetUserId };
     }
 
-    return rawProfile as ProfileRow;
+    return { profile: rawProfile as ProfileRow, error: null, authUserId: targetUserId };
   }, []);
 
   /**
@@ -110,9 +111,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      const userProfile = await resolveCurrentUserProfile(userId);
+      const { profile: userProfile, error: profileError, authUserId } = await resolveCurrentUserProfile(userId);
 
-      // Strict Rule: If profile does not exist in public.profiles -> Show Access Not Provisioned
+      // CASE B: Database Query Error (e.g. RLS / permission / network error)
+      if (profileError) {
+        setProfile(null);
+        setOrganization(null);
+        setTeam(null);
+        setManager(null);
+        setPermissions([]);
+        setAuthState('PROFILE_QUERY_ERROR');
+        setAccessDeniedReason(
+          `Profile database query failed [${profileError.code || 'RLS_ERROR'}]: ${profileError.message || 'Permission denied or query error'}. (Auth User ID: ${authUserId || userId})`
+        );
+        return false;
+      }
+
+      // CASE A: Zero Rows Returned (Profile not provisioned in public.profiles)
       if (!userProfile) {
         setProfile(null);
         setOrganization(null);
@@ -121,8 +136,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setPermissions([]);
         setAuthState('PROFILE_NOT_FOUND');
         setAccessDeniedReason(
-          'Your corporate account authenticated successfully, but no CRM profile has been provisioned in the directory. ' +
-          'Please contact your System Administrator to assign your role and organization workspace.'
+          `Your corporate account authenticated successfully (Auth User ID: ${authUserId || userId}), but no CRM profile row exists in public.profiles for this ID.`
         );
         return false;
       }
@@ -212,8 +226,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     } catch (err: any) {
       console.error('CRM Profile fetch exception:', err);
-      setAuthState('PROFILE_NOT_FOUND');
-      setAccessDeniedReason('Unable to load CRM profile due to a network or system error. Please retry.');
+      setAuthState('PROFILE_QUERY_ERROR');
+      setAccessDeniedReason(`Unable to load CRM profile due to an exception: ${err?.message || 'Network error'}`);
       return false;
     }
   }, [isCloudConnected, resolveCurrentUserProfile]);

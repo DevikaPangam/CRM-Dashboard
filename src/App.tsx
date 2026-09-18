@@ -64,6 +64,7 @@ export const App: React.FC = () => {
   if (
     authState === 'UNAUTHENTICATED' ||
     authState === 'PROFILE_NOT_FOUND' ||
+    authState === 'PROFILE_QUERY_ERROR' ||
     authState === 'ACCOUNT_SUSPENDED'
   ) {
     return <LoginPage />;

@@ -109,8 +109,9 @@ export const LoginPage: React.FC = () => {
   // Email Password Recovery Screen has been permanently disabled per Phase 8 architecture requirements.
 
   // ─── Screen: Access Not Provisioned / Account Suspended Guard ───────────────
-  if (authState === 'PROFILE_NOT_FOUND' || authState === 'ACCOUNT_SUSPENDED') {
+  if (authState === 'PROFILE_NOT_FOUND' || authState === 'PROFILE_QUERY_ERROR' || authState === 'ACCOUNT_SUSPENDED') {
     const isSuspended = authState === 'ACCOUNT_SUSPENDED';
+    const isQueryError = authState === 'PROFILE_QUERY_ERROR';
     return (
       <div className="login-screen-wrapper">
         <div className="login-glass-card" style={{ maxWidth: '480px' }}>
@@ -120,8 +121,8 @@ export const LoginPage: React.FC = () => {
                 width: '60px',
                 height: '60px',
                 borderRadius: '50%',
-                background: isSuspended ? '#fee2e2' : '#fef3c7',
-                color: isSuspended ? '#dc2626' : '#d97706',
+                background: isSuspended ? '#fee2e2' : isQueryError ? '#fef2f2' : '#fef3c7',
+                color: isSuspended ? '#dc2626' : isQueryError ? '#b91c1c' : '#d97706',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -131,7 +132,7 @@ export const LoginPage: React.FC = () => {
               {isSuspended ? <ShieldAlert size={32} /> : <AlertTriangle size={32} />}
             </div>
             <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', margin: '0 0 6px 0' }}>
-              {isSuspended ? 'Account Access Suspended' : 'Access Not Provisioned'}
+              {isSuspended ? 'Account Access Suspended' : isQueryError ? 'Profile Query Error' : 'Access Not Provisioned'}
             </h2>
             <p style={{ fontSize: '13px', color: '#64748b', lineHeight: 1.5, margin: 0 }}>
               {accessDeniedReason || 'You do not have active CRM directory permissions.'}
