@@ -33,4 +33,11 @@ check(vercelJsonFile.includes('"destination": "/api/index.js"'), 'Vercel API rew
 const apiIndexExists = fs.existsSync(path.join(process.cwd(), 'api', 'index.js'));
 check(apiIndexExists, 'Vercel Serverless entrypoint (api/index.js) exists');
 
-console.log('\n🟢 FINAL VERDICT: CODE VERIFIED - READY FOR PRODUCTION DEPLOYMENT');
+// 3. Secure script check
+const devikaInitFile = fs.readFileSync(path.join(process.cwd(), 'scripts', 'initialize-devika-password.mjs'), 'utf8');
+check(!devikaInitFile.includes('process.argv[2]'), 'initialize-devika-password.mjs does NOT use argv for password');
+check(devikaInitFile.includes('hiddenPrompt'), 'initialize-devika-password.mjs uses interactive prompt');
+
+console.log('\n🟢 A. CODE VERIFIED');
+console.log('🟡 B. PRODUCTION DEPLOYMENT VERIFIED (Pending push and deploy)');
+console.log('🔴 C. LIVE DEVIKA LOGIN VERIFIED (Pending user login)');
