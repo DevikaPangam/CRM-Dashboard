@@ -4,6 +4,7 @@ import {
   CheckCircle2, ShieldAlert, Sparkles, Building, ArrowRight, RefreshCw, ShieldCheck, ArrowLeft
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { supabase } from '../../utils/supabaseClient';
 
 export const LoginPage: React.FC = () => {
   const {
@@ -80,7 +81,17 @@ export const LoginPage: React.FC = () => {
           return;
         }
         
-        if (data.success) {
+        if (data.success && data.session) {
+          setSuccessMsg('Password initialized and verified! Establishing CRM session...');
+          const { error: sessionErr } = await supabase.auth.setSession(data.session);
+          if (sessionErr) {
+            setErrorMsg('Password initialized, but session establishment failed. Please sign in.');
+            setAuthMode('signin');
+            return;
+          }
+          // Supabase client session established: AuthContext listener transitions directly to dashboard
+          return;
+        } else if (data.success) {
           setSuccessMsg(data.message || 'Password initialized successfully. Switching to Sign In.');
           setAuthMode('signin');
           setPassword('');

@@ -227,10 +227,11 @@ router.post('/init-admin', async (req, res) => {
       });
     }
 
-    // Verification passed — discard session tokens and return success
+    // Verification passed — return verified session securely so browser can navigate directly
     res.json({
       success: true,
-      message: 'Password updated and verified successfully. You can now sign in.',
+      session: verifyData.session,
+      message: 'Password updated and verified successfully. Establishing CRM session...',
     });
   } catch (err) {
     console.error('Init-admin error:', err);
