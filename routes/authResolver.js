@@ -104,7 +104,7 @@ router.post('/init-admin', async (req, res) => {
     // 1. Resolve CRM User ID to Profile
     const { data: profile, error: profileErr } = await supabaseAdmin
       .from('profiles')
-      .select('id, status, role_name')
+      .select('id, status, role')
       .ilike('login_id', 'DEVIKA')
       .single();
 
@@ -112,7 +112,7 @@ router.post('/init-admin', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Profile not found.' });
     }
 
-    if (profile.status !== 'active' || profile.role_name !== 'super_admin') {
+    if (profile.status !== 'active' || profile.role !== 'super_admin') {
       return res.status(403).json({ success: false, error: 'Profile does not meet initialization criteria.' });
     }
 

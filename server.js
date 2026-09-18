@@ -79,6 +79,19 @@ app.get('/api/auth-test', (req, res) => {
 // Privileged Administrator User Provisioning Endpoint
 app.use('/api/admin/users', adminUsersRoutes);
 
+app.get('/api/auth/diagnostic', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Direct server.js /api/auth/diagnostic working!',
+    env: {
+      hasUrl: !!(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL),
+      hasServiceRole: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      hasViteServiceRole: !!process.env.VITE_SUPABASE_SERVICE_ROLE_KEY,
+      hasAdminPin: !!process.env.ADMIN_SETUP_PIN
+    }
+  });
+});
+
 // Secure Authentication Resolver (CRM User ID -> Auth Session)
 app.use('/api/auth', authResolverRoutes);
 
