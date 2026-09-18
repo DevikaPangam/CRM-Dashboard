@@ -62,7 +62,26 @@ export const LoginPage: React.FC = () => {
           body: JSON.stringify({ login_id: loginId, setup_secret: setupSecret, new_password: password })
         });
         
-        const data = await res.json();
+        let data: any = null;
+        const contentType = res.headers.get('content-type');
+        
+        try {
+          if (contentType && contentType.includes('application/json')) {
+            data = await res.json();
+          } else {
+            const text = await res.text();
+            console.error('Non-JSON response:', text.substring(0, 200));
+          }
+        } catch (parseErr) {
+          console.error('Response parsing failed', parseErr);
+        }
+
+        if (!data) {
+          setErrorMsg('First-Time Setup service is temporarily unavailable. Please try again.');
+          setIsSubmitting(false);
+          return;
+        }
+        
         if (data.success) {
           setSuccessMsg(data.message || 'Password initialized successfully. Switching to Sign In.');
           setAuthMode('signin');
@@ -73,7 +92,7 @@ export const LoginPage: React.FC = () => {
           setErrorMsg(data.error || 'Initialization failed.');
         }
       } catch (err: any) {
-        setErrorMsg(err.message || 'An error occurred during initialization.');
+        setErrorMsg('Network error or service unavailable. Please try again later.');
       } finally {
         setIsSubmitting(false);
       }
