@@ -66,12 +66,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   /**
    * Authoritative helper function to resolve the current authenticated user's CRM profile.
-   * 1. Calls supabase.auth.getUser()
-   * 2. Obtains authenticated user.id
-   * 3. Queries public.profiles by id
-   * 4. Validates active status
-   * 5. Validates organization
-   * 6. Returns the profile
+   * Resolves strictly via: public.profiles WHERE id = authenticatedUser.id
    */
   const resolveCurrentUserProfile = useCallback(async (explicitUserId?: string): Promise<ProfileRow | null> => {
     let targetUserId = explicitUserId;
@@ -85,49 +80,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return null;
     }
 
-    const currentTenantId = (import.meta as any).env?.VITE_DEFAULT_ORG_ID || '00000000-0000-0000-0000-000000000001';
-
-    // 1. Primary Lookup: public.profiles WHERE id = targetUserId
-    let { data: rawProfile, error: profileError } = await (supabase
+    // Strict Lookup: public.profiles WHERE id = targetUserId
+    const { data: rawProfile, error: profileError } = await (supabase
       .from('profiles')
       .select('*')
       .eq('id', targetUserId)
       .maybeSingle() as any);
 
     if (profileError) {
-      console.warn('Primary profile lookup warning:', profileError);
-    }
-
-    // 2. Secondary Lookup: If profile not found by exact id, try matching by email or login_id for the logged-in user
-    if (!rawProfile) {
-      const { data: userData } = await supabase.auth.getUser();
-      const userEmail = userData?.user?.email;
-
-      let query = supabase.from('profiles').select('*');
-      if (userEmail) {
-        query = query.or(`email.ilike.${userEmail},login_id.ilike.DEVIKA,role.eq.super_admin`);
-      } else {
-        query = query.or(`login_id.ilike.DEVIKA,role.eq.super_admin`);
-      }
-
-      const { data: fallbackProfile } = await (query.limit(1) as any);
-      if (fallbackProfile && fallbackProfile.length > 0) {
-        rawProfile = fallbackProfile[0];
-      }
+      console.error('Profile query error:', profileError);
+      return null;
     }
 
     if (!rawProfile) {
       return null;
     }
 
-    // Ensure profile has valid organization_id and id parity
-    const profileRow: ProfileRow = {
-      ...rawProfile,
-      id: targetUserId,
-      organization_id: rawProfile.organization_id || currentTenantId,
-    };
-
-    return profileRow;
+    return rawProfile as ProfileRow;
   }, []);
 
   /**

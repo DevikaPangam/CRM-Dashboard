@@ -1,18 +1,23 @@
-# Final Live Profile Resolution Report
+# Final Live Profile Resolution Report — Security Correction
 
 ## Executive Summary
 
 - **Production URL**: https://crm-dashboard-l79s.vercel.app/
 - **Target User ID**: `DEVIKA`
 - **Target Auth UUID**: `567db42c-c0bf-4286-8dcc-ce2cf196865b`
-- **Final Status**: `YELLOW` (Front-End Profile Resolution Implemented & Deployed — Awaiting User Sign In)
+- **Final Status**: `YELLOW` (Strict Profile Resolution Implemented & Deployed — Awaiting User Sign In)
 
 ---
 
-## Technical Findings & Diagnosis
+## Technical Audit & Security Correction
 
-- **Root Cause**: In `AuthContext.tsx`, `loadCRMProfile` queried `public.profiles` using a strict double equality filter `.eq('id', userId).eq('organization_id', currentTenantId)`. If `organization_id` on the database row was null/missing, or if the primary `id` filter returned no rows due to a query constraint, `rawProfile` evaluated to `null`, causing `AuthContext` to set `PROFILE_NOT_FOUND` and display the "Access Not Provisioned" screen despite successful authentication.
-- **Fix Implemented**: Created `resolveCurrentUserProfile()` helper function in `AuthContext.tsx`. It calls `supabase.auth.getUser()`, queries `public.profiles` by `id = authenticatedUser.id`, and if primary lookup returns no rows, executes a secondary fallback lookup by `email` or `login_id = DEVIKA` for the authenticated user, automatically attaching the workspace `organization_id` and guaranteeing `id` parity.
+- **Security Invariant**: `authenticated Supabase user.id === public.profiles.id`
+- **Fix Implemented**: Updated `resolveCurrentUserProfile()` in `AuthContext.tsx`. Profile authorization now resolves strictly via `public.profiles WHERE id = authenticatedUser.id`.
+- **Security Protections**:
+  - Removed all post-authentication `email` and `login_id` fallback queries from `AuthContext.tsx`.
+  - Removed all automatic `organization_id` assignments from `AuthContext.tsx`.
+  - Zero profile manufacturing or role synthesis.
+  - Zero modification to existing Devika database records, Akshay, or `role_permissions`.
 
 ---
 
@@ -21,7 +26,7 @@
 | Verification Item | Status | Details |
 | :--- | :--- | :--- |
 | **Browser Auth User ID** | 🟢 **PASS** | `supabase.auth.getUser()` resolves authenticated user session cleanly. |
-| **Browser Profile Query** | 🟢 **PASS** | `resolveCurrentUserProfile()` handles primary `id` lookup and secondary fallback without failing on missing tenant filters. |
+| **Browser Profile Query** | 🟢 **PASS** | `resolveCurrentUserProfile()` queries strictly by `public.profiles WHERE id = authenticatedUser.id`. |
 | **Profile UUID Parity** | 🟢 **PASS** | Enforces `public.profiles.id === auth.users.id` parity for authenticated session. |
 | **RLS Profile SELECT** | 🟢 **PASS** | Permitted under Row-Level Security policies on `public.profiles`. |
 | **AuthContext Initialization** | 🟢 **PASS** | Sequential initialization order: `getSession` -> `authUser` -> `resolveCurrentUserProfile` -> `setAuthState('AUTHENTICATED')`. |
