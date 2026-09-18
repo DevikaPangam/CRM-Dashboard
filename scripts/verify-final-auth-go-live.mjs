@@ -74,7 +74,13 @@ const checkAuthResolver = () => {
     console.error('❌ FAILURE: authResolver still contains DEVIKA bypass.');
     passed = false;
   }
-}
+  if (content.includes("getUserById(profile.id)")) {
+    console.log('✅ [PASS] authResolver enforces profile.id === auth.users.id parity via getUserById.');
+  } else {
+    console.error('❌ FAILURE: authResolver missing getUserById identity parity check.');
+    passed = false;
+  }
+};
 
 checkExposure();
 checkTenantIsolation();

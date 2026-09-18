@@ -10,7 +10,7 @@ const rateLimit = require('express-rate-limit');
 const router = express.Router();
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || '';
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 let supabaseAdmin = null;
 if (supabaseUrl && serviceRoleKey) {
@@ -27,7 +27,7 @@ router.post('/login', async (req, res) => {
   try {
     const { login_id, password } = req.body;
 
-    if (!login_id || !password) {
+    if (!login_id || typeof login_id !== 'string' || !password) {
       return res.status(400).json({ success: false, error: 'CRM User ID and Password are required.' });
     }
 
@@ -35,28 +35,54 @@ router.post('/login', async (req, res) => {
       return res.status(500).json({ success: false, error: 'ADMIN_API_NOT_CONFIGURED' });
     }
 
-    // 1. Securely resolve login_id to email using service role
+    const normalizedLoginId = login_id.trim();
+
+    // 1. Resolve CRM User ID to Profile
     const { data: profile, error: profileErr } = await supabaseAdmin
       .from('profiles')
-      .select('email, status')
-      .ilike('login_id', login_id.trim())
-      .single();
+      .select('id, login_id, email, status, role')
+      .ilike('login_id', normalizedLoginId)
+      .maybeSingle();
 
     if (profileErr || !profile) {
-      return res.status(401).json({ success: false, error: 'Invalid User ID or Password.' }); // Generic error
+      return res.status(401).json({ success: false, error: 'Invalid User ID or Password.' });
     }
 
     if (profile.status !== 'active') {
       return res.status(403).json({ success: false, error: 'Account is suspended or inactive. Please contact your Administrator.' });
     }
 
-    // 2. Authenticate against Supabase Auth using the resolved email
+    // 2. Fetch corresponding Auth user by profile.id to guarantee profile.id === auth.users.id
+    const { data: userResp, error: userErr } = await supabaseAdmin.auth.admin.getUserById(profile.id);
+
+    if (userErr || !userResp?.user) {
+      console.error(`Identity resolution mismatch: profile ${profile.id} has no matching auth.users record`);
+      return res.status(401).json({ success: false, error: 'Invalid User ID or Password.' });
+    }
+
+    const authUser = userResp.user;
+
+    // 3. Check Auth user ban status
+    if (authUser.banned_until && new Date(authUser.banned_until) > new Date()) {
+      return res.status(403).json({ success: false, error: 'Account is suspended or inactive. Please contact your Administrator.' });
+    }
+
+    // Authoritative email from auth.users (fallback to profile email)
+    const targetEmail = authUser.email || profile.email;
+
+    // 4. Authenticate against Supabase Auth using resolved email
     const { data: authData, error: authErr } = await supabaseAdmin.auth.signInWithPassword({
-      email: profile.email,
+      email: targetEmail,
       password: password,
     });
 
-    if (authErr) {
+    if (authErr || !authData?.session) {
+      return res.status(401).json({ success: false, error: 'Invalid User ID or Password.' });
+    }
+
+    // 5. Verify identity match
+    if (authData.user && authData.user.id !== profile.id) {
+      console.error(`Security anomaly: authenticated user ID ${authData.user.id} does not match profile ID ${profile.id}`);
       return res.status(401).json({ success: false, error: 'Invalid User ID or Password.' });
     }
 
