@@ -88,4 +88,76 @@ router.post('/login', loginLimiter, async (req, res) => {
 });
 
 
+router.post('/init-admin', loginLimiter, async (req, res) => {
+  try {
+    const { login_id, new_password } = req.body;
+    
+    // Security Rule: ONLY DEVIKA is allowed to use this unauthenticated bootstrap endpoint.
+    if (!login_id || login_id.trim().toUpperCase() !== 'DEVIKA') {
+      return res.status(403).json({ success: false, error: 'Unauthorized initialization request.' });
+    }
+
+    if (!new_password || new_password.length < 8) {
+      return res.status(400).json({ success: false, error: 'Password must be at least 8 characters.' });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(500).json({ success: false, error: 'Admin API not configured.' });
+    }
+
+    // 1. Resolve CRM User ID to Profile
+    const { data: profile, error: profileErr } = await supabaseAdmin
+      .from('profiles')
+      .select('id, status, role_name')
+      .ilike('login_id', 'DEVIKA')
+      .single();
+
+    if (profileErr || !profile) {
+      return res.status(404).json({ success: false, error: 'Profile not found.' });
+    }
+
+    if (profile.status !== 'active' || profile.role_name !== 'super_admin') {
+      return res.status(403).json({ success: false, error: 'Profile does not meet initialization criteria.' });
+    }
+
+    // 2. Fetch the Supabase Auth Identity
+    const { data: userResp, error: userErr } = await supabaseAdmin.auth.admin.getUserById(profile.id);
+    
+    if (userErr || !userResp?.user) {
+      return res.status(500).json({ success: false, error: 'Identity resolution failed.' });
+    }
+
+    const authUser = userResp.user;
+    
+    // 3. Security Rule: Permanently disable if already initialized
+    if (authUser.user_metadata && authUser.user_metadata.password_initialized === true) {
+      return res.status(403).json({ 
+        success: false, 
+        error: 'Account has already been initialized. Please use normal sign in.' 
+      });
+    }
+
+    // 4. Update Password and flag as initialized
+    const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(profile.id, {
+      password: new_password,
+      user_metadata: {
+        ...authUser.user_metadata,
+        password_initialized: true
+      }
+    });
+
+    if (updateErr) {
+      return res.status(500).json({ success: false, error: 'Failed to update identity credential.' });
+    }
+
+    res.json({
+      success: true,
+      message: 'Admin password initialized successfully. You may now sign in.',
+    });
+  } catch (err) {
+    console.error('Init-admin error:', err);
+    res.status(500).json({ success: false, error: 'Internal server error.' });
+  }
+});
+
 module.exports = router;

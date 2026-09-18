@@ -20,8 +20,10 @@ export const LoginPage: React.FC = () => {
     clearAccessDenied,
   } = useAuth();
 
+  const [authMode, setAuthMode] = useState<'signin' | 'admin_init'>('signin');
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -30,7 +32,6 @@ export const LoginPage: React.FC = () => {
 
   // Password Recovery screen state
   const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [updateStatus, setUpdateStatus] = useState<{ success?: boolean; message?: string; error?: string } | null>(null);
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
@@ -46,12 +47,56 @@ export const LoginPage: React.FC = () => {
 
     setIsSubmitting(true);
 
+    if (authMode === 'admin_init') {
+      if (password !== confirmPassword) {
+        setErrorMsg('Passwords do not match.');
+        setIsSubmitting(false);
+        return;
+      }
+      if (loginId.toUpperCase() !== 'DEVIKA') {
+        setErrorMsg('Initialization is restricted to the Super Admin account.');
+        setIsSubmitting(false);
+        return;
+      }
+      
+      try {
+        const res = await fetch('/api/auth/init-admin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ login_id: loginId, new_password: password })
+        });
+        
+        let data: any = null;
+        try {
+          data = await res.json();
+        } catch (e) {}
+
+        if (!data) {
+          setErrorMsg('Initialization service is unavailable.');
+          return;
+        }
+        
+        if (data.success) {
+          setSuccessMsg(data.message || 'Password initialized successfully. Switching to Sign In.');
+          setAuthMode('signin');
+          setPassword('');
+          setConfirmPassword('');
+        } else {
+          setErrorMsg(data.error || 'Initialization failed.');
+        }
+      } catch (err: any) {
+        setErrorMsg('Network error. Please try again later.');
+      } finally {
+        setIsSubmitting(false);
+      }
+    } else {
       const loginResult = await signIn(loginId, password);
       setIsSubmitting(false);
 
       if (!loginResult.success) {
         setErrorMsg(loginResult.error || 'Authentication failed.');
       }
+    }
   };
 
   // Forgot password removed per Phase 9 (OTP removed)
@@ -281,9 +326,55 @@ export const LoginPage: React.FC = () => {
           </div>
         </div>
 
-
-
-
+        {/* Mode Tabs */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', background: '#f1f5f9', padding: '4px', borderRadius: '8px' }}>
+          <button
+            type="button"
+            style={{
+              flex: 1,
+              padding: '8px',
+              border: 'none',
+              borderRadius: '6px',
+              fontSize: '13px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              background: authMode === 'signin' ? '#ffffff' : 'transparent',
+              color: authMode === 'signin' ? '#0284c7' : '#64748b',
+              boxShadow: authMode === 'signin' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+              transition: 'all 0.15s ease',
+            }}
+            onClick={() => {
+              setAuthMode('signin');
+              setErrorMsg(null);
+              setSuccessMsg(null);
+            }}
+          >
+            Sign In
+          </button>
+          <button
+            type="button"
+            style={{
+              flex: 1,
+              padding: '8px',
+              border: 'none',
+              borderRadius: '6px',
+              fontSize: '13px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              background: authMode === 'admin_init' ? '#ffffff' : 'transparent',
+              color: authMode === 'admin_init' ? '#0284c7' : '#64748b',
+              boxShadow: authMode === 'admin_init' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+              transition: 'all 0.15s ease',
+            }}
+            onClick={() => {
+              setAuthMode('admin_init');
+              setErrorMsg(null);
+              setSuccessMsg(null);
+            }}
+          >
+            Admin Setup
+          </button>
+        </div>
 
         {/* Success Alert */}
         {successMsg && (
@@ -299,11 +390,6 @@ export const LoginPage: React.FC = () => {
             <AlertTriangle size={15} style={{ flexShrink: 0 }} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <span>{errorMsg}</span>
-              {errorMsg.toLowerCase().includes('invalid login credentials') && (
-                <div style={{ fontSize: '12px', color: '#b91c1c', marginTop: '4px' }}>
-                  If you are logging in for the first time or setting your password, switch to the <strong>First-Time Setup / Register</strong> tab or click <strong>Forgot Password?</strong>.
-                </div>
-              )}
             </div>
           </div>
         )}
@@ -327,23 +413,42 @@ export const LoginPage: React.FC = () => {
 
           <div className="login-field-group">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <label>Password</label>
-              <div className="login-forgot-link" style={{ cursor: 'default', color: '#94a3b8' }} title="Contact your Administrator to reset your password.">
-                Forgot Password?
-              </div>
+              <label>{authMode === 'admin_init' ? 'Set Corporate Password' : 'Password'}</label>
+              {authMode === 'signin' && (
+                <div className="login-forgot-link" style={{ cursor: 'default', color: '#94a3b8' }} title="Contact your Administrator to reset your password.">
+                  Forgot Password?
+                </div>
+              )}
             </div>
             <div className="login-input-wrapper">
               <Lock size={16} className="login-input-icon" />
               <input
                 type="password"
-                placeholder="Enter your corporate password"
+                placeholder={authMode === 'admin_init' ? 'Create corporate password (min 8 chars)' : 'Enter your corporate password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                autoComplete="current-password"
+                autoComplete={authMode === 'admin_init' ? 'new-password' : 'current-password'}
               />
             </div>
           </div>
+          
+          {authMode === 'admin_init' && (
+            <div className="login-field-group">
+              <label>Confirm Corporate Password</label>
+              <div className="login-input-wrapper">
+                <Lock size={16} className="login-input-icon" />
+                <input
+                  type="password"
+                  placeholder="Re-enter corporate password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  autoComplete="new-password"
+                />
+              </div>
+            </div>
+          )}
           
 
 
@@ -355,12 +460,12 @@ export const LoginPage: React.FC = () => {
             {isSubmitting ? (
               <>
                 <RefreshCw size={16} className="animate-spin" />
-                <span>Authenticating...</span>
+                <span>{authMode === 'admin_init' ? 'Initializing...' : 'Authenticating...'}</span>
               </>
             ) : (
               <>
-                <LogIn size={16} />
-                <span>Sign In to CRM Dashboard</span>
+                {authMode === 'admin_init' ? <Sparkles size={16} /> : <LogIn size={16} />}
+                <span>{authMode === 'admin_init' ? 'Initialize Admin' : 'Sign In to CRM Dashboard'}</span>
               </>
             )}
           </button>
