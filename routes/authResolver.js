@@ -156,26 +156,4 @@ router.post('/init-admin', async (req, res) => {
   }
 });
 
-router.get('/diagnostic', async (req, res) => {
-  try {
-    const hasUrl = !!(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL);
-    const hasServiceRole = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const hasViteServiceRole = !!process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
-    const hasAdminPin = !!process.env.ADMIN_SETUP_PIN;
-
-    return res.json({
-      success: true,
-      env: {
-        hasUrl,
-        hasServiceRole,
-        hasViteServiceRole,
-        hasAdminPin,
-      },
-      supabaseAdminConfigured: !!supabaseAdmin
-    });
-  } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
 module.exports = router;
