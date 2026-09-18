@@ -10,7 +10,7 @@ const rateLimit = require('express-rate-limit');
 const router = express.Router();
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || '';
 
 let supabaseAdmin = null;
 if (supabaseUrl && serviceRoleKey) {
@@ -164,27 +164,23 @@ router.post('/init-admin', loginLimiter, async (req, res) => {
 
 router.get('/diagnostic', async (req, res) => {
   try {
-    if (!supabaseAdmin) {
-      return res.status(500).json({ error: 'ADMIN_API_NOT_CONFIGURED' });
-    }
-
-    const { data: authUser, error: authErr } = await supabaseAdmin.auth.admin.listUsers();
-    const devikaAuth = authUser?.users?.find(u => u.email === 'devika.p@rajmudragroup.com');
-
-    const { data: profile, error: profileErr } = await supabaseAdmin
-      .from('profiles')
-      .select('id, login_id, email, full_name, role, status, organization_id')
-      .ilike('email', 'devika.p@rajmudragroup.com');
+    const hasUrl = !!(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL);
+    const hasServiceRole = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const hasViteServiceRole = !!process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
+    const hasAdminPin = !!process.env.ADMIN_SETUP_PIN;
 
     return res.json({
       success: true,
-      auth_user: devikaAuth ? { id: devikaAuth.id, email: devikaAuth.email } : null,
-      profiles: profile || null,
-      authErr,
-      profileErr
+      env: {
+        hasUrl,
+        hasServiceRole,
+        hasViteServiceRole,
+        hasAdminPin,
+      },
+      supabaseAdminConfigured: !!supabaseAdmin
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ success: false, error: err.message });
   }
 });
 
