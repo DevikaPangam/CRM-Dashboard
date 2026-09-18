@@ -61,7 +61,7 @@ export const AddUserModal: React.FC = () => {
     phone: '',
     organizationId: profile?.organization_id || '00000000-0000-0000-0000-000000000001',
     status: 'active' as UserStatusEnum,
-    provisioningMethod: 'invite' as 'invite' | 'password',
+    provisioningMethod: 'password' as 'password',
     tempPassword: '',
   });
 
@@ -664,25 +664,13 @@ export const AddUserModal: React.FC = () => {
               <div className="form-group">
                 <label>Authentication &amp; Provisioning Method</label>
                 <div style={{ display: 'flex', gap: '14px', marginTop: '6px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', cursor: 'pointer' }}>
-                    <input
-                      type="radio"
-                      name="provisioningMethod"
-                      value="invite"
-                      checked={formData.provisioningMethod === 'invite'}
-                      onChange={() => setFormData({ ...formData, provisioningMethod: 'invite' })}
-                    />
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', cursor: 'not-allowed', opacity: 0.5 }}>
+                    <input type="radio" checked={false} disabled />
                     <Mail size={14} style={{ color: '#0284c7' }} />
-                    <span>Email Invitation Link</span>
+                    <span>Email Invitation Link (Disabled)</span>
                   </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', cursor: 'pointer' }}>
-                    <input
-                      type="radio"
-                      name="provisioningMethod"
-                      value="password"
-                      checked={formData.provisioningMethod === 'password'}
-                      onChange={() => setFormData({ ...formData, provisioningMethod: 'password' })}
-                    />
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px' }}>
+                    <input type="radio" checked={true} readOnly />
                     <Lock size={14} style={{ color: '#16a34a' }} />
                     <span>Set Temporary Password</span>
                   </label>
@@ -690,19 +678,20 @@ export const AddUserModal: React.FC = () => {
               </div>
             </div>
 
-            {formData.provisioningMethod === 'password' && (
-              <div className="form-group" style={{ marginTop: '10px' }}>
-                <label>Temporary CRM Password (Min 8 characters) *</label>
-                <input
-                  type="password"
-                  required
-                  className="form-control"
-                  placeholder="Enter initial secure temporary password"
-                  value={formData.tempPassword}
-                  onChange={(e) => setFormData({ ...formData, tempPassword: e.target.value })}
-                />
-              </div>
-            )}
+            <div className="form-group" style={{ marginTop: '10px' }}>
+              <label>Temporary CRM Password (Min 8 characters) *</label>
+              <input
+                type="password"
+                required
+                className="form-control"
+                placeholder="Enter initial secure temporary password"
+                value={formData.tempPassword}
+                onChange={(e) => setFormData({ ...formData, tempPassword: e.target.value })}
+              />
+              <span style={{ fontSize: '11px', color: '#64748b', marginTop: '3px', display: 'block' }}>
+                User will log in using their Login ID (First Name.Initial) and this password.
+              </span>
+            </div>
           </div>
 
           <div className="modal-footer-section">

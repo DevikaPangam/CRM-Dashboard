@@ -476,7 +476,7 @@ router.post('/provision', authenticateAdmin, async (req, res) => {
       manager_id = null,
       organization_id = req.caller.organization_id,
       status = 'active',
-      provisioning_method = 'invite', // 'invite' | 'password'
+      provisioning_method = 'password', // Enforce password provisioning
       temp_password = '',
     } = req.body;
 
@@ -594,58 +594,33 @@ router.post('/provision', authenticateAdmin, async (req, res) => {
       });
     }
 
-    let authUserId = null;
-
     // 9. Provision in Supabase Auth via Admin API
-    if (provisioning_method === 'password') {
-      if (!temp_password || temp_password.length < 8) {
-        return res.status(400).json({
-          success: false,
-          error: 'Password must be at least 8 characters long.',
-        });
-      }
-
-      const { data: createdAuth, error: authErr } = await supabaseAdmin.auth.admin.createUser({
-        email: cleanEmail,
-        password: temp_password,
-        email_confirm: true,
-        user_metadata: {
-          full_name: full_name.trim(),
-          organization_id,
-          role,
-        },
+    if (!temp_password || temp_password.length < 8) {
+      return res.status(400).json({
+        success: false,
+        error: 'Temporary Password must be at least 8 characters long.',
       });
-
-      if (authErr) {
-        return res.status(400).json({
-          success: false,
-          error: `Failed to create auth identity: ${authErr.message}`,
-        });
-      }
-
-      authUserId = createdAuth.user.id;
-    } else {
-      // Invite method (sends invitation email with magic link / reset password to Zoho email)
-      const { data: invitedAuth, error: inviteErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(
-        cleanEmail,
-        {
-          data: {
-            full_name: full_name.trim(),
-            organization_id,
-            role,
-          },
-        }
-      );
-
-      if (inviteErr) {
-        return res.status(400).json({
-          success: false,
-          error: `Failed to send invitation: ${inviteErr.message}`,
-        });
-      }
-
-      authUserId = invitedAuth.user.id;
     }
+
+    const { data: createdAuth, error: authErr } = await supabaseAdmin.auth.admin.createUser({
+      email: cleanEmail,
+      password: temp_password,
+      email_confirm: true,
+      user_metadata: {
+        full_name: full_name.trim(),
+        organization_id,
+        role,
+      },
+    });
+
+    if (authErr) {
+      return res.status(400).json({
+        success: false,
+        error: `Failed to create auth identity: ${authErr.message}`,
+      });
+    }
+
+    authUserId = createdAuth.user.id;
 
     // 10. Upsert row into public.profiles
     const initialStatus = provisioning_method === 'invite' ? 'pending_invite' : status;
@@ -656,6 +631,7 @@ router.post('/provision', authenticateAdmin, async (req, res) => {
         organization_id,
         full_name: full_name.trim(),
         email: cleanEmail,
+        login_id: (full_name.trim().split(' ')[0] + '.' + (full_name.trim().split(' ')[1]?.[0] || '')).toUpperCase(),
         role,
         department,
         designation,
@@ -851,7 +827,7 @@ router.put('/:id', authenticateAdmin, async (req, res) => {
 router.post('/:id/reset-password', authenticateAdmin, async (req, res) => {
   try {
     const targetUserId = req.params.id;
-    const { new_password, send_email = true } = req.body;
+    const { new_password } = req.body;
 
     if (!supabaseAdmin) {
       return res.json({
@@ -870,22 +846,16 @@ router.post('/:id/reset-password', authenticateAdmin, async (req, res) => {
       return res.status(404).json({ success: false, error: 'User not found.' });
     }
 
-    if (new_password) {
-      if (new_password.length < 8) {
-        return res.status(400).json({ success: false, error: 'Password must be at least 8 characters long.' });
-      }
-      const { error: pwdErr } = await supabaseAdmin.auth.admin.updateUserById(targetUserId, {
-        password: new_password,
-      });
-      if (pwdErr) {
-        return res.status(400).json({ success: false, error: pwdErr.message });
-      }
-    } else {
-      // Send reset password email to user's Zoho corporate address
-      const { error: resetErr } = await supabaseAdmin.auth.resetPasswordForEmail(targetProfile.email);
-      if (resetErr) {
-        return res.status(400).json({ success: false, error: resetErr.message });
-      }
+    if (!new_password || new_password.length < 8) {
+      return res.status(400).json({ success: false, error: 'Password must be at least 8 characters long.' });
+    }
+    
+    const { error: pwdErr } = await supabaseAdmin.auth.admin.updateUserById(targetUserId, {
+      password: new_password,
+    });
+    
+    if (pwdErr) {
+      return res.status(400).json({ success: false, error: pwdErr.message });
     }
 
     await writeAuditLog(

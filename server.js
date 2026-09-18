@@ -19,6 +19,7 @@ const path = require('path');
 const fs = require('fs');
 
 const adminUsersRoutes = require('./routes/adminUsers');
+const authResolverRoutes = require('./routes/authResolver');
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
@@ -72,6 +73,9 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Privileged Administrator User Provisioning Endpoint
 app.use('/api/admin/users', adminUsersRoutes);
+
+// Secure Authentication Resolver (CRM User ID -> Auth Session)
+app.use('/api/auth', authResolverRoutes);
 
 // Health check endpoint
 app.get('/api/ping', (req, res) => {

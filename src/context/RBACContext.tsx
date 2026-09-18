@@ -4,7 +4,7 @@ import { useCRM } from './CRMContext';
 import { UserRoleEnum, PermissionActionEnum, CRMModuleKey } from '../types/database.types';
 
 export interface RBACContextType {
-  currentRole: UserRoleEnum;
+  currentRole: UserRoleEnum | 'unassigned';
   isSuperAdmin: boolean;
   isOrgAdmin: boolean;
   isManagerOrAbove: boolean;
@@ -26,8 +26,8 @@ export interface RBACContextType {
 const RBACContext = createContext<RBACContextType | undefined>(undefined);
 
 // Map frontend User role string to standard UserRoleEnum
-const mapUserRoleToEnum = (roleStr?: string): UserRoleEnum => {
-  if (!roleStr) return 'bd_exec';
+const mapUserRoleToEnum = (roleStr?: string): UserRoleEnum | 'unassigned' => {
+  if (!roleStr) return 'unassigned';
   switch (roleStr) {
     case 'System Administrator':
     case 'super_admin':
@@ -66,7 +66,7 @@ const mapUserRoleToEnum = (roleStr?: string): UserRoleEnum => {
     case 'legal_counsel':
       return 'legal_counsel';
     default:
-      return 'bd_exec';
+      return 'unassigned';
   }
 };
 
@@ -256,7 +256,7 @@ export const RBACProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { currentUser } = useCRM();
 
   // Resolve current active role (from Supabase profile if cloud-connected, else CRMContext simulation)
-  const currentRole = useMemo<UserRoleEnum>(() => {
+  const currentRole = useMemo<UserRoleEnum | 'unassigned'>(() => {
     if (isCloudConnected && profile?.role) {
       return profile.role;
     }
@@ -296,7 +296,8 @@ export const RBACProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     // 2. Offline / local fallback to baseline role permissions
-    const rolePerms = BASELINE_PERMISSIONS[currentRole]?.[moduleKey];
+    if (currentRole === 'unassigned') return false;
+    const rolePerms = BASELINE_PERMISSIONS[currentRole as UserRoleEnum]?.[moduleKey];
     return Boolean(rolePerms && rolePerms.includes(action));
   };
 
@@ -315,7 +316,7 @@ export const RBACProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const isRole = (roles: UserRoleEnum | UserRoleEnum[]): boolean => {
     const list = Array.isArray(roles) ? roles : [roles];
-    return list.includes(currentRole);
+    return list.includes(currentRole as any);
   };
 
   // Normalized Permission Structure

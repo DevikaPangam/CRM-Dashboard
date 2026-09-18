@@ -79,6 +79,8 @@ export const EditUserModal: React.FC = () => {
     status: (userToEdit?.status?.toLowerCase() === 'inactive' || userToEdit?.status?.toLowerCase() === 'suspended' ? 'inactive' : 'active') as UserStatusEnum,
   });
 
+  const [newPassword, setNewPassword] = useState('');
+
   const [permissions, setPermissions] = useState<SegmentPermission[]>(() =>
     getDefaultPermissionsForRole(userToEdit?.role_name || userToEdit?.role || 'bd_exec')
   );
@@ -338,15 +340,20 @@ export const EditUserModal: React.FC = () => {
   };
 
   const handleResetPassword = async () => {
-    if (!window.confirm(`Send password reset email to ${formData.email}?`)) return;
+    if (!newPassword || newPassword.length < 8) {
+      setErrorMessage('Please enter a new password of at least 8 characters before resetting.');
+      return;
+    }
+    if (!window.confirm(`Force password reset for ${formData.email}?`)) return;
     setActionLoading('reset');
     setErrorMessage(null);
     setSuccessMessage(null);
 
-    const res = await triggerPasswordReset(userToEdit.id);
+    const res = await triggerPasswordReset(userToEdit.id, newPassword);
     setActionLoading(null);
     if (res.success) {
-      setSuccessMessage(`Password reset link sent to ${formData.email}.`);
+      setSuccessMessage(`Password reset successfully for ${formData.email}.`);
+      setNewPassword('');
     } else {
       setErrorMessage(res.error || 'Failed to trigger password reset.');
     }
@@ -856,15 +863,25 @@ export const EditUserModal: React.FC = () => {
                 Privileged Security Operations
               </strong>
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  onClick={handleResetPassword}
-                  disabled={actionLoading !== null}
-                >
-                  <KeyRound size={14} style={{ color: '#0284c7' }} />
-                  <span>{actionLoading === 'reset' ? 'Sending Link...' : 'Trigger Password Reset Email'}</span>
-                </button>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="New Password (min 8 chars)"
+                    style={{ width: '200px' }}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={handleResetPassword}
+                    disabled={actionLoading !== null}
+                  >
+                    <KeyRound size={14} style={{ color: '#0284c7' }} />
+                    <span>{actionLoading === 'reset' ? 'Resetting...' : 'Admin Reset Password'}</span>
+                  </button>
+                </div>
 
                 {!isEditingSelf && (
                   <button

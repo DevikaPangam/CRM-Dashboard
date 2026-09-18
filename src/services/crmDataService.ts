@@ -433,7 +433,7 @@ export function transformProfileToDB(user: Partial<User>, orgId: string) {
     else if (r === 'Senior Billing & Collections Specialist' || r === 'finance_executive') payload.role = 'finance_executive';
     else if (r === 'Corporate & Contracts Counsel' || r === 'legal_counsel') payload.role = 'legal_counsel';
     else if (r === 'Commercial Analyst' || r === 'analyst') payload.role = 'analyst';
-    else payload.role = r || 'bd_exec';
+    else payload.role = r || 'unassigned';
   }
 
   if (user.department) payload.department = user.department;

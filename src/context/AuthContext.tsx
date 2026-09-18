@@ -36,11 +36,10 @@ export interface AuthContextType {
   isPasswordRecoveryMode: boolean;
 
   // Actions
-  signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  signIn: (loginId: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signUp: (email: string, password: string) => Promise<{ success: boolean; message?: string; error?: string }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ success: boolean; error?: string; message?: string }>;
-  verifyRecoveryOtp: (email: string, token: string) => Promise<{ success: boolean; error?: string }>;
   updatePassword: (newPassword: string) => Promise<{ success: boolean; error?: string; message?: string }>;
   refreshProfile: () => Promise<void>;
   clearAccessDenied: () => void;
@@ -278,71 +277,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [loadCRMProfile, isPasswordRecoveryMode]);
 
-  // Sign In Action (Enforces @rajmudragroup.com corporate domain and authenticates via Supabase Auth)
-  const signIn = async (email: string, pass: string): Promise<{ success: boolean; error?: string }> => {
-    let rawEmail = email ? email.trim().toLowerCase() : '';
-    if (rawEmail && !rawEmail.includes('@')) {
-      rawEmail = `${rawEmail}@rajmudragroup.com`;
-    }
-
-    const domainValidation = validateCorporateEmail(rawEmail);
-    if (!domainValidation.isValid) {
-      logAuthEvent('LOGIN_FAILURE', rawEmail, { reason: domainValidation.error });
-      return { success: false, error: domainValidation.error };
-    }
-
-    const emailLower = rawEmail;
+  // Sign In Action (Secure CRM User ID Resolver via Backend)
+  const signIn = async (loginId: string, pass: string): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true);
 
     try {
-      let { data, error } = await supabase.auth.signInWithPassword({
-        email: emailLower,
-        password: pass,
+      // 1. Call secure server-side resolver to authenticate via CRM User ID
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ login_id: loginId, password: pass }),
       });
 
-      // If user is not yet registered in Supabase Auth, attempt automatic corporate signup/bootstrap
-      if (error && (
-        error.message?.toLowerCase().includes('invalid login credentials') ||
-        error.message?.toLowerCase().includes('user not found') ||
-        error.status === 400
-      )) {
-        try {
-          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-            email: emailLower,
-            password: pass,
-            options: {
-              data: {
-                full_name: emailLower.split('@')[0],
-              },
-            },
-          });
+      const result = await response.json();
 
-          if (signUpData?.user) {
-            if (signUpData.session) {
-              data = signUpData;
-              error = null;
-            } else {
-              const retryRes = await supabase.auth.signInWithPassword({
-                email: emailLower,
-                password: pass,
-              });
-              if (retryRes.data?.user) {
-                data = retryRes.data;
-                error = null;
-              }
-            }
-          } else if (signUpError && !signUpError.message?.includes('already registered')) {
-            console.warn('Supabase auth auto-registration notice:', signUpError.message);
-          }
-        } catch (signUpEx: any) {
-          console.warn('Supabase auth auto-registration exception:', signUpEx?.message);
-        }
+      if (!response.ok || !result.success || !result.session) {
+        setIsLoading(false);
+        logAuthEvent('LOGIN_FAILURE', loginId, { reason: result.error || 'Authentication failed' });
+        return { success: false, error: result.error || 'Invalid User ID or Password.' };
       }
+
+      // 2. Set the session in the client's Supabase instance
+      const { data, error } = await supabase.auth.setSession(result.session);
 
       if (error) {
         setIsLoading(false);
-        logAuthEvent('LOGIN_FAILURE', emailLower, { reason: error.message });
-        return { success: false, error: error.message || 'Invalid credentials or authentication failed.' };
+        logAuthEvent('LOGIN_FAILURE', loginId, { reason: error.message });
+        return { success: false, error: 'Authentication confirmed but session establishment failed.' };
       }
 
       if (data?.user) {
@@ -352,7 +313,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsLoading(false);
 
         if (profileLoaded) {
-          logAuthEvent('LOGIN_SUCCESS', emailLower, { method: 'supabase_email_password' });
+          logAuthEvent('LOGIN_SUCCESS', loginId, { method: 'secure_resolver_session' });
           return { success: true };
         } else {
           return {
@@ -366,7 +327,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: false, error: 'Authentication failed. Please check your credentials.' };
     } catch (err: any) {
       setIsLoading(false);
-      console.error('Supabase signInWithPassword exception:', err);
+      console.error('Secure resolver exception:', err);
       return { success: false, error: err?.message || 'A network error occurred during sign in.' };
     }
   };
@@ -393,7 +354,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         options: {
           data: {
             full_name: emailLower === 'devika.p@rajmudragroup.com' ? 'Devika Pangam' : emailLower.split('@')[0],
-            role: emailLower === 'devika.p@rajmudragroup.com' ? 'super_admin' : 'bd_exec',
+            role: emailLower === 'devika.p@rajmudragroup.com' ? 'super_admin' : 'unassigned',
           },
         },
       });
@@ -504,50 +465,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Verifies numeric OTP code for recovery via Supabase Auth
-  const verifyRecoveryOtp = async (email: string, token: string): Promise<{ success: boolean; error?: string }> => {
-    let rawEmail = email ? email.trim().toLowerCase() : '';
-    if (rawEmail && !rawEmail.includes('@')) {
-      rawEmail = `${rawEmail}@rajmudragroup.com`;
-    }
 
-    const domainValidation = validateCorporateEmail(rawEmail);
-    if (!domainValidation.isValid) {
-      return { success: false, error: domainValidation.error };
-    }
-
-    const cleanToken = token ? token.trim() : '';
-    if (!cleanToken || cleanToken.length < 6) {
-      return { success: false, error: 'Verification code is invalid or has expired. Please request a new code.' };
-    }
-
-    try {
-      const { data, error } = await supabase.auth.verifyOtp({
-        email: rawEmail,
-        token: cleanToken,
-        type: 'recovery',
-      });
-
-      if (error) {
-        logAuthEvent('PASSWORD_RESET_INITIATED', rawEmail, { channel: 'supabase_otp', status: 'failure' });
-        return { success: false, error: 'Verification code is invalid or has expired. Please request a new code.' };
-      }
-
-      if (data?.session && data?.user) {
-        recoveryFlowActiveRef.current = true;
-        setSession(data.session);
-        setAuthUser(data.user);
-        setIsPasswordRecoveryMode(true);
-        setAuthState('PASSWORD_RECOVERY');
-        logAuthEvent('PASSWORD_RESET_INITIATED', rawEmail, { channel: 'supabase_otp', status: 'verified' });
-        return { success: true };
-      }
-
-      return { success: false, error: 'Verification code is invalid or has expired. Please request a new code.' };
-    } catch (err: any) {
-      return { success: false, error: 'An error occurred during OTP verification.' };
-    }
-  };
 
   // Password Update Action
   const updatePassword = async (newPassword: string): Promise<{ success: boolean; error?: string; message?: string }> => {
@@ -609,7 +527,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signUp,
         signOut,
         resetPassword,
-        verifyRecoveryOtp,
         updatePassword,
         refreshProfile,
         clearAccessDenied,

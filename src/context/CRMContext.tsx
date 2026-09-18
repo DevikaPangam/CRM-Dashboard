@@ -645,10 +645,10 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       employee_id: `EMP-${String(users.length + 1).padStart(3, '0')}`,
       name: newMember.name,
       email: newMember.email || `${newMember.name.toLowerCase().replace(/\s+/g, '.')}@rajmudragroup.com`,
-      role: 'BD Executive',
-      role_name: 'bd_exec',
-      department: 'Business Development',
-      designation: newMember.title || 'BD Executive',
+      role: (newMember as any).role || 'Unassigned',
+      role_name: (newMember as any).role_name || 'unassigned',
+      department: (newMember as any).department || 'Unassigned',
+      designation: newMember.title || (newMember as any).designation || 'Team Member',
       region: newMember.region || 'West',
       location: 'Corporate HQ - Mumbai',
       joining_date: new Date().toISOString().split('T')[0],
@@ -841,7 +841,7 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const exportOpportunities = () => {
-    const userRole = profile?.role || currentUser.role_name || 'bd_exec';
+    const userRole = profile?.role || currentUser.role_name || 'unassigned';
     const scopedOpps = scopeRecordsByUserRole(opportunities, currentUser, userRole, 'owner');
     logExportEvent('DATA_EXPORT_CSV', 'opportunities', scopedOpps.length, {
       id: profile?.id,
@@ -852,7 +852,7 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const exportClients = () => {
-    const userRole = profile?.role || currentUser.role_name || 'bd_exec';
+    const userRole = profile?.role || currentUser.role_name || 'unassigned';
     const scopedClis = scopeRecordsByUserRole(clients, currentUser, userRole, 'accountOwner');
     logExportEvent('DATA_EXPORT_CSV', 'clients', scopedClis.length, {
       id: profile?.id,
@@ -863,7 +863,7 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const exportBackup = () => {
-    const userRole = profile?.role || currentUser.role_name || 'bd_exec';
+    const userRole = profile?.role || currentUser.role_name || 'unassigned';
     const scopedClis = scopeRecordsByUserRole(clients, currentUser, userRole, 'accountOwner');
     const scopedOpps = scopeRecordsByUserRole(opportunities, currentUser, userRole, 'owner');
     const scopedActs = scopeRecordsByUserRole(activities, currentUser, userRole, 'conductedBy');
