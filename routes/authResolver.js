@@ -138,7 +138,7 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// POST /api/auth/init-admin — Secure password setup for existing Super Admin
+// POST /api/auth/init-admin — Secure password setup for existing Super Admin with immediate verification
 router.post('/init-admin', async (req, res) => {
   try {
     const { login_id, new_password, setup_pin } = req.body;
@@ -176,6 +176,8 @@ router.post('/init-admin', async (req, res) => {
       return res.status(404).json({ success: false, error: 'DEVIKA_AUTH_USER_NOT_FOUND' });
     }
 
+    const targetAuthEmail = userResp.user.email || profile?.email || 'devika.p@rajmudragroup.com';
+
     // 3. Update password for existing Auth user and confirm email
     const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(targetAuthId, {
       password: new_password,
@@ -187,10 +189,27 @@ router.post('/init-admin', async (req, res) => {
     });
 
     if (updateErr) {
-      return res.status(500).json({ success: false, error: 'Failed to update identity credential.' });
+      return res.status(500).json({
+        success: false,
+        error: `Failed to update identity credential: ${updateErr.message || 'Update failed'}`,
+      });
     }
 
-    // 4. Ensure profile row exists and has login_id = 'DEVIKA' matching the Auth UUID
+    // 4. Immediately authenticate the SAME credential against Supabase Auth to verify validity
+    const { data: verifyData, error: verifyErr } = await supabaseAdmin.auth.signInWithPassword({
+      email: targetAuthEmail,
+      password: new_password,
+    });
+
+    if (verifyErr || !verifyData?.session) {
+      console.error('Credential verification failed after updateUserById:', verifyErr?.message);
+      return res.status(401).json({
+        success: false,
+        error: `Credential update executed, but verification sign-in failed: ${verifyErr?.message || 'Authentication error'}.`,
+      });
+    }
+
+    // 5. Ensure profile row exists and has login_id = 'DEVIKA' matching the Auth UUID
     if (profile) {
       if (profile.login_id !== 'DEVIKA') {
         await supabaseAdmin.from('profiles').update({ login_id: 'DEVIKA' }).eq('id', profile.id);
@@ -199,7 +218,7 @@ router.post('/init-admin', async (req, res) => {
       await supabaseAdmin.from('profiles').upsert({
         id: targetAuthId,
         login_id: 'DEVIKA',
-        email: userResp.user.email || 'devika.p@rajmudragroup.com',
+        email: targetAuthEmail,
         full_name: 'Devika Pangam',
         role: 'super_admin',
         status: 'active',
@@ -208,9 +227,10 @@ router.post('/init-admin', async (req, res) => {
       });
     }
 
+    // Verification passed — discard session tokens and return success
     res.json({
       success: true,
-      message: 'Password updated successfully. You can now sign in.',
+      message: 'Password updated and verified successfully. You can now sign in.',
     });
   } catch (err) {
     console.error('Init-admin error:', err);
