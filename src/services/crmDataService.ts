@@ -168,15 +168,18 @@ export function transformOpportunityToDB(opp: Partial<Opportunity>, orgId: strin
   else if (opp.id && !isValidUUID(opp.id)) payload.opportunity_code = opp.id;
   if (opp.title) payload.title = opp.title;
   payload.client_id = isValidUUID(opp.clientId) ? opp.clientId : null;
+  if (opp.clientName) payload.client_name = opp.clientName;
+  if (opp.clientType) payload.client_type = opp.clientType;
   if (opp.segment) payload.segment = opp.segment;
   if (opp.serviceCategory) payload.service_category = opp.serviceCategory;
   if (opp.contractType) payload.contract_type = opp.contractType;
   if (opp.dealValueINR !== undefined) payload.deal_value_inr = opp.dealValueINR;
   if (opp.monthlyValueINR !== undefined) payload.monthly_value_inr = opp.monthlyValueINR;
   if (opp.stage) payload.stage = opp.stage;
-  if (opp.probability !== undefined) payload.probability = opp.probability;
+  if (opp.probability !== undefined) payload.probability_pct = opp.probability;
   if (opp.status) payload.status = opp.status;
   if (userId && isValidUUID(userId)) payload.created_by = userId;
+  if (opp.owner) payload.owner_name = opp.owner;
   if (opp.leadSource) payload.lead_source = opp.leadSource;
   if (opp.expectedCloseDate) payload.expected_close_date = opp.expectedCloseDate;
   if (opp.fleetSize !== undefined) payload.fleet_size = opp.fleetSize;
@@ -191,6 +194,7 @@ export function transformOpportunityToDB(opp: Partial<Opportunity>, orgId: strin
   if (opp.approvalStatus) payload.approval_status = opp.approvalStatus;
   if (opp.approvalRemarks) payload.approval_remarks = opp.approvalRemarks;
   if (opp.delegatedDepartment) payload.delegated_department = opp.delegatedDepartment;
+  if (opp.delegatedOwner) payload.delegated_owner = opp.delegatedOwner;
   if (opp.delegationStatus) payload.delegation_status = opp.delegationStatus;
   if (opp.delegationMilestone) payload.delegation_milestone = opp.delegationMilestone;
   if (opp.slaDaysRemaining !== undefined) payload.sla_days_remaining = opp.slaDaysRemaining;
