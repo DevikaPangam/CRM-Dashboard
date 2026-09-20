@@ -86,10 +86,12 @@ export interface TeamHierarchyItem {
 export type FleetSeaterCapacity =
   | '17 Seater – Non AC'
   | '17 Seater – AC'
+  | '26 Seater Non AC'
   | '32 Seater – Non AC'
   | '32 Seater – AC'
   | '40 Seater – Non AC'
   | '40 Seater – AC'
+  | '46 Seater Non AC'
   | '50 Seater – Non AC'
   | '50 Seater – AC'
   | '17 Seater Urbania'
