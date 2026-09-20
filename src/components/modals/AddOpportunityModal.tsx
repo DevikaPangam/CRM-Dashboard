@@ -82,7 +82,6 @@ export const AddOpportunityModal: React.FC = () => {
         internalApprovalsRequired: formData.internalApprovalsRequired,
         delegatedDepartment: 'BD',
         delegatedOwner: formData.owner,
-        delegatedOwnerId: selectedOwner?.id,
         delegationStatus: 'Pending Action',
         delegationMilestone: 'Initial Lead Qualification & Scope Alignment',
         slaDaysRemaining: 5,

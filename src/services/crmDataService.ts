@@ -192,7 +192,6 @@ export function transformOpportunityToDB(opp: Partial<Opportunity>, orgId: strin
   if (opp.approvalStatus) payload.approval_status = opp.approvalStatus;
   if (opp.approvalRemarks) payload.approval_remarks = opp.approvalRemarks;
   if (opp.delegatedDepartment) payload.delegated_department = opp.delegatedDepartment;
-  if (opp.delegatedOwnerId && isValidUUID(opp.delegatedOwnerId)) payload.delegated_owner_id = opp.delegatedOwnerId;
   if (opp.delegationStatus) payload.delegation_status = opp.delegationStatus;
   if (opp.delegationMilestone) payload.delegation_milestone = opp.delegationMilestone;
   if (opp.slaDaysRemaining !== undefined) payload.sla_days_remaining = opp.slaDaysRemaining;
