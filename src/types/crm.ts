@@ -91,7 +91,7 @@ export type FleetSeaterCapacity =
   | '32 Seater – AC'
   | '40 Seater – Non AC'
   | '40 Seater – AC'
-  | '46 Seater Non AC'
+  | '45 Seater Non AC'
   | '50 Seater – Non AC'
   | '50 Seater – AC'
   | '17 Seater Urbania'
