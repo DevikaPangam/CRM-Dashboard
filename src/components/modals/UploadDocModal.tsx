@@ -3,7 +3,7 @@ import { X, Upload, FileText, Check, AlertCircle, HardDrive } from 'lucide-react
 import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
 import { useRBAC } from '../../context/RBACContext';
-import { PIPELINE_STAGES, DOCUMENT_TYPES } from '../../utils/seedData';
+import { DOCUMENT_TYPES } from '../../utils/seedData'; import { PIPELINE_STAGES } from '../../utils/constants';
 import { storageService, validateDocumentFile, ALLOWED_EXTENSIONS } from '../../services/storageService';
 
 export const UploadDocModal: React.FC = () => {

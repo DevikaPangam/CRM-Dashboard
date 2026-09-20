@@ -9,6 +9,7 @@ import {
   Client, Opportunity, Activity, Followup, InternalTask,
   CRMDocument, TeamMember, BusinessSegment, User, ClientContact, SegmentPermission
 } from '../types/crm';
+import { getStageUiLabel, getStageDbValue, getStatusUiLabel, getStatusDbValue, getDelegationStatusUiLabel, getDelegationStatusDbValue } from '../utils/constants';
 import { UserRoleEnum } from '../types/database.types';
 import {
   INITIAL_CLIENTS, INITIAL_OPPORTUNITIES, INITIAL_ACTIVITIES, INITIAL_FOLLOWUPS,
@@ -128,9 +129,9 @@ export function transformOpportunityFromDB(row: any): Opportunity {
     contractType: (row.contract_type as any) || 'Annual Contract',
     dealValueINR: Number(row.deal_value_inr) || 0,
     monthlyValueINR: Number(row.monthly_value_inr) || 0,
-    stage: row.stage || 'Lead / Inception',
+    stage: getStageUiLabel(row.stage) as any,
     probability: Number(row.probability_pct) || 10,
-    status: (row.status as any) || 'Open',
+    status: getStatusUiLabel(row.status) as any,
     owner: row.owner_name || 'BD Owner',
     leadSource: row.lead_source || 'Direct Outreach',
     expectedCloseDate: row.expected_close_date || '',
@@ -152,7 +153,7 @@ export function transformOpportunityFromDB(row: any): Opportunity {
     approvedDate: row.approved_at || '',
     delegatedDepartment: (row.delegated_department as any) || 'BD',
     delegatedOwner: row.delegated_owner || '',
-    delegationStatus: (row.delegation_status as any) || 'Pending Action',
+    delegationStatus: getDelegationStatusUiLabel(row.delegation_status) as any,
     delegationMilestone: row.delegation_milestone || '',
     slaDaysRemaining: Number(row.sla_days_remaining) || 0,
     delegationRemarks: row.delegation_remarks || '',
@@ -175,9 +176,9 @@ export function transformOpportunityToDB(opp: Partial<Opportunity>, orgId: strin
   if (opp.contractType) payload.contract_type = opp.contractType;
   if (opp.dealValueINR !== undefined) payload.deal_value_inr = opp.dealValueINR;
   if (opp.monthlyValueINR !== undefined) payload.monthly_value_inr = opp.monthlyValueINR;
-  if (opp.stage) payload.stage = opp.stage;
+  if (opp.stage) payload.stage = getStageDbValue(opp.stage);
   if (opp.probability !== undefined) payload.probability_pct = opp.probability;
-  if (opp.status) payload.status = opp.status;
+  if (opp.status) payload.status = getStatusDbValue(opp.status);
   if (userId && isValidUUID(userId)) payload.created_by = userId;
   if (opp.owner) payload.owner_name = opp.owner;
   if (opp.leadSource) payload.lead_source = opp.leadSource;
@@ -195,7 +196,7 @@ export function transformOpportunityToDB(opp: Partial<Opportunity>, orgId: strin
   if (opp.approvalRemarks) payload.approval_remarks = opp.approvalRemarks;
   if (opp.delegatedDepartment) payload.delegated_department = opp.delegatedDepartment;
   if (opp.delegatedOwner) payload.delegated_owner = opp.delegatedOwner;
-  if (opp.delegationStatus) payload.delegation_status = opp.delegationStatus;
+  if (opp.delegationStatus) payload.delegation_status = getDelegationStatusDbValue(opp.delegationStatus);
   if (opp.delegationMilestone) payload.delegation_milestone = opp.delegationMilestone;
   if (opp.slaDaysRemaining !== undefined) payload.sla_days_remaining = opp.slaDaysRemaining;
   if (opp.delegationRemarks) payload.delegation_remarks = opp.delegationRemarks;

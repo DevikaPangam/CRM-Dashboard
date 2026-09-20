@@ -9,10 +9,10 @@ export const FunnelChart: React.FC = () => {
 
   // Aggregate deal counts and pipeline amounts by key funnel stages
   const funnelStages = [
-    { label: 'Lead / Enquiry', filter: ['New Enquiry', 'Initial Contact'] },
-    { label: 'Discussion & Meeting', filter: ['Requirement Discussion', 'Meeting Scheduled', 'Meeting Completed', 'Requirement Received'] },
-    { label: 'Proposal Shared', filter: ['Proposal Under Preparation', 'Internal Approval Pending', 'Proposal / Commercial Shared'] },
-    { label: 'Negotiation', filter: ['Client Review', 'Follow-up', 'Commercial Negotiation', 'Final Discussion'] },
+    { label: 'Lead / Enquiry', filter: ['Lead / Inception'] },
+    { label: 'Discussion & Meeting', filter: ['Discovery & Requirement'] },
+    { label: 'Proposal Shared', filter: ['Proposal / Commercial Shared'] },
+    { label: 'Negotiation', filter: ['Commercial Discussion', 'Executive Review', 'Negotiation & Legal'] },
     { label: 'Won Deals', filter: ['Won'] },
   ];
 

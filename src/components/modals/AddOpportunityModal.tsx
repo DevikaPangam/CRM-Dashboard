@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { X, TrendingUp } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { useRBAC } from '../../context/RBACContext';
-import { PIPELINE_STAGES, LEAD_SOURCES } from '../../utils/seedData';
+import { LEAD_SOURCES } from '../../utils/seedData';
+import { PIPELINE_STAGES } from '../../utils/constants';
 
 export const AddOpportunityModal: React.FC = () => {
   const { closeModal, addOpportunity, clients, segments, teamMembers, currentUser } = useCRM();
@@ -18,9 +19,9 @@ export const AddOpportunityModal: React.FC = () => {
     serviceCategory: 'Staff Transport Fleet',
     contractType: 'Annual Contract' as const,
     dealValueINR: 12000000,
-    monthlyValueINR: 1000000,
-    stage: 'Requirement Discussion',
-    probability: 30,
+    monthlyValueINR: '' as number | '',
+    stage: PIPELINE_STAGES[0],
+    probability: 50,
     status: 'In Process' as const,
     owner: teamMembers[0]?.name || 'Aditya Patil',
     leadSource: LEAD_SOURCES[0],
@@ -189,7 +190,7 @@ export const AddOpportunityModal: React.FC = () => {
                 <select
                   className="form-control"
                   value={formData.stage}
-                  onChange={(e) => setFormData({ ...formData, stage: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, stage: e.target.value as any })}
                 >
                   {PIPELINE_STAGES.map((stg) => (
                     <option key={stg} value={stg}>

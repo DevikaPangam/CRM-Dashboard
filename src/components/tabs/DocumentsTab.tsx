@@ -6,7 +6,7 @@ import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
 import { useRBAC } from '../../context/RBACContext';
 import { formatDate } from '../../utils/formatters';
-import { PIPELINE_STAGES, DOCUMENT_TYPES } from '../../utils/seedData';
+import { DOCUMENT_TYPES } from '../../utils/seedData'; import { PIPELINE_STAGES } from '../../utils/constants';
 import { storageService } from '../../services/storageService';
 import { logAuditEvent } from '../../services/auditService';
 

@@ -3,7 +3,7 @@ import { X, FileEdit, Save } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { useRBAC } from '../../context/RBACContext';
 import { CRMDocument } from '../../types/crm';
-import { PIPELINE_STAGES, DOCUMENT_TYPES } from '../../utils/seedData';
+import { DOCUMENT_TYPES } from '../../utils/seedData'; import { PIPELINE_STAGES } from '../../utils/constants';
 
 export const EditDocModal: React.FC = () => {
   const { closeModal, activeModal, updateDocument, opportunities } = useCRM();

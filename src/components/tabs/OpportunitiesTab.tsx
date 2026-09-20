@@ -8,7 +8,7 @@ import { useCRM } from '../../context/CRMContext';
 import { useRBAC } from '../../context/RBACContext';
 import { formatCurrency, formatDate, getStageBadgeClass } from '../../utils/formatters';
 import { scopeRecordsByUserRole } from '../../utils/rbacPermissions';
-import { PIPELINE_STAGES, DEPARTMENTS } from '../../utils/seedData';
+import { DEPARTMENTS } from '../../utils/seedData'; import { PIPELINE_STAGES } from '../../utils/constants';
 import { Opportunity } from '../../types/crm';
 
 export const OpportunitiesTab: React.FC = () => {

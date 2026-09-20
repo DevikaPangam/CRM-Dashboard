@@ -3,21 +3,13 @@ import './ChartSetup';
 import { Bar } from 'react-chartjs-2';
 import { useCRM } from '../../context/CRMContext';
 import { formatCurrency } from '../../utils/formatters';
+import { PIPELINE_STAGES } from '../../utils/constants';
 
 export const StageBarChart: React.FC = () => {
   const { opportunities, currency } = useCRM();
 
   // Group deal value by active stages
-  const activeStages = [
-    'Requirement Discussion',
-    'Proposal / Commercial Shared',
-    'Client Review',
-    'Internal Approval Pending',
-    'Commercial Negotiation',
-    'Final Discussion',
-    'Won',
-    'Lost',
-  ];
+  const activeStages = PIPELINE_STAGES;
 
   const stageTotals = activeStages.map(stage => {
     return opportunities

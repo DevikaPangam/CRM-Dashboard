@@ -139,24 +139,7 @@ export const INITIAL_USERS: User[] = [
   }
 ];
 
-export const PIPELINE_STAGES = [
-  'New Enquiry',
-  'Initial Contact',
-  'Requirement Discussion',
-  'Meeting Scheduled',
-  'Meeting Completed',
-  'Requirement Received',
-  'Proposal Under Preparation',
-  'Internal Approval Pending',
-  'Proposal / Commercial Shared',
-  'Client Review',
-  'Follow-up',
-  'Commercial Negotiation',
-  'Final Discussion',
-  'Won',
-  'Lost',
-  'On Hold'
-];
+
 
 export const DOCUMENT_TYPES = [
   'Commercial Proposal PDF',
