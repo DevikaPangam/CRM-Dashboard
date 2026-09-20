@@ -8,6 +8,7 @@ export const AddOpportunityModal: React.FC = () => {
   const { closeModal, addOpportunity, clients, segments, teamMembers, currentUser } = useCRM();
   const { canCreate } = useRBAC();
   const isAuthorized = canCreate('opportunities');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -42,47 +43,58 @@ export const AddOpportunityModal: React.FC = () => {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isAuthorized) {
       alert('You do not have permission to create opportunities.');
       return;
     }
     if (!formData.title.trim()) return;
+    if (isSubmitting) return;
 
+    setIsSubmitting(true);
     const selectedClient = clients.find((c) => c.id === formData.clientId);
+    const selectedOwner = teamMembers.find((tm) => tm.name === formData.owner);
 
-    addOpportunity({
-      title: formData.title,
-      clientId: formData.clientId,
-      clientName: formData.clientName,
-      clientType: selectedClient?.clientType || 'New Client',
-      segment: formData.segment,
-      serviceCategory: formData.serviceCategory,
-      contractType: formData.contractType,
-      dealValueINR: Number(formData.dealValueINR) || 0,
-      monthlyValueINR: Number(formData.monthlyValueINR) || 0,
-      stage: formData.stage,
-      probability: Number(formData.probability) || 50,
-      status: formData.status,
-      owner: formData.owner,
-      leadSource: formData.leadSource,
-      expectedCloseDate: formData.expectedCloseDate,
-      nextFollowupDate: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10),
-      fleetSize: Number(formData.fleetSize) || 0,
-      vehicleType: formData.vehicleType,
-      locations: formData.locations,
-      competition: formData.competition,
-      internalApprovalsRequired: formData.internalApprovalsRequired,
-      delegatedDepartment: 'BD',
-      delegatedOwner: formData.owner,
-      delegationStatus: 'Pending Action',
-      delegationMilestone: 'Initial Lead Qualification & Scope Alignment',
-      slaDaysRemaining: 5,
-      notes: formData.notes,
-    });
-
-    closeModal();
+    try {
+      await addOpportunity({
+        title: formData.title,
+        clientId: formData.clientId,
+        clientName: formData.clientName,
+        clientType: selectedClient?.clientType || 'New Client',
+        segment: formData.segment,
+        serviceCategory: formData.serviceCategory,
+        contractType: formData.contractType,
+        dealValueINR: Number(formData.dealValueINR) || 0,
+        monthlyValueINR: Number(formData.monthlyValueINR) || 0,
+        stage: formData.stage,
+        probability: Number(formData.probability) || 50,
+        status: formData.status,
+        owner: formData.owner,
+        ownerId: selectedOwner?.id,
+        leadSource: formData.leadSource,
+        expectedCloseDate: formData.expectedCloseDate,
+        nextFollowupDate: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10),
+        fleetSize: Number(formData.fleetSize) || 0,
+        vehicleType: formData.vehicleType,
+        locations: formData.locations,
+        competition: formData.competition,
+        internalApprovalsRequired: formData.internalApprovalsRequired,
+        delegatedDepartment: 'BD',
+        delegatedOwner: formData.owner,
+        delegatedOwnerId: selectedOwner?.id,
+        delegationStatus: 'Pending Action',
+        delegationMilestone: 'Initial Lead Qualification & Scope Alignment',
+        slaDaysRemaining: 5,
+        notes: formData.notes,
+      });
+      closeModal();
+    } catch (err: any) {
+      console.error('Failed to create opportunity:', err);
+      alert(`Failed to create opportunity:\n${err.message || 'Unknown error'}`);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -243,11 +255,11 @@ export const AddOpportunityModal: React.FC = () => {
           </div>
 
           <div className="modal-footer-section">
-            <button type="button" className="btn btn-secondary" onClick={closeModal}>
+            <button type="button" className="btn btn-secondary" onClick={closeModal} disabled={isSubmitting}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-success">
-              Create Opportunity
+            <button type="submit" className="btn btn-primary" disabled={!isAuthorized || isSubmitting}>
+              {isSubmitting ? 'Saving...' : 'Save Opportunity'}
             </button>
           </div>
         </form>

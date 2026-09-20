@@ -194,6 +194,7 @@ export interface Opportunity {
   probability: number;
   status: 'Open' | 'In Process' | 'Won' | 'Lost' | 'On Hold' | 'Closed';
   owner: string;
+  ownerId?: string;
   leadSource: string;
   expectedCloseDate: string;
   createdDate: string;
@@ -218,6 +219,7 @@ export interface Opportunity {
   // Delegation Matrix
   delegatedDepartment: 'Operations' | 'Pricing & Commercials' | 'Management' | 'Finance & Accounts' | 'Legal & Compliance' | 'Fleet / Asset Management' | 'BD';
   delegatedOwner: string;
+  delegatedOwnerId?: string;
   delegationStatus: 'Pending Action' | 'In Review' | 'Approved & Handed Off' | 'Action Completed' | 'Escalated' | 'Rejected';
   delegationMilestone: string;
   slaDaysRemaining: number;
