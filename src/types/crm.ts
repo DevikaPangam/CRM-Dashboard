@@ -194,7 +194,6 @@ export interface Opportunity {
   probability: number;
   status: 'Open' | 'In Process' | 'Won' | 'Lost' | 'On Hold' | 'Closed';
   owner: string;
-  ownerId?: string;
   leadSource: string;
   expectedCloseDate: string;
   createdDate: string;

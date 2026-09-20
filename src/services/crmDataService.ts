@@ -177,7 +177,6 @@ export function transformOpportunityToDB(opp: Partial<Opportunity>, orgId: strin
   if (opp.probability !== undefined) payload.probability = opp.probability;
   if (opp.status) payload.status = opp.status;
   if (userId && isValidUUID(userId)) payload.created_by = userId;
-  if (opp.ownerId && isValidUUID(opp.ownerId)) payload.owner_id = opp.ownerId;
   if (opp.leadSource) payload.lead_source = opp.leadSource;
   if (opp.expectedCloseDate) payload.expected_close_date = opp.expectedCloseDate;
   if (opp.fleetSize !== undefined) payload.fleet_size = opp.fleetSize;

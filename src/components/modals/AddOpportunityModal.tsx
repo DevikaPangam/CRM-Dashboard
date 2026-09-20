@@ -71,7 +71,6 @@ export const AddOpportunityModal: React.FC = () => {
         probability: Number(formData.probability) || 50,
         status: formData.status,
         owner: formData.owner,
-        ownerId: selectedOwner?.id,
         leadSource: formData.leadSource,
         expectedCloseDate: formData.expectedCloseDate,
         nextFollowupDate: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10),
