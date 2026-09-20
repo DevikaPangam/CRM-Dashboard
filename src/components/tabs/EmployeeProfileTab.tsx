@@ -81,6 +81,7 @@ export const EmployeeProfileTab: React.FC = () => {
   const { profile, authUser } = useAuth();
   const [activeSubTab, setActiveSubTab] = useState<ProfileTabKey>('overview');
   const [careerFilter, setCareerFilter] = useState<CareerFilterCategory>('all');
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // 1. Current Session User & RBAC Context
   const currentEmail = (profile?.email || authUser?.email || currentUser?.email || '').toLowerCase();
@@ -199,7 +200,7 @@ export const EmployeeProfileTab: React.FC = () => {
   // 4. Load Live Historical Trajectory from Context/Database
   const rawHistory = useMemo(() => {
     return getEmployeeHistory(activeEmployee.id);
-  }, [getEmployeeHistory, activeEmployee.id]);
+  }, [getEmployeeHistory, activeEmployee.id, refreshTrigger]);
 
   const employeeHistoryList: EmployeeHistoryEvent[] = useMemo(() => {
     const sortedHistory = [...rawHistory].sort((a, b) => new Date(b.effective_date).getTime() - new Date(a.effective_date).getTime());
@@ -396,12 +397,10 @@ export const EmployeeProfileTab: React.FC = () => {
     if (window.confirm(`Are you sure you want to permanently delete the career event: "${eventTitle}"?`)) {
       try {
         await deleteCareerHistoryEvent(eventId);
-        // Using window.location.reload as a fallback if no refresh function is available, but ideally we'd trigger a context refresh
-        // Since we modify the local cache inside the service, calling location.reload ensures the component reloads fresh data from cache/DB.
-        window.location.reload();
-      } catch (err) {
+        setRefreshTrigger(prev => prev + 1); // trigger re-render to load fresh cache
+      } catch (err: any) {
         console.error('Failed to delete career event', err);
-        alert('Failed to delete career event. Please check your permissions.');
+        alert(`Failed to delete career event: ${err.message || 'Please check your permissions.'}`);
       }
     }
   };

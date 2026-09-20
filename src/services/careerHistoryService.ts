@@ -292,18 +292,13 @@ export async function updateCareerHistoryEvent(
 export async function deleteCareerHistoryEvent(id: string): Promise<void> {
   if (isSupabaseConfigured()) {
     try {
-      const { data, error } = await (supabase.from('employee_history') as any)
+      const { error } = await (supabase.from('employee_history') as any)
         .delete()
-        .eq('id', id)
-        .select('id');
+        .eq('id', id);
 
       if (error) {
         console.error('Supabase deleteCareerHistoryEvent failed:', error);
-        throw new Error(error.message || 'Failed to delete record');
-      }
-
-      if (!data || data.length === 0) {
-        throw new Error('Record not found or access denied (0 rows affected).');
+        throw error;
       }
     } catch (err) {
       console.warn('Supabase deleteCareerHistoryEvent exception:', err);
