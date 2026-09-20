@@ -34,7 +34,8 @@ import {
   PieChart,
   RefreshCw,
   AlertCircle,
-  Eye
+  Eye,
+  Trash2
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
@@ -43,6 +44,7 @@ import { formatCurrency, calculateTenure, getPerformanceStatus } from '../../uti
 import { EmployeeHistoryEvent, EmployeeEventType, KRAItem, PerformanceReviewItem, EmployeeKRA, EmployeeKPI, EmployeePerformanceReview } from '../../types/crm';
 import { fetchEmployeeKRAs } from '../../services/kraKpiService';
 import { fetchEmployeeReviewHistory } from '../../services/performanceReviewService';
+import { deleteCareerHistoryEvent } from '../../services/careerHistoryService';
 
 type ProfileTabKey =
   | 'overview'
@@ -441,6 +443,20 @@ export const EmployeeProfileTab: React.FC = () => {
         return { bg: '#e0e7ff', text: '#4338ca', border: '#c7d2fe', label: '📜 Certification' };
       default:
         return { bg: '#f1f5f9', text: '#475569', border: '#e2e8f0', label: '📌 Milestone' };
+    }
+  };
+
+  const handleDeleteCareerEvent = async (eventId: string, eventTitle: string) => {
+    if (window.confirm(`Are you sure you want to permanently delete the career event: "${eventTitle}"?`)) {
+      try {
+        await deleteCareerHistoryEvent(eventId);
+        // Using window.location.reload as a fallback if no refresh function is available, but ideally we'd trigger a context refresh
+        // Since we modify the local cache inside the service, calling location.reload ensures the component reloads fresh data from cache/DB.
+        window.location.reload();
+      } catch (err) {
+        console.error('Failed to delete career event', err);
+        alert('Failed to delete career event. Please check your permissions.');
+      }
     }
   };
 
@@ -1150,6 +1166,26 @@ export const EmployeeProfileTab: React.FC = () => {
                             <span style={{ fontSize: '11px', color: '#64748b', background: '#f1f5f9', padding: '3px 8px', borderRadius: '4px' }}>
                               Logged by: <strong>{item.created_by_name}</strong>
                             </span>
+                          )}
+                          {isSuperAdminUser && (
+                            <div style={{ display: 'flex', gap: '6px', marginLeft: 'auto' }}>
+                              <button
+                                onClick={() => openModal('addCareerEvent', { employee: activeEmployee, careerEvent: item })}
+                                className="btn btn-sm btn-secondary"
+                                title="Edit Event"
+                                style={{ padding: '4px', height: 'auto', background: '#f8fafc', borderColor: '#e2e8f0' }}
+                              >
+                                <Edit3 size={14} style={{ color: '#0284c7' }} />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteCareerEvent(item.id, item.title)}
+                                className="btn btn-sm btn-secondary"
+                                title="Delete Event"
+                                style={{ padding: '4px', height: 'auto', background: '#fff1f2', borderColor: '#fecdd3' }}
+                              >
+                                <Trash2 size={14} style={{ color: '#e11d48' }} />
+                              </button>
+                            </div>
                           )}
                         </div>
 

@@ -6,18 +6,20 @@ import {
 import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
 import { EmployeeEventType, EmployeeHistoryEvent, User as CRMUser } from '../../types/crm';
-import { addCareerHistoryEvent } from '../../services/careerHistoryService';
+import { addCareerHistoryEvent, updateCareerHistoryEvent } from '../../services/careerHistoryService';
 
 export const AddCareerEventModal: React.FC = () => {
   const { activeModal, closeModal, users, currentUser } = useCRM();
   const { profile } = useAuth();
 
   const employee: CRMUser | undefined = activeModal.data?.employee || users.find(u => u.id === activeModal.data?.employeeId);
+  const editEvent = activeModal.data?.careerEvent as EmployeeHistoryEvent | undefined;
+  const isEditMode = !!editEvent;
 
-  const [eventType, setEventType] = useState<EmployeeEventType>('promotion');
-  const [effectiveDate, setEffectiveDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [title, setTitle] = useState<string>('');
-  const [description, setDescription] = useState<string>('');
+  const [eventType, setEventType] = useState<EmployeeEventType>(editEvent?.event_type || 'promotion');
+  const [effectiveDate, setEffectiveDate] = useState<string>(editEvent?.effective_date || new Date().toISOString().split('T')[0]);
+  const [title, setTitle] = useState<string>(editEvent?.title || '');
+  const [description, setDescription] = useState<string>(editEvent?.description || '');
 
   // Structured transition fields
   const [designationBefore, setDesignationBefore] = useState<string>('');
@@ -37,9 +39,22 @@ export const AddCareerEventModal: React.FC = () => {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Initialize previous fields from current employee state
+  // Initialize previous fields from current employee state or edit event
   useEffect(() => {
-    if (employee) {
+    if (isEditMode && editEvent) {
+      setDesignationBefore(editEvent.designation_before || '');
+      setDesignationAfter(editEvent.designation_after || '');
+      setDepartmentBefore(editEvent.department_before || '');
+      setDepartmentAfter(editEvent.department_after || '');
+      setTeamBefore(editEvent.team_before || '');
+      setTeamAfter(editEvent.team_after || '');
+      setRegionBefore(editEvent.region_before || '');
+      setRegionAfter(editEvent.region_after || '');
+      setManagerBefore(editEvent.manager_before || '');
+      setManagerAfter(editEvent.manager_after || '');
+      setLocationBefore(editEvent.location_before || '');
+      setLocationAfter(editEvent.location_after || '');
+    } else if (employee) {
       setDesignationBefore(employee.designation || 'BD Executive');
       setDepartmentBefore(employee.department || 'Business Development');
       setTeamBefore(employee.team_name || 'Enterprise BD West');
@@ -47,7 +62,7 @@ export const AddCareerEventModal: React.FC = () => {
       setManagerBefore(employee.manager_name || 'Devika Pangam');
       setLocationBefore(employee.location || 'Corporate HQ - Mumbai');
     }
-  }, [employee]);
+  }, [employee, isEditMode, editEvent]);
 
   // Update default title when event type changes
   useEffect(() => {
@@ -108,32 +123,54 @@ export const AddCareerEventModal: React.FC = () => {
     try {
       const authorName = profile?.full_name || currentUser.name || 'System Administrator';
 
-      const newEvent: Omit<EmployeeHistoryEvent, 'id' | 'created_at' | 'updated_at'> = {
-        employee_id: employee.id,
-        organization_id: employee.organization_id,
-        event_type: eventType,
-        effective_date: effectiveDate,
-        title: title.trim(),
-        description: description.trim() || undefined,
-        designation_before: designationBefore.trim() || undefined,
-        designation_after: designationAfter.trim() || undefined,
-        department_before: departmentBefore.trim() || undefined,
-        department_after: departmentAfter.trim() || undefined,
-        team_before: teamBefore.trim() || undefined,
-        team_after: teamAfter.trim() || undefined,
-        region_before: regionBefore.trim() || undefined,
-        region_after: regionAfter.trim() || undefined,
-        manager_before: managerBefore.trim() || undefined,
-        manager_after: managerAfter.trim() || undefined,
-        location_before: locationBefore.trim() || undefined,
-        location_after: locationAfter.trim() || undefined,
-        created_by: profile?.id || currentUser.id,
-        created_by_name: authorName,
-      };
+      if (isEditMode && editEvent) {
+        await updateCareerHistoryEvent(editEvent.id, {
+          event_type: eventType,
+          effective_date: effectiveDate,
+          title: title.trim(),
+          description: description.trim() || undefined,
+          designation_before: designationBefore.trim() || undefined,
+          designation_after: designationAfter.trim() || undefined,
+          department_before: departmentBefore.trim() || undefined,
+          department_after: departmentAfter.trim() || undefined,
+          team_before: teamBefore.trim() || undefined,
+          team_after: teamAfter.trim() || undefined,
+          region_before: regionBefore.trim() || undefined,
+          region_after: regionAfter.trim() || undefined,
+          manager_before: managerBefore.trim() || undefined,
+          manager_after: managerAfter.trim() || undefined,
+          location_before: locationBefore.trim() || undefined,
+          location_after: locationAfter.trim() || undefined,
+        });
+        setSuccessMessage('Career milestone updated successfully!');
+      } else {
+        const newEvent: Omit<EmployeeHistoryEvent, 'id' | 'created_at' | 'updated_at'> = {
+          employee_id: employee.id,
+          organization_id: employee.organization_id,
+          event_type: eventType,
+          effective_date: effectiveDate,
+          title: title.trim(),
+          description: description.trim() || undefined,
+          designation_before: designationBefore.trim() || undefined,
+          designation_after: designationAfter.trim() || undefined,
+          department_before: departmentBefore.trim() || undefined,
+          department_after: departmentAfter.trim() || undefined,
+          team_before: teamBefore.trim() || undefined,
+          team_after: teamAfter.trim() || undefined,
+          region_before: regionBefore.trim() || undefined,
+          region_after: regionAfter.trim() || undefined,
+          manager_before: managerBefore.trim() || undefined,
+          manager_after: managerAfter.trim() || undefined,
+          location_before: locationBefore.trim() || undefined,
+          location_after: locationAfter.trim() || undefined,
+          created_by: profile?.id || currentUser.id,
+          created_by_name: authorName,
+        };
 
-      await addCareerHistoryEvent(newEvent, currentUser);
+        await addCareerHistoryEvent(newEvent, currentUser);
+        setSuccessMessage('Career milestone logged successfully!');
+      }
 
-      setSuccessMessage('Career milestone logged successfully!');
       setTimeout(() => {
         closeModal();
         if (activeModal.data?.onSuccess) {
@@ -183,7 +220,7 @@ export const AddCareerEventModal: React.FC = () => {
             </div>
             <div>
               <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: '#ffffff' }}>
-                Add Career Milestone Event
+                {isEditMode ? 'Edit Career Milestone Event' : 'Add Career Milestone Event'}
               </h3>
               <span style={{ fontSize: '12px', color: '#94a3b8' }}>
                 {employee.name} ({employee.employee_id || 'EMP-N/A'}) • {employee.designation || employee.role}
@@ -502,7 +539,7 @@ export const AddCareerEventModal: React.FC = () => {
               ) : (
                 <>
                   <Check size={14} />
-                  <span>Log Milestone Event</span>
+                  <span>{isEditMode ? 'Update Milestone Event' : 'Log Milestone Event'}</span>
                 </>
               )}
             </button>

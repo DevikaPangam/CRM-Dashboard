@@ -248,7 +248,64 @@ export async function addCareerHistoryEvent(
 }
 
 /**
+ * Update an existing career event
+ */
+export async function updateCareerHistoryEvent(
+  id: string,
+  updates: Partial<Omit<EmployeeHistoryEvent, 'id' | 'created_at' | 'updated_at' | 'employee_id' | 'organization_id'>>
+): Promise<void> {
+  const now = new Date().toISOString();
+
+  if (isSupabaseConfigured()) {
+    try {
+      const { error } = await (supabase.from('employee_history') as any)
+        .update({ ...updates, updated_at: now })
+        .eq('id', id);
+
+      if (error) {
+        console.error('Supabase updateCareerHistoryEvent failed:', error);
+      }
+    } catch (err) {
+      console.warn('Supabase updateCareerHistoryEvent exception:', err);
+    }
+  }
+
+  // Update local cache
+  const allHistory = loadStoredHistory();
+  const index = allHistory.findIndex((h) => h.id === id);
+  if (index !== -1) {
+    allHistory[index] = { ...allHistory[index], ...updates, updated_at: now };
+    cacheHistoryLocally(allHistory);
+  }
+}
+
+/**
+ * Delete an existing career event
+ */
+export async function deleteCareerHistoryEvent(id: string): Promise<void> {
+  if (isSupabaseConfigured()) {
+    try {
+      const { error } = await (supabase.from('employee_history') as any)
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        console.error('Supabase deleteCareerHistoryEvent failed:', error);
+      }
+    } catch (err) {
+      console.warn('Supabase deleteCareerHistoryEvent exception:', err);
+    }
+  }
+
+  // Update local cache
+  const allHistory = loadStoredHistory();
+  const filtered = allHistory.filter((h) => h.id !== id);
+  cacheHistoryLocally(filtered);
+}
+
+/**
  * Automatically compare old profile and new profile updates,
+
  * generating corresponding structured employee_history events.
  */
 export async function detectAndRecordAutoHistory(
