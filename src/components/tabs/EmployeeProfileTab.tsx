@@ -1013,7 +1013,7 @@ export const EmployeeProfileTab: React.FC = () => {
               </p>
             </div>
 
-            {canEditProfile && (
+            {isSuperAdminUser && (
               <button
                 onClick={() => openModal('addCareerEvent', { employee: activeEmployee })}
                 className="btn btn-sm btn-primary"
