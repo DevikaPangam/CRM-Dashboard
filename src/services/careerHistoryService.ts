@@ -258,15 +258,22 @@ export async function updateCareerHistoryEvent(
 
   if (isSupabaseConfigured()) {
     try {
-      const { error } = await (supabase.from('employee_history') as any)
+      const { data, error } = await (supabase.from('employee_history') as any)
         .update({ ...updates, updated_at: now })
-        .eq('id', id);
+        .eq('id', id)
+        .select('id');
 
       if (error) {
         console.error('Supabase updateCareerHistoryEvent failed:', error);
+        throw new Error(error.message || 'Failed to update record');
+      }
+
+      if (!data || data.length === 0) {
+        throw new Error('Record not found or access denied (0 rows affected).');
       }
     } catch (err) {
       console.warn('Supabase updateCareerHistoryEvent exception:', err);
+      throw err;
     }
   }
 
@@ -285,15 +292,22 @@ export async function updateCareerHistoryEvent(
 export async function deleteCareerHistoryEvent(id: string): Promise<void> {
   if (isSupabaseConfigured()) {
     try {
-      const { error } = await (supabase.from('employee_history') as any)
+      const { data, error } = await (supabase.from('employee_history') as any)
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .select('id');
 
       if (error) {
         console.error('Supabase deleteCareerHistoryEvent failed:', error);
+        throw new Error(error.message || 'Failed to delete record');
+      }
+
+      if (!data || data.length === 0) {
+        throw new Error('Record not found or access denied (0 rows affected).');
       }
     } catch (err) {
       console.warn('Supabase deleteCareerHistoryEvent exception:', err);
+      throw err;
     }
   }
 

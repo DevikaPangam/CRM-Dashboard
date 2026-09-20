@@ -201,64 +201,10 @@ export const EmployeeProfileTab: React.FC = () => {
     return getEmployeeHistory(activeEmployee.id);
   }, [getEmployeeHistory, activeEmployee.id]);
 
-  // Fallback demo milestones if history has only joining event
   const employeeHistoryList: EmployeeHistoryEvent[] = useMemo(() => {
-    if (rawHistory.length > 1) {
-      return rawHistory;
-    }
-    const joining = activeEmployee.joining_date || '2024-04-01';
-    const initialEvents: EmployeeHistoryEvent[] = [
-      {
-        id: `seed-join-${activeEmployee.id}`,
-        employee_id: activeEmployee.id,
-        organization_id: activeEmployee.organization_id,
-        event_type: 'joining',
-        effective_date: joining,
-        title: 'Joined Rajmudra Group',
-        description: `Inducted into ${activeEmployee.department || 'Business Development'} department as BD Executive stationed at ${activeEmployee.location || 'Corporate HQ - Mumbai'}.`,
-        designation_after: 'BD Executive',
-        department_after: activeEmployee.department || 'Business Development',
-        team_after: activeEmployee.team_name || 'Enterprise BD West',
-        region_after: activeEmployee.region || 'West Region',
-        location_after: activeEmployee.location || 'Corporate HQ - Mumbai',
-        created_by_name: 'HR Onboarding Team'
-      },
-      {
-        id: `seed-promo-1-${activeEmployee.id}`,
-        employee_id: activeEmployee.id,
-        organization_id: activeEmployee.organization_id,
-        event_type: 'promotion',
-        effective_date: '2025-04-01',
-        title: `Promoted to ${activeEmployee.designation || 'Senior BD Executive'}`,
-        description: 'Advanced grade following 118% annual quota attainment, excellent client retention, and pipeline leadership.',
-        designation_before: 'BD Executive',
-        designation_after: activeEmployee.designation || 'Senior BD Executive',
-        team_before: activeEmployee.team_name || 'Enterprise BD West',
-        team_after: activeEmployee.team_name || 'Enterprise BD West',
-        created_by_name: 'Management Review Board'
-      }
-    ];
-
-    if (activeEmployee.is_regional_owner) {
-      initialEvents.push({
-        id: `seed-owner-1-${activeEmployee.id}`,
-        employee_id: activeEmployee.id,
-        organization_id: activeEmployee.organization_id,
-        event_type: 'responsibility_change',
-        effective_date: '2025-08-15',
-        title: `Designated as Regional Territory Owner - ${activeEmployee.region || 'West Region'}`,
-        description: `Entrusted with end-to-end commercial command, fleet quota governance, and revenue pipeline leadership across ${activeEmployee.region || 'West Region'}.`,
-        region_before: 'West Sub-Territory',
-        region_after: activeEmployee.region || 'West Region',
-        created_by_name: 'Board of Directors'
-      });
-    }
-
-    // Merge with any real recorded events
-    const existingIds = new Set(rawHistory.map(h => h.id));
-    const combined = [...rawHistory, ...initialEvents.filter(e => !existingIds.has(e.id))];
-    return combined.sort((a, b) => new Date(b.effective_date).getTime() - new Date(a.effective_date).getTime());
-  }, [rawHistory, activeEmployee]);
+    const sortedHistory = [...rawHistory].sort((a, b) => new Date(b.effective_date).getTime() - new Date(a.effective_date).getTime());
+    return sortedHistory;
+  }, [rawHistory]);
 
   // Filtered Career Events
   const filteredCareerEvents = useMemo(() => {
@@ -1072,27 +1018,28 @@ export const EmployeeProfileTab: React.FC = () => {
             ))}
           </div>
 
-          {/* Chronological Timeline Container */}
-          <div style={{ position: 'relative', paddingLeft: '36px', margin: '10px 0' }}>
-            {/* Continuous Vertical Timeline Line */}
-            <div
-              style={{
-                position: 'absolute',
-                left: '13px',
-                top: '12px',
-                bottom: '12px',
-                width: '2px',
-                background: 'linear-gradient(to bottom, #0284c7, #cbd5e1)'
-              }}
-            />
+          {/* Empty State */}
+          {filteredCareerEvents.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '60px 20px', background: '#f8fafc', borderRadius: '12px', border: '2px dashed #e2e8f0', marginTop: '20px' }}>
+              <History size={48} style={{ color: '#94a3b8', margin: '0 auto 16px auto', display: 'block' }} />
+              <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#334155', marginBottom: '8px' }}>
+                No career trajectory records available
+              </h3>
+              <p style={{ fontSize: '14px', color: '#64748b', maxWidth: '400px', margin: '0 auto' }}>
+                There are currently no milestone events recorded for this employee.
+                {isSuperAdminUser && ' Click "Add Career Event" above to create the first record.'}
+              </p>
+            </div>
+          )}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
-              {filteredCareerEvents.length === 0 ? (
-                <div style={{ padding: '24px', textAlign: 'center', color: '#64748b', fontSize: '13px' }}>
-                  No career events found matching selected filter.
-                </div>
-              ) : (
-                filteredCareerEvents.map((item, index) => {
+          {/* Timeline Wrapper */}
+          {filteredCareerEvents.length > 0 && (
+            <div style={{ position: 'relative', marginTop: '30px' }}>
+              {/* Vertical line connecting events */}
+              <div style={{ position: 'absolute', top: 0, bottom: 0, left: '26px', width: '2px', background: '#e2e8f0', zIndex: 1 }} />
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                {filteredCareerEvents.map((item, index) => {
                   const isLatest = index === 0;
                   const badge = getEventBadgeStyle(item.event_type);
 
@@ -1102,7 +1049,7 @@ export const EmployeeProfileTab: React.FC = () => {
                       <div
                         style={{
                           position: 'absolute',
-                          left: '-36px',
+                          left: '13px',
                           top: '6px',
                           width: '26px',
                           height: '26px',
@@ -1123,6 +1070,7 @@ export const EmployeeProfileTab: React.FC = () => {
                       {/* Event Card */}
                       <div
                         style={{
+                          marginLeft: '54px',
                           background: isLatest ? '#f8fafc' : '#ffffff',
                           border: isLatest ? '1px solid #bae6fd' : '1px solid #e2e8f0',
                           borderRadius: '10px',
@@ -1333,10 +1281,10 @@ export const EmployeeProfileTab: React.FC = () => {
                       </div>
                     </div>
                   );
-                })
-              )}
+                })}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
