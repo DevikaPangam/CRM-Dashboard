@@ -131,11 +131,13 @@ export const EmployeeProfileTab: React.FC = () => {
   }, [opportunities, activeEmployee]);
 
   const activeDeals = useMemo(() => {
-    return employeeOpps.filter(o => o.status === 'Open' || o.status === 'In Process');
+    // 'Open' is the only active-pipeline status in live production opportunity_status_enum
+    return employeeOpps.filter(o => o.status === 'Open');
   }, [employeeOpps]);
 
   const wonDeals = useMemo(() => {
-    return employeeOpps.filter(o => o.status === 'Won' || o.stage === 'Closed Won');
+    // 'Won' status OR stage label 'Won' (DB: 'Won & Handed Off')
+    return employeeOpps.filter(o => o.status === 'Won' || o.stage === 'Won');
   }, [employeeOpps]);
 
   const totalPipelineValue = useMemo(() => {

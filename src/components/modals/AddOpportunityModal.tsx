@@ -22,7 +22,7 @@ export const AddOpportunityModal: React.FC = () => {
     monthlyValueINR: '' as number | '',
     stage: PIPELINE_STAGES[0],
     probability: 50,
-    status: 'In Process' as const,
+    status: 'Open' as const,
     owner: teamMembers[0]?.name || 'Aditya Patil',
     leadSource: LEAD_SOURCES[0],
     expectedCloseDate: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),

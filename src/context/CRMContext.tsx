@@ -519,11 +519,14 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateOpportunityStage = (id: string, stage: string, probability?: number) => {
     let prob = probability;
-    let status: any = 'In Process';
-    if (stage === 'Won' || stage === 'Closed Won') {
+    // Status logic uses LIVE production opportunity_status_enum values:
+    // 'Open', 'Won', 'Lost', 'On Hold', 'Discarded'
+    // Stage 'Won' (UI) maps to DB 'Won & Handed Off'; stage 'Lost' maps to DB 'Lost'
+    let status: any = 'Open'; // Default: active pipeline deal
+    if (stage === 'Won') {
       prob = 100;
       status = 'Won';
-    } else if (stage === 'Lost' || stage === 'Closed Lost') {
+    } else if (stage === 'Lost') {
       prob = 0;
       status = 'Lost';
     } else if (stage === 'On Hold') {

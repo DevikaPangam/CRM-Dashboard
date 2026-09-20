@@ -62,11 +62,10 @@ export type OpportunityStageEnum =
   | 'Commercial Discussion'
   | 'Executive Review'
   | 'Negotiation & Legal'
-  | 'Closed Won'
-  | 'Closed Lost'
-  | 'On Hold';
+  | 'Won & Handed Off'
+  | 'Lost';
 
-export type OpportunityStatusEnum = 'Open' | 'In Process' | 'Won' | 'Lost' | 'On Hold' | 'Closed';
+export type OpportunityStatusEnum = 'Open' | 'Won' | 'Lost' | 'On Hold' | 'Discarded';
 
 export type ContractTypeEnum =
   | 'Monthly Retainer'

@@ -192,7 +192,7 @@ export interface Opportunity {
   monthlyValueINR: number;
   stage: string;
   probability: number;
-  status: 'Open' | 'In Process' | 'Won' | 'Lost' | 'On Hold' | 'Closed';
+  status: 'Open' | 'Won' | 'Lost' | 'On Hold' | 'Discarded';
   owner: string;
   leadSource: string;
   expectedCloseDate: string;

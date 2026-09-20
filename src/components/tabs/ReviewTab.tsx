@@ -814,7 +814,7 @@ export const ReviewTab: React.FC = () => {
               </div>
               <div className="kpi-value">{formatCurrency(totalPipelineINR, currency)}</div>
               <div className="kpi-subtext">
-                <span>{pipelineDeals.length} Opportunities In Process</span>
+                <span>{pipelineDeals.length} Opportunities Open</span>
               </div>
             </div>
 
